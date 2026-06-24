@@ -6,6 +6,7 @@ import NewSale from './screens/NewSale'
 import Stock from './screens/Stock'
 import Customers from './screens/Customers'
 import Settings from './screens/Settings'
+import InvoiceView from './screens/InvoiceView'
 export default function AppRoutes() {
   return (
     <Routes>
@@ -17,6 +18,7 @@ export default function AppRoutes() {
       <Route path="/stock" element={<Stock />} />
       <Route path="/customers" element={<Customers />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/invoice/:id" element={<InvoiceView />} />
     </Routes>
   )
 }

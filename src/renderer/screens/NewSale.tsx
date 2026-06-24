@@ -83,7 +83,7 @@ export default function NewSale() {
     }
     try {
       const sale = fillId ? await window.api.fillReservedSale(fillId, payload) : await window.api.createSale(payload)
-      if (thenInvoice) nav(`/sales?invoice=${sale.id}`)   // Task 22 reads ?invoice= to open the printable view
+      if (thenInvoice) nav(`/invoice/${sale.id}`)
       else nav('/sales')
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
