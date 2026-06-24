@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Sale, Purchase, LedgerRow, Settings } from '@shared/types'
 import KpiCard from '../components/KpiCard'
+import PageHeader from '../components/PageHeader'
 import { formatINR, today } from '../lib/format'
 
 export default function Dashboard() {
@@ -35,7 +36,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1>Welcome{settings?.seller_name ? `, ${settings.seller_name}` : ''}</h1>
+      <PageHeader title={`Welcome${settings?.seller_name ? `, ${settings.seller_name}` : ''}`} />
       {error && <p className="error">{error}</p>}
       <p style={{ color: 'var(--muted)' }}>{today()}</p>
       <div className="row" style={{ marginBottom: 16 }}>

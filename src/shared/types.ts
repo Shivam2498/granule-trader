@@ -46,6 +46,8 @@ export interface SaleAllocation {
   id: number
   sale_id: number
   purchase_id: number
+  hsn_code: string
+  gst_rate: number
   qty_drawn_kg: number
   rate_per_kg: number
   line_amount: number
@@ -67,7 +69,6 @@ export interface Sale {
   buyer_gstin: string
   buyer_billing_json: string     // snapshot JSON of address block
   buyer_shipping_json: string
-  hsn_code: string
   amount: number
   cgst: number
   sgst: number
@@ -97,6 +98,7 @@ export interface Settings {
   seller_address: string
   seller_gstin: string
   seller_pan: string
+  seller_phone: string
   home_state: string
   invoice_prefix: string
   default_gst_rate: number

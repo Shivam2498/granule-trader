@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Settings as S, HsnProduct } from '@shared/types'
 import MoneyInput from '../components/MoneyInput'
+import StateSelect from '../components/StateSelect'
 
 export default function Settings() {
   const [s, setS] = useState<S | null>(null)
@@ -33,8 +34,11 @@ export default function Settings() {
         </div>
         <div className="field"><label>Address</label><textarea value={s.seller_address} onChange={e => set({ seller_address: e.target.value })} /></div>
         <div className="row">
-          <div className="field grow"><label>Home state (tax)</label><input value={s.home_state} onChange={e => set({ home_state: e.target.value })} /></div>
+          <div className="field grow"><label>Mobile</label><input value={s.seller_phone} onChange={e => set({ seller_phone: e.target.value.replace(/\D/g,'').slice(0,10) })} /></div>
+          <div className="field grow"><label>Home state (tax)</label><StateSelect value={s.home_state} onChange={v => set({ home_state: v })} /></div>
           <div className="field grow"><label>Invoice prefix</label><input value={s.invoice_prefix} onChange={e => set({ invoice_prefix: e.target.value })} /></div>
+        </div>
+        <div className="row">
           <div className="field grow"><label>Default GST rate %</label><MoneyInput value={s.default_gst_rate} onChange={n => set({ default_gst_rate: n })} /></div>
         </div>
         <div className="row">

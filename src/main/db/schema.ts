@@ -69,7 +69,6 @@ CREATE TABLE IF NOT EXISTS sales (
   buyer_gstin TEXT NOT NULL DEFAULT '',
   buyer_billing_json TEXT NOT NULL DEFAULT '{}',
   buyer_shipping_json TEXT NOT NULL DEFAULT '{}',
-  hsn_code TEXT NOT NULL DEFAULT '',
   amount REAL NOT NULL DEFAULT 0,
   cgst REAL NOT NULL DEFAULT 0,
   sgst REAL NOT NULL DEFAULT 0,
@@ -88,6 +87,8 @@ CREATE TABLE IF NOT EXISTS sale_allocations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
   purchase_id INTEGER NOT NULL REFERENCES purchases(id),
+  hsn_code TEXT NOT NULL DEFAULT '',
+  gst_rate REAL NOT NULL DEFAULT 0,
   qty_drawn_kg REAL NOT NULL,
   rate_per_kg REAL NOT NULL,
   line_amount REAL NOT NULL
@@ -109,4 +110,19 @@ CREATE INDEX IF NOT EXISTS idx_adj_purchase ON stock_adjustments(purchase_id);
 
 export function initSchema(db: Database.Database): void {
   db.exec(SCHEMA_SQL)
+  migrate(db)
+}
+
+function hasColumn(db: Database.Database, table: string, col: string): boolean {
+  return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(c => c.name === col)
+}
+
+function migrate(db: Database.Database): void {
+  if (!hasColumn(db, 'sale_allocations', 'hsn_code'))
+    db.exec(`ALTER TABLE sale_allocations ADD COLUMN hsn_code TEXT NOT NULL DEFAULT ''`)
+  if (!hasColumn(db, 'sale_allocations', 'gst_rate'))
+    db.exec(`ALTER TABLE sale_allocations ADD COLUMN gst_rate REAL NOT NULL DEFAULT 0`)
+  // Backfill pre-existing allocations from their purchase's HSN + that HSN's rate (fallback 18)
+  db.exec(`UPDATE sale_allocations SET hsn_code = COALESCE((SELECT p.hsn_code FROM purchases p WHERE p.id = sale_allocations.purchase_id), '') WHERE hsn_code = ''`)
+  db.exec(`UPDATE sale_allocations SET gst_rate = COALESCE((SELECT h.gst_rate FROM hsn_products h JOIN purchases p ON p.hsn_code = h.hsn_code WHERE p.id = sale_allocations.purchase_id), 18) WHERE gst_rate = 0`)
 }
