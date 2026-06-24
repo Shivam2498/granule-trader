@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Dashboard from './screens/Dashboard'
 import Purchases from './screens/Purchases'
+import PurchaseForm from './screens/PurchaseForm'
 import Sales from './screens/Sales'
 import NewSale from './screens/NewSale'
 import Stock from './screens/Stock'
@@ -13,6 +14,8 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/purchases" element={<Purchases />} />
+      <Route path="/purchases/new" element={<PurchaseForm />} />
+      <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
       <Route path="/sales" element={<Sales />} />
       <Route path="/sales/new" element={<NewSale />} />
       <Route path="/sales/fill/:id" element={<NewSale />} />
