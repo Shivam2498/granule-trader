@@ -1,6 +1,7 @@
 import type { Purchase, Customer, Sale, SaleAllocation, HsnProduct, Settings, AvailableLot, LedgerRow } from './types'
 import type { NewPurchase } from '../main/core/purchase'   // type-only import; not bundled into renderer
 import type { NewSale } from '../main/core/sale'
+import type { AdjustmentRow } from '../main/core/adjustment'
 export interface Api {
   // bootstrap / settings
   needsSetup(): Promise<boolean>
@@ -25,6 +26,8 @@ export interface Api {
   // stock
   stockLedger(): Promise<LedgerRow[]>
   createStockAdjustment(input: { purchase_id: number; qty_kg: number; reason: string; date: string }): Promise<void>
+  listAdjustments(): Promise<AdjustmentRow[]>
+  deleteAdjustment(id: number): Promise<void>
   // customers
   listCustomers(search?: string): Promise<Customer[]>
   createCustomer(c: Omit<Customer, 'id'>): Promise<Customer>
@@ -40,6 +43,6 @@ export const CHANNELS = [
   'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow',
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
-  'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment',
+  'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
   'listCustomers','createCustomer','updateCustomer','deleteCustomer','listHsn','upsertHsn'
 ] as const

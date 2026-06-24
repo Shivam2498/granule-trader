@@ -5,7 +5,7 @@ import { nextPurchaseCode, createPurchase, updatePurchase, listPurchases, delete
 import { nextInvoiceNumber } from './core/invoice-number'
 import { listAvailableLots } from './core/available-lots'
 import { createSale, fillReservedSale, listSales, getSale, getAllocations, deleteSale } from './core/sale'
-import { stockLedger, createStockAdjustment } from './core/adjustment'
+import { stockLedger, createStockAdjustment, listAdjustments, deleteAdjustment } from './core/adjustment'
 import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from './core/customers'
 import { listHsn, upsertHsn } from './core/reference'
 import { createBackup } from './core/backup'
@@ -56,6 +56,8 @@ export function registerIpc(ctx: IpcContext): void {
 
   h('stockLedger', () => stockLedger(db()))
   h('createStockAdjustment', (input) => createStockAdjustment(db(), input))
+  h('listAdjustments', () => listAdjustments(db()))
+  h('deleteAdjustment', (id) => deleteAdjustment(db(), id))
 
   h('listCustomers', (search) => listCustomers(db(), search))
   h('createCustomer', (c) => createCustomer(db(), c))

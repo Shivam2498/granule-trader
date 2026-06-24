@@ -5,7 +5,7 @@ const API_METHODS = [
   'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow',
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
-  'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment',
+  'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
   'listCustomers','createCustomer','updateCustomer','deleteCustomer','listHsn','upsertHsn'
 ]
 
