@@ -38,7 +38,8 @@ export default function Purchases() {
         hsn_code: form.hsn_code, qty_kg: form.qty_kg, amount: form.amount, gst_rate: gstRate,
         homeState: settings!.home_state, tcs: form.tcs, roundoff: form.roundoff, payment_status: form.payment_status
       })
-      setForm(f => ({ ...f, supplier_invoice_number: '', party: '', party_state: '', qty_kg: 0, amount: 0, tcs: 0, roundoff: 0 }))
+      const nextCode = await window.api.nextPurchaseCode(form.invoice_date)
+      setForm(f => ({ ...f, our_code: nextCode, supplier_invoice_number: '', party: '', party_state: '', qty_kg: 0, amount: 0, tcs: 0, roundoff: 0 }))
       reload()
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
@@ -47,7 +48,7 @@ export default function Purchases() {
     try { if (confirm('Delete this purchase? Stock will be recalculated.')) { await window.api.deletePurchase(id); reload() } }
     catch (e: any) { setError(e.message ?? String(e)) }
   }
-  const set = (p: Partial<typeof form>) => setForm({ ...form, ...p })
+  const set = (p: Partial<typeof form>) => setForm(f => ({ ...f, ...p }))
 
   return (
     <div>
