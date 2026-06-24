@@ -18,7 +18,7 @@ export default function PurchaseForm() {
   const [hsn, setHsn] = useState<HsnProduct[]>([])
   const [form, setForm] = useState({
     our_code: '', supplier_invoice_number: '', invoice_date: today(),
-    party: '', party_state: '', hsn_code: '', qty_kg: 0, amount: 0, roundoff: 0,
+    party: '', party_state: '', hsn_code: '', qty_kg: 0, amount: 0, roundoff: 0, tcs: 0,
     payment_status: 'pending' as 'pending' | 'done', payment_date: '' as string
   })
   const [error, setError] = useState('')
@@ -31,7 +31,7 @@ export default function PurchaseForm() {
         const p = (await window.api.listPurchases()).find(x => x.id === editId)
         if (p) setForm({ our_code: p.our_code, supplier_invoice_number: p.supplier_invoice_number, invoice_date: p.invoice_date,
           party: p.party, party_state: p.party_state, hsn_code: p.hsn_code, qty_kg: p.qty_kg, amount: p.amount,
-          roundoff: p.roundoff, payment_status: p.payment_status, payment_date: p.payment_date ?? '' })
+          roundoff: p.roundoff, tcs: p.tcs, payment_status: p.payment_status, payment_date: p.payment_date ?? '' })
       }
     } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [editId])
@@ -42,12 +42,13 @@ export default function PurchaseForm() {
   if (!settings) return <FormPage title="Purchase" onBack={() => nav('/purchases')} footer={null}><p>Loading…</p></FormPage>
 
   const gstRate = hsn.find(h => h.hsn_code === form.hsn_code)?.gst_rate ?? settings.default_gst_rate
-  const tax = computeTax({ amount: form.amount, gstRate, placeOfSupplyState: form.party_state, homeState: settings.home_state, roundoff: form.roundoff })
+  const tax = computeTax({ amount: form.amount, gstRate, placeOfSupplyState: form.party_state, homeState: settings.home_state, tcs: form.tcs, roundoff: form.roundoff })
   const intra = tax.igst === 0
   const rows = [
     { label: `CGST ${intra ? gstRate / 2 : 0}%`, value: tax.cgst },
     { label: `SGST ${intra ? gstRate / 2 : 0}%`, value: tax.sgst },
-    { label: `IGST ${intra ? 0 : gstRate}%`, value: tax.igst }
+    { label: `IGST ${intra ? 0 : gstRate}%`, value: tax.igst },
+    { label: 'TCS', value: tax.tcs }
   ]
   const valid = form.our_code.trim() && form.hsn_code && form.party_state && form.qty_kg > 0 && form.amount > 0
 
@@ -58,7 +59,7 @@ export default function PurchaseForm() {
       const payload = {
         our_code: form.our_code, supplier_invoice_number: form.supplier_invoice_number, invoice_date: form.invoice_date,
         party: form.party, party_state: form.party_state, hsn_code: form.hsn_code, qty_kg: form.qty_kg, amount: form.amount,
-        gst_rate: gstRate, homeState: settings!.home_state, roundoff: form.roundoff,
+        gst_rate: gstRate, homeState: settings!.home_state, roundoff: form.roundoff, tcs: form.tcs,
         payment_status: form.payment_status, payment_date: form.payment_status === 'done' ? (form.payment_date || today()) : null
       }
       if (editId) await window.api.updatePurchase(editId, payload); else await window.api.createPurchase(payload)
@@ -86,6 +87,7 @@ export default function PurchaseForm() {
         <div className="field"><label>Quantity (kg)</label><MoneyInput value={form.qty_kg} onChange={n => set({ qty_kg: n })} /></div>
         <div className="field"><label>Taxable amount</label><MoneyInput value={form.amount} onChange={n => set({ amount: n })} /></div>
         <div className="field"><label>Round off (can be negative)</label><SignedMoneyInput value={form.roundoff} onChange={n => set({ roundoff: n })} /></div>
+        <div className="field"><label>TCS</label><MoneyInput value={form.tcs} onChange={n => set({ tcs: n })} /></div>
         <div className="field"><label>Payment</label>
           <select value={form.payment_status} onChange={e => set({ payment_status: e.target.value as 'pending' | 'done' })}>
             <option value="pending">Pending</option><option value="done">Done</option>
