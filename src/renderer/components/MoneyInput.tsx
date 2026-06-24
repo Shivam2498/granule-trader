@@ -11,9 +11,10 @@ export default function MoneyInput({ value, onChange, id }: { value: number; onC
     <input id={id} type="text" inputMode="decimal" value={text}
       onChange={e => {
         const v = e.target.value
+        if (v !== '' && !/^\d*\.?\d*$/.test(v)) return   // reject non-numeric keystrokes
         setText(v)
         const trimmed = v.trim()
-        onChange(trimmed === '' ? 0 : (Number.isNaN(Number(trimmed)) ? value : Number(trimmed)))
+        onChange(trimmed === '' ? 0 : Number(trimmed))
       }} />
   )
 }
