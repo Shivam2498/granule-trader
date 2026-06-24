@@ -5,6 +5,7 @@ import Sales from './screens/Sales'
 import NewSale from './screens/NewSale'
 import Stock from './screens/Stock'
 import Customers from './screens/Customers'
+import CustomerForm from './screens/CustomerForm'
 import Settings from './screens/Settings'
 import InvoiceView from './screens/InvoiceView'
 export default function AppRoutes() {
@@ -17,6 +18,8 @@ export default function AppRoutes() {
       <Route path="/sales/fill/:id" element={<NewSale />} />
       <Route path="/stock" element={<Stock />} />
       <Route path="/customers" element={<Customers />} />
+      <Route path="/customers/new" element={<CustomerForm />} />
+      <Route path="/customers/edit/:id" element={<CustomerForm />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/invoice/:id" element={<InvoiceView />} />
     </Routes>
