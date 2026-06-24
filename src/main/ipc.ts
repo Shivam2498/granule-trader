@@ -9,7 +9,7 @@ import { stockLedger, createStockAdjustment } from './core/adjustment'
 import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from './core/customers'
 import { listHsn, upsertHsn } from './core/reference'
 import { createBackup } from './core/backup'
-import { join } from 'path'
+import { join, dirname } from 'path'
 
 // CHANNELS lives in src/shared/api.ts (single source of truth, also imported by preload + the guard test).
 
@@ -36,7 +36,8 @@ export function registerIpc(ctx: IpcContext): void {
   h('backupNow', () => {
     const s = getSettings(db())
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    return createBackup(ctx.getDbPath(), join(s.data_folder, 'backups'), s.backups_to_keep, stamp)
+    const backupDir = join(dirname(ctx.getDbPath()), 'backups')
+    return createBackup(ctx.getDbPath(), backupDir, s.backups_to_keep, stamp)
   })
 
   h('nextPurchaseCode', (date) => nextPurchaseCode(db(), date))
