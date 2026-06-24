@@ -17,10 +17,17 @@ describe('InvoiceTemplate', () => {
     expect(screen.getByText(/99,120\.00/)).toBeTruthy()
   })
 
+  it('renders per-line HSN and taxable amount in HSN-wise summary (intra-state)', () => {
+    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} />)
+    expect(screen.getAllByText('3902').length).toBeGreaterThan(0)        // per-line HSN shown
+    expect(screen.getAllByText(/84,000\.00/).length).toBeGreaterThan(0)  // taxable
+  })
+
   it('renders IGST for an inter-state sale and hides CGST/SGST', () => {
+    const interAllocs = [{ ...allocs[0], gst_rate: 18 }] as SaleAllocation[]
     const interSale = { ...sale, cgst: 0, sgst: 0, igst: 15120, total_invoice_amount: 99120 } as unknown as Sale
-    const { container } = render(<InvoiceTemplate sale={interSale} allocations={allocs} settings={settings} />)
-    expect(screen.getByText('IGST')).toBeTruthy()
+    const { container } = render(<InvoiceTemplate sale={interSale} allocations={interAllocs} settings={settings} />)
+    expect(screen.getAllByText('IGST').length).toBeGreaterThan(0)
     // Check that CGST and SGST labels do not appear in the document
     const cgstMatch = container.textContent?.includes('CGST')
     const sgstMatch = container.textContent?.includes('SGST')
