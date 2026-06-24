@@ -18,7 +18,7 @@ export function createBackup(dbPath: string, backupDir: string, keepCount: numbe
 export function acquireLock(dir: string, holder: string): { ok: boolean; existingHolder?: string } {
   const path = join(dir, LOCK)
   if (existsSync(path)) return { ok: false, existingHolder: readFileSync(path, 'utf8') }
-  writeFileSync(path, `${holder} @ lock`)
+  writeFileSync(path, holder)
   return { ok: true }
 }
 

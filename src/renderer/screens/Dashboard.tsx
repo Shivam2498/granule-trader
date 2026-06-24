@@ -10,12 +10,17 @@ export default function Dashboard() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [ledger, setLedger] = useState<LedgerRow[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => { (async () => {
-    setSales(await window.api.listSales())
-    setPurchases(await window.api.listPurchases())
-    setLedger(await window.api.stockLedger())
-    setSettings(await window.api.getSettings())
+    try {
+      setSales(await window.api.listSales())
+      setPurchases(await window.api.listPurchases())
+      setLedger(await window.api.stockLedger())
+      setSettings(await window.api.getSettings())
+    } catch (e: any) {
+      setError('Could not load dashboard: ' + (e.message ?? e))
+    }
   })() }, [])
 
   const month = today().slice(0, 7)
@@ -31,6 +36,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1>Welcome{settings?.seller_name ? `, ${settings.seller_name}` : ''}</h1>
+      {error && <p className="error">{error}</p>}
       <p style={{ color: 'var(--muted)' }}>{today()}</p>
       <div className="row" style={{ marginBottom: 16 }}>
         <button className="primary" style={{ fontSize: 22, padding: '18px 28px' }} onClick={() => nav('/sales/new')}>New sale</button>

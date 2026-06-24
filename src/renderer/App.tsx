@@ -12,7 +12,7 @@ export default function App() {
   if (!ready) return <div className="content">Loading…</div>
   if (needsSetup) return <FirstRun onDone={() => setNeedsSetup(false)} />
   return (
-    <HashRouter>
+    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="app"><Sidebar /><main className="content grow"><AppRoutes /></main></div>
     </HashRouter>
   )
