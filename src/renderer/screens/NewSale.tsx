@@ -28,14 +28,16 @@ export default function NewSale() {
   const [draw, setDraw] = useState<Record<number, { qty: number; rate: number }>>({})
 
   useEffect(() => { (async () => {
-    setSettings(await window.api.getSettings())
-    setCustomers(await window.api.listCustomers())
-    setHsn(await window.api.listHsn())
-    if (fillId) {
-      const { sale } = await window.api.getSaleWithAllocations(fillId)
-      setInvoiceNumber(sale.invoice_number)
-      setInvoiceDate(sale.invoice_date ?? today())
-    }
+    try {
+      setSettings(await window.api.getSettings())
+      setCustomers(await window.api.listCustomers())
+      setHsn(await window.api.listHsn())
+      if (fillId) {
+        const { sale } = await window.api.getSaleWithAllocations(fillId)
+        setInvoiceNumber(sale.invoice_number)
+        setInvoiceDate(sale.invoice_date ?? today())
+      }
+    } catch (e: any) { setError('Could not load data: ' + (e.message ?? e)) }
   })() }, [fillId])
 
   // refresh available lots whenever the date changes (date-aware, excluding this sale when filling)
@@ -68,6 +70,7 @@ export default function NewSale() {
     setError('')
     if (!buyer) { setError('Choose a buyer first.'); return }
     if (lines.length === 0) { setError('Allocate quantity from at least one lot.'); return }
+    if (lines.some(l => l.rate_per_kg <= 0)) { setError('Enter a rate greater than 0 for every allocated lot.'); return }
     const payload = {
       invoice_number: invoiceNumber, invoice_date: invoiceDate,
       buyer_customer_id: buyer.id, buyer_name: buyer.name, buyer_gstin: buyer.gstin,

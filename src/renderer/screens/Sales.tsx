@@ -5,14 +5,25 @@ import { formatINR } from '../lib/format'
 
 export default function Sales() {
   const [list, setList] = useState<Sale[]>([])
+  const [error, setError] = useState('')
   const nav = useNavigate()
-  async function reload() { setList(await window.api.listSales()) }
+  async function reload() {
+    try { setList(await window.api.listSales()) }
+    catch (e: any) { setError('Could not load sales: ' + (e.message ?? e)) }
+  }
   useEffect(() => { reload() }, [])
-  async function remove(id: number) { if (confirm('Delete this sale? Stock will be restored.')) { await window.api.deleteSale(id); reload() } }
+  async function remove(id: number) {
+    if (confirm('Delete this sale? Stock will be restored.')) {
+      setError('')
+      try { await window.api.deleteSale(id); reload() }
+      catch (e: any) { setError('Could not delete sale: ' + (e.message ?? e)) }
+    }
+  }
 
   return (
     <div>
       <h1>Sales</h1>
+      {error && <p className="error">{error}</p>}
       <div className="panel">
         <button className="primary" onClick={() => nav('/sales/new')}>+ New sale</button>
       </div>
