@@ -17,6 +17,8 @@ export function parsePurchaseSeq(code: string): number {
   return m ? Number(m[1]) : 0
 }
 
+// NOTE: numbering is scoped per financial year, not per prefix. The invoice/code prefix is treated as
+// fixed within a financial year; changing it mid-FY is unsupported (would share the seq sequence).
 export function nextPurchaseCode(db: Database.Database, date: string): string {
   const fy = financialYear(date)
   const row = db.prepare('SELECT MAX(code_seq) AS m FROM purchases WHERE fy_label = ?').get(fy.label) as { m: number | null }

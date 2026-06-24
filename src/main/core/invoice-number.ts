@@ -11,6 +11,8 @@ export function parseInvoiceNumber(s: string): { prefix: string; seq: number; fy
   return { prefix: m[1], seq: Number(m[2]), fyLabel: m[3] }
 }
 
+// NOTE: numbering is scoped per financial year, not per prefix. The invoice/code prefix is treated as
+// fixed within a financial year; changing it mid-FY is unsupported (would share the seq sequence).
 export function nextInvoiceNumber(db: Database.Database, date: string, prefix: string): string {
   const fy = financialYear(date)
   const row = db.prepare('SELECT MAX(seq) AS m FROM sales WHERE fy_label = ?').get(fy.label) as { m: number | null }

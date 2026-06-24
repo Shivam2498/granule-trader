@@ -271,3 +271,7 @@ in conversation.
 - Exact invoice PDF layout — awaiting the owner's sample (dummy data).
 - Seller settings values (name, GSTIN, home state, invoice prefix).
 - Low-stock threshold default.
+
+## 13. Constraints
+
+- The sales invoice prefix and purchase-code format are fixed within a financial year; changing the prefix mid-year is not supported in v1 (numbering is FY-scoped, not prefix-scoped).

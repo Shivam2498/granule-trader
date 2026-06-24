@@ -7,6 +7,7 @@ export default function Purchases() {
   const [list, setList] = useState<Purchase[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [hsn, setHsn] = useState<HsnProduct[]>([])
+  const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({
     our_code: '', supplier_invoice_number: '', invoice_date: today(),
     party: '', party_state: '', hsn_code: '', qty_kg: 0, amount: 0,
@@ -18,8 +19,12 @@ export default function Purchases() {
   useEffect(() => { (async () => {
     setSettings(await window.api.getSettings()); setHsn(await window.api.listHsn()); reload()
   })() }, [])
-  // suggest next code whenever the date changes
-  useEffect(() => { window.api.nextPurchaseCode(form.invoice_date).then(c => setForm(f => ({ ...f, our_code: c }))) }, [form.invoice_date])
+  // suggest next code whenever the date changes — but not while editing an existing purchase
+  useEffect(() => {
+    if (!editId) {
+      window.api.nextPurchaseCode(form.invoice_date).then(c => setForm(f => ({ ...f, our_code: c })))
+    }
+  }, [form.invoice_date, editId])
 
   if (!settings) return <h1>Purchases</h1>
   const gstRate = hsn.find(h => h.hsn_code === form.hsn_code)?.gst_rate ?? settings.default_gst_rate
@@ -29,17 +34,49 @@ export default function Purchases() {
   const igst = intra ? 0 : tax
   const total = round2(form.amount + cgst * 2 + igst + form.tcs + form.roundoff)
 
+  function edit(p: Purchase) {
+    setEditId(p.id)
+    setForm({
+      our_code: p.our_code,
+      supplier_invoice_number: p.supplier_invoice_number,
+      invoice_date: p.invoice_date,
+      party: p.party,
+      party_state: p.party_state,
+      hsn_code: p.hsn_code,
+      qty_kg: p.qty_kg,
+      amount: p.amount,
+      tcs: p.tcs,
+      roundoff: p.roundoff,
+      payment_status: p.payment_status
+    })
+  }
+
+  async function reset() {
+    setEditId(null)
+    const d = today()
+    const nextCode = await window.api.nextPurchaseCode(d)
+    setForm({
+      our_code: nextCode, supplier_invoice_number: '', invoice_date: d,
+      party: '', party_state: '', hsn_code: '', qty_kg: 0, amount: 0,
+      tcs: 0, roundoff: 0, payment_status: 'pending'
+    })
+  }
+
   async function save() {
     setError('')
     try {
-      await window.api.createPurchase({
+      const payload = {
         our_code: form.our_code, supplier_invoice_number: form.supplier_invoice_number,
         invoice_date: form.invoice_date, party: form.party, party_state: form.party_state,
         hsn_code: form.hsn_code, qty_kg: form.qty_kg, amount: form.amount, gst_rate: gstRate,
         homeState: settings!.home_state, tcs: form.tcs, roundoff: form.roundoff, payment_status: form.payment_status
-      })
-      const nextCode = await window.api.nextPurchaseCode(form.invoice_date)
-      setForm(f => ({ ...f, our_code: nextCode, supplier_invoice_number: '', party: '', party_state: '', qty_kg: 0, amount: 0, tcs: 0, roundoff: 0 }))
+      }
+      if (editId) {
+        await window.api.updatePurchase(editId, payload)
+      } else {
+        await window.api.createPurchase(payload)
+      }
+      await reset()
       reload()
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
@@ -55,7 +92,7 @@ export default function Purchases() {
       <h1>Purchases</h1>
       {error && <p className="error">{error}</p>}
       <div className="panel">
-        <h2>New purchase</h2>
+        <h2>{editId ? 'Edit purchase' : 'New purchase'}</h2>
         <div className="row">
           <div className="field"><label>Our code</label><input value={form.our_code} onChange={e => set({ our_code: e.target.value })} /></div>
           <div className="field grow"><label>Supplier invoice no.</label><input value={form.supplier_invoice_number} onChange={e => set({ supplier_invoice_number: e.target.value })} /></div>
@@ -83,7 +120,8 @@ export default function Purchases() {
           </div>
         </div>
         <p>GST {gstRate}% → {intra ? `CGST ${formatINR(cgst)} + SGST ${formatINR(cgst)}` : `IGST ${formatINR(igst)}`} · <b>Total {formatINR(total)}</b></p>
-        <button className="primary" onClick={save}>Save purchase (adds to stock)</button>
+        <button className="primary" onClick={save}>{editId ? 'Update purchase' : 'Save purchase (adds to stock)'}</button>{' '}
+        {editId && <button onClick={reset}>Cancel</button>}
       </div>
 
       <div className="panel">
@@ -95,7 +133,7 @@ export default function Purchases() {
               <td>{p.our_code}</td><td>{p.invoice_date}</td><td>{p.party}</td><td>{p.hsn_code}</td>
               <td>{p.qty_kg}</td><td>{p.qty_remaining_kg}</td><td>{formatINR(p.total_invoice_amount)}</td>
               <td>{p.payment_status}</td>
-              <td><button className="danger" onClick={() => remove(p.id)}>Delete</button></td>
+              <td><button onClick={() => edit(p)}>Edit</button> <button className="danger" onClick={() => remove(p.id)}>Delete</button></td>
             </tr>))}</tbody>
         </table>
       </div>
