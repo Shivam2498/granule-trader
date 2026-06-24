@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
-import { createSale, fillReservedSale, listSales, deleteSale } from '../../src/main/core/sale'
+import { createSale, fillReservedSale, listSales, deleteSale, getAllocations } from '../../src/main/core/sale'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -12,8 +12,10 @@ function lot(code: string, date: string, qty: number) {
 }
 const sbase = {
   buyer_customer_id: null, buyer_name: 'Buyer', buyer_gstin: '',
-  buyer_billing: {}, buyer_shipping: {}, place_of_supply_state: 'Gujarat',
-  homeState: 'Gujarat', hsn_code: '3902', gst_rate: 18
+  buyer_billing: {}, buyer_shipping: {}, place_of_supply_state: 'Gujarat', homeState: 'Gujarat'
+}
+function line(purchase_id: number, qty: number, rate: number) {
+  return { purchase_id, qty_drawn_kg: qty, rate_per_kg: rate, hsn_code: '3902', gst_rate: 18 }
 }
 
 describe('createSale', () => {
@@ -21,7 +23,7 @@ describe('createSale', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     const b = lot('0002/2425', '2024-05-02', 1000)
     const sale = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 600, rate_per_kg: 80 }, { purchase_id: b.id, qty_drawn_kg: 400, rate_per_kg: 90 }] })
+      lines: [line(a.id, 600, 80), line(b.id, 400, 90)] })
     expect(sale.total_qty_kg).toBe(1000)
     expect(sale.amount).toBe(84000)         // 600*80 + 400*90
     expect(sale.cgst).toBe(7560)            // 9% of 84000
@@ -32,7 +34,7 @@ describe('createSale', () => {
   it('rejects an over-draw and rolls back everything', () => {
     const a = lot('0001/2425', '2024-05-01', 500)
     expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 600, rate_per_kg: 80 }] })).toThrow(/only has 500/)
+      lines: [line(a.id, 600, 80)] })).toThrow(/only has 500/)
     expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(500)
     expect(listSales(db)).toHaveLength(0)
   })
@@ -40,7 +42,7 @@ describe('createSale', () => {
   it('reserves skipped numbers when the seq jumps ahead', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     createSale(db, { ...sbase, invoice_number: 'RP/003/2024-25', invoice_date: '2024-05-10',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 100, rate_per_kg: 80 }] })
+      lines: [line(a.id, 100, 80)] })
     const rows = listSales(db)
     expect(rows.find(s => s.seq === 1)!.status).toBe('reserved')
     expect(rows.find(s => s.seq === 2)!.status).toBe('reserved')
@@ -50,7 +52,7 @@ describe('createSale', () => {
   it('deleting a sale restores remaining stock', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     const sale = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 300, rate_per_kg: 80 }] })
+      lines: [line(a.id, 300, 80)] })
     deleteSale(db, sale.id)
     expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(1000)
   })
@@ -59,16 +61,24 @@ describe('createSale', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     // Create seq 3 dated 2024-05-20 -> reserves seq 1 and 2 as blank rows
     createSale(db, { ...sbase, invoice_number: 'RP/003/2024-25', invoice_date: '2024-05-20',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 100, rate_per_kg: 80 }] })
+      lines: [line(a.id, 100, 80)] })
     const reserved1 = db.prepare("SELECT id FROM sales WHERE fy_label='2024-25' AND seq=1 AND status='reserved'").get() as { id: number }
     expect(reserved1).toBeTruthy()
     // Fill seq 1 with a date inside the order window (<= seq 3's 2024-05-20)
     const filled = fillReservedSale(db, reserved1.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-05',
-      lines: [{ purchase_id: a.id, qty_drawn_kg: 200, rate_per_kg: 90 }] })
+      lines: [line(a.id, 200, 90)] })
     expect(filled.status).toBe('created')
     expect(filled.total_qty_kg).toBe(200)
     expect(filled.amount).toBe(18000)
     // Running remaining = 1000 - 100 (seq3) - 200 (seq1) = 700
     expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(700)
+  })
+
+  it('stores HSN + gst_rate on each allocation', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10', lines: [line(a.id, 100, 80)] })
+    const allocs = getAllocations(db, s.id)
+    expect(allocs[0].hsn_code).toBe('3902')
+    expect(allocs[0].gst_rate).toBe(18)
   })
 })

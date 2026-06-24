@@ -71,6 +71,7 @@ export default function NewSale() {
     if (!buyer) { setError('Choose a buyer first.'); return }
     if (lines.length === 0) { setError('Allocate quantity from at least one lot.'); return }
     if (lines.some(l => l.rate_per_kg <= 0)) { setError('Enter a rate greater than 0 for every allocated lot.'); return }
+    const hsnRate = new Map(hsn.map(h => [h.hsn_code, h.gst_rate]))
     const payload = {
       invoice_number: invoiceNumber, invoice_date: invoiceDate,
       buyer_customer_id: buyer.id, buyer_name: buyer.name, buyer_gstin: buyer.gstin,
@@ -78,8 +79,12 @@ export default function NewSale() {
       buyer_shipping: buyer.shipping_same
         ? { address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode }
         : { address: buyer.shipping_address, city: buyer.shipping_city, state: buyer.shipping_state, pincode: buyer.shipping_pincode },
-      place_of_supply_state: placeOfSupply, homeState: settings!.home_state, hsn_code: hsnCode, gst_rate: gstRate,
-      lines, tcs, roundoff, eway_bill_no: evwBillNo, eway_bill_date: evwBillDate, vehicle
+      place_of_supply_state: placeOfSupply, homeState: settings!.home_state,
+      lines: lines.map(l => {
+        const lot = lots.find(x => x.purchase_id === l.purchase_id)
+        return { ...l, hsn_code: lot?.hsn_code ?? '', gst_rate: hsnRate.get(lot?.hsn_code ?? '') ?? settings!.default_gst_rate }
+      }),
+      roundoff, eway_bill_no: evwBillNo, eway_bill_date: evwBillDate, vehicle
     }
     try {
       const sale = fillId ? await window.api.fillReservedSale(fillId, payload) : await window.api.createSale(payload)

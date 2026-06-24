@@ -17,4 +17,11 @@ describe('schema', () => {
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
     db.close()
   })
+
+  it('sale_allocations carries hsn_code and gst_rate', () => {
+    const db = openDatabase(':memory:')
+    const cols = db.prepare("PRAGMA table_info(sale_allocations)").all().map((r: any) => r.name)
+    expect(cols).toContain('hsn_code'); expect(cols).toContain('gst_rate')
+    db.close()
+  })
 })

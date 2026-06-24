@@ -27,7 +27,7 @@ export default function InvoiceTemplate({ sale, allocations, settings }: { sale:
       <table>
         <thead><tr><th>#</th><th>HSN</th><th>Qty (kg)</th><th>Rate/kg</th><th>Amount</th></tr></thead>
         <tbody>{allocations.map((a, i) => (
-          <tr key={a.id}><td>{i + 1}</td><td>{sale.hsn_code}</td><td>{a.qty_drawn_kg}</td><td>{formatINR(a.rate_per_kg)}</td><td>{formatINR(a.line_amount)}</td></tr>
+          <tr key={a.id}><td>{i + 1}</td><td>{a.hsn_code}</td><td>{a.qty_drawn_kg}</td><td>{formatINR(a.rate_per_kg)}</td><td>{formatINR(a.line_amount)}</td></tr>
         ))}</tbody>
       </table>
       <table className="totals" style={{ marginTop: 8 }}>

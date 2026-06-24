@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 import type { Settings, HsnProduct } from '@shared/types'
 
 export const DEFAULT_SETTINGS: Settings = {
-  seller_name: '', seller_address: '', seller_gstin: '', seller_pan: '', home_state: '',
+  seller_name: '', seller_address: '', seller_gstin: '', seller_pan: '', seller_phone: '', home_state: '',
   invoice_prefix: 'RP', default_gst_rate: 18, data_folder: '', low_stock_threshold: 500, backups_to_keep: 10
 }
 
