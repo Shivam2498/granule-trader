@@ -1,0 +1,49 @@
+import { describe, it, expect } from 'vitest'
+import { computeTax, computeSaleTax } from '../../src/shared/tax'
+
+describe('computeTax (purchases, single rate)', () => {
+  it('intra-state splits CGST+SGST', () => {
+    const r = computeTax({ amount: 1000, gstRate: 18, placeOfSupplyState: 'Gujarat', homeState: 'Gujarat' })
+    expect(r).toMatchObject({ cgst: 90, sgst: 90, igst: 0, total: 1180 })
+  })
+  it('inter-state applies IGST', () => {
+    const r = computeTax({ amount: 1000, gstRate: 18, placeOfSupplyState: 'Maharashtra', homeState: 'Gujarat' })
+    expect(r).toMatchObject({ igst: 180, cgst: 0, sgst: 0, total: 1180 })
+  })
+})
+
+describe('computeSaleTax (multi-rate)', () => {
+  const homeState = 'Gujarat'
+  it('single rate intra-state', () => {
+    const r = computeSaleTax({ lines: [
+      { qty_drawn_kg: 600, rate_per_kg: 80, gst_rate: 18 },
+      { qty_drawn_kg: 400, rate_per_kg: 90, gst_rate: 18 }
+    ], placeOfSupplyState: 'Gujarat', homeState })
+    expect(r.taxable).toBe(84000)
+    expect(r.cgst).toBe(7560); expect(r.sgst).toBe(7560); expect(r.igst).toBe(0)
+    expect(r.total).toBe(99120); expect(r.totalQty).toBe(1000)
+  })
+  it('mixed rates intra-state sum per group', () => {
+    const r = computeSaleTax({ lines: [
+      { qty_drawn_kg: 100, rate_per_kg: 100, gst_rate: 18 },  // 10000 @18 -> cgst/sgst 900 each
+      { qty_drawn_kg: 100, rate_per_kg: 100, gst_rate: 5 }    // 10000 @5  -> cgst/sgst 250 each
+    ], placeOfSupplyState: 'Gujarat', homeState })
+    expect(r.taxable).toBe(20000)
+    expect(r.cgst).toBe(1150); expect(r.sgst).toBe(1150); expect(r.igst).toBe(0)
+    expect(r.total).toBe(22300)
+  })
+  it('inter-state uses IGST per group', () => {
+    const r = computeSaleTax({ lines: [
+      { qty_drawn_kg: 100, rate_per_kg: 100, gst_rate: 18 },
+      { qty_drawn_kg: 100, rate_per_kg: 100, gst_rate: 5 }
+    ], placeOfSupplyState: 'Maharashtra', homeState })
+    expect(r.cgst).toBe(0); expect(r.sgst).toBe(0)
+    expect(r.igst).toBe(2300); expect(r.total).toBe(22300)
+  })
+  it('applies a negative round-off', () => {
+    const r = computeSaleTax({ lines: [{ qty_drawn_kg: 10, rate_per_kg: 100, gst_rate: 18 }],
+      placeOfSupplyState: 'Gujarat', homeState, roundoff: -0.40 })
+    // taxable 1000, cgst 90, sgst 90 -> 1180 - 0.40 = 1179.60
+    expect(r.total).toBe(1179.6)
+  })
+})
