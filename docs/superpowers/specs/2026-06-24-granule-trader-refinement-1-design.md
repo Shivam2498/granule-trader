@@ -209,7 +209,54 @@ HSN.
   adjustment-undo).
 - Friendly, specific validation messages throughout.
 
-## 13. Open items
+## 13. UI/UX flow & visual direction
+
+The shipped v1 crowds list + form on one screen, leans on a flat "everything is a
+panel" hierarchy, and stacks dense field rows. This round adopts a calmer,
+task-focused layout for a non-technical senior user. The senior-friendly bones
+stay (~18px base text, big targets, white inputs + dark text, inline specific
+errors).
+
+### 13.1 Two-page rhythm (every entity screen)
+A clean **list page** and a focused **form page**, one button apart:
+- **List page:** page title top-left, the single **primary action top-right**
+  (`+ Add …`), one full-width search where applicable, then a light table —
+  light header, tall rows, hover + zebra, **right-aligned money/qty**, inline
+  edit/delete per row, status pills (`Pending`/`Done`). No form on this page.
+- **Form page:** `‹ Back` + title; fields grouped into small **sections** (a
+  heading + light divider) laid out in a tidy **2-up grid** (not one tall column
+  or wrapping rows); **actions pinned bottom-right** (`Cancel` / `Save …`).
+
+### 13.2 Visual principles (applied across all screens)
+- **One primary action per page** (top-right on lists, bottom-right on forms);
+  everything else is quiet/secondary.
+- **Calmer surface:** white page, subtle borders, a consistent 8px spacing scale,
+  generous whitespace; cards only where grouping earns it (not around everything).
+- A single calm accent colour for primary actions and active nav.
+- Tables and summaries align numbers right; rates always show their `%`.
+
+### 13.3 New Sale layout (multi-HSN, simplified)
+Header row: `‹ Back`, title, editable invoice number, date. Buyer dropdown shows
+the live **place-of-supply → CGST+SGST / IGST** hint. E-way/vehicle live under a
+collapsed **"Optional"** disclosure. The lot table lists **every available lot**
+(checkbox to include; **Cost/kg** read-only for reference; **Sell/kg** + **Qty**
+inputs activate only when a row is checked; **HSN per row**). A right-aligned
+**tax summary** shows Taxable → CGST 9% → SGST 9% → IGST 0% → **Net total** with
+live ₹ values. Round-off (signed) and Payment (Pending/Done + date when Done) sit
+by the actions: `Cancel` / `Save` / `Save & preview PDF`.
+
+### 13.4 Onboarding layout
+A single centered card, sectioned: **Data file** (folder + Choose), **Your
+business** (name + auto/editable prefix; GSTIN, PAN, mobile; home-state dropdown;
+address). The CTA enables only when every field is valid; invalid fields show a
+specific message.
+
+### 13.5 Shared layout components (additions to §11)
+`PageHeader` (title + optional primary action), `ListTable` (the clean table
+styling), and `FormSection` (heading + divider + 2-up grid) — so list and form
+pages stay visually consistent and each screen file stays small.
+
+## 14. Open items
 
 - Exact pincode data source: prefer a maintained offline npm package; if none is
   suitable, bundle a compact `pincode→{city,state}` JSON generated from public
