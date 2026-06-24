@@ -3,6 +3,7 @@ import { formatINR } from '../lib/format'
 import './invoice.css'
 
 function addr(json: string): string {
+  if (!json) return ''
   try { const o = JSON.parse(json); return [o.address, o.city, o.state, o.pincode].filter(Boolean).join(', ') } catch { return '' }
 }
 
@@ -22,7 +23,7 @@ export default function InvoiceTemplate({ sale, allocations, settings }: { sale:
         </tbody>
       </table>
       {(sale.eway_bill_no || sale.vehicle) &&
-        <p>{sale.eway_bill_no ? `E-way bill: ${sale.eway_bill_no} (${sale.eway_bill_date ?? ''})` : ''} {sale.vehicle ? `· Vehicle: ${sale.vehicle}` : ''}</p>}
+        <p>{[sale.eway_bill_no ? `E-way bill: ${sale.eway_bill_no} (${sale.eway_bill_date ?? ''})` : null, sale.vehicle ? `Vehicle: ${sale.vehicle}` : null].filter(Boolean).join(' · ')}</p>}
       <table>
         <thead><tr><th>#</th><th>HSN</th><th>Qty (kg)</th><th>Rate/kg</th><th>Amount</th></tr></thead>
         <tbody>{allocations.map((a, i) => (
