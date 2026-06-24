@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
-import { createStockAdjustment, stockLedger } from '../../src/main/core/adjustment'
+import { createStockAdjustment, stockLedger, listAdjustments, deleteAdjustment } from '../../src/main/core/adjustment'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -27,5 +27,18 @@ describe('stockLedger', () => {
     const ledger = stockLedger(db)
     expect(ledger).toHaveLength(1)
     expect(ledger[0]).toMatchObject({ consumed_kg: 200, balance_kg: 800 })
+  })
+})
+
+describe('listAdjustments + deleteAdjustment (undo)', () => {
+  it('lists newest first and undo restores the lot', () => {
+    const p = createPurchase(db, { ...pbase, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 1000 })
+    createStockAdjustment(db, { purchase_id: p.id, qty_kg: 200, reason: 'spillage', date: '2024-05-05' })
+    const rows = listAdjustments(db)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ our_code: '0001/2425', qty_kg: 200, reason: 'spillage' })
+    deleteAdjustment(db, rows[0].id)
+    expect(getPurchase(db, p.id)!.qty_remaining_kg).toBe(1000)   // restored
+    expect(listAdjustments(db)).toHaveLength(0)
   })
 })
