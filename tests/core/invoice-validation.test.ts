@@ -34,4 +34,17 @@ describe('validateInvoiceOrder', () => {
     expect(r.ok).toBe(false)
     expect(r.message).toContain('on or before')
   })
+  it('accepts a date equal to the earlier neighbour', () => {
+    expect(validateInvoiceOrder(db, { fyLabel: '2024-25', seq: 6, invoiceDate: '2024-05-10' }).ok).toBe(true)
+  })
+  it('accepts a date equal to the later neighbour', () => {
+    expect(validateInvoiceOrder(db, { fyLabel: '2024-25', seq: 6, invoiceDate: '2024-05-20' }).ok).toBe(true)
+  })
+  it('excludes the edited row from its own neighbour comparison', () => {
+    const info = db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date)
+      VALUES ('RP/006/2024-25','RP',6,'2024-25','created','2024-05-15')`).run()
+    const id = Number(info.lastInsertRowid)
+    expect(validateInvoiceOrder(db, { fyLabel: '2024-25', seq: 6, invoiceDate: '2024-05-19', excludeSaleId: id }).ok).toBe(true)
+    expect(validateInvoiceOrder(db, { fyLabel: '2024-25', seq: 6, invoiceDate: '2024-05-21', excludeSaleId: id }).ok).toBe(false)
+  })
 })
