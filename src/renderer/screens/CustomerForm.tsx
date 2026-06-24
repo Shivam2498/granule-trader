@@ -29,15 +29,21 @@ export default function CustomerForm() {
     }).catch(e => setError(e.message ?? String(e)))
   }, [editId])
 
-  const errs = {
+  const errs: Record<string, string> = {
     name: form.name.trim() ? '' : 'Required',
-    gstin: isGstin(form.gstin) ? '' : 'GSTIN must be 15 characters',
+    gstin: isGstin(form.gstin) ? '' : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)',
     pan: !form.pan || isPan(form.pan) ? '' : 'PAN must be 10 characters',
     phone: !form.phone || isMobile(form.phone) ? '' : '10-digit mobile',
     billing_city: form.billing_city.trim() ? '' : 'Required',
     billing_state: form.billing_state.trim() ? '' : 'Required',
     billing_pincode: isPincode(form.billing_pincode) ? '' : '6-digit pincode',
-    billing_address: form.billing_address.trim() ? '' : 'Required'
+    billing_address: form.billing_address.trim() ? '' : 'Required',
+    ...(form.shipping_same ? {} : {
+      shipping_address: form.shipping_address.trim() ? '' : 'Required',
+      shipping_city: form.shipping_city.trim() ? '' : 'Required',
+      shipping_state: form.shipping_state.trim() ? '' : 'Required',
+      shipping_pincode: isPincode(form.shipping_pincode) ? '' : '6-digit pincode'
+    })
   }
   const valid = Object.values(errs).every(e => e === '')
 
@@ -78,10 +84,10 @@ export default function CustomerForm() {
       {!form.shipping_same && (
         <FormSection title="Shipping address">
           {F('Pincode', <PincodeField value={form.shipping_pincode} onChange={v => set({ shipping_pincode: v })}
-              onResolved={r => set({ shipping_city: r.city, shipping_state: r.state })} />)}
-          {F('City', <input value={form.shipping_city} onChange={e => set({ shipping_city: e.target.value })} />)}
-          {F('State', <StateSelect value={form.shipping_state} onChange={v => set({ shipping_state: v })} />)}
-          {F('Address', <textarea rows={2} value={form.shipping_address} onChange={e => set({ shipping_address: e.target.value })} />, undefined, true)}
+              onResolved={r => set({ shipping_city: r.city, shipping_state: r.state })} />, errs.shipping_pincode)}
+          {F('City', <input value={form.shipping_city} onChange={e => set({ shipping_city: e.target.value })} />, errs.shipping_city)}
+          {F('State', <StateSelect value={form.shipping_state} onChange={v => set({ shipping_state: v })} />, errs.shipping_state)}
+          {F('Address', <textarea rows={2} value={form.shipping_address} onChange={e => set({ shipping_address: e.target.value })} />, errs.shipping_address, true)}
         </FormSection>
       )}
     </FormPage>
