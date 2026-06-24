@@ -101,11 +101,13 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
 }
 
 export function createSale(db: Database.Database, input: NewSale): Sale {
-  const parsed = parseInvoiceNumber(input.invoice_number)
-  const reserved = parsed
-    ? db.prepare(`SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND status = 'reserved'`).get(parsed.fyLabel, parsed.seq) as { id: number } | undefined
-    : undefined
-  const tx = db.transaction(() => writeSale(db, input, reserved?.id ?? null))
+  const tx = db.transaction(() => {
+    const parsed = parseInvoiceNumber(input.invoice_number)
+    const reserved = parsed
+      ? db.prepare(`SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND status = 'reserved'`).get(parsed.fyLabel, parsed.seq) as { id: number } | undefined
+      : undefined
+    return writeSale(db, input, reserved?.id ?? null)
+  })
   return tx()
 }
 

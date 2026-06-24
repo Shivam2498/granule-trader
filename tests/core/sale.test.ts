@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
-import { createSale, listSales, deleteSale } from '../../src/main/core/sale'
+import { createSale, fillReservedSale, listSales, deleteSale } from '../../src/main/core/sale'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -53,5 +53,22 @@ describe('createSale', () => {
       lines: [{ purchase_id: a.id, qty_drawn_kg: 300, rate_per_kg: 80 }] })
     deleteSale(db, sale.id)
     expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(1000)
+  })
+
+  it('fills a reserved row: marks it created and draws stock', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    // Create seq 3 dated 2024-05-20 -> reserves seq 1 and 2 as blank rows
+    createSale(db, { ...sbase, invoice_number: 'RP/003/2024-25', invoice_date: '2024-05-20',
+      lines: [{ purchase_id: a.id, qty_drawn_kg: 100, rate_per_kg: 80 }] })
+    const reserved1 = db.prepare("SELECT id FROM sales WHERE fy_label='2024-25' AND seq=1 AND status='reserved'").get() as { id: number }
+    expect(reserved1).toBeTruthy()
+    // Fill seq 1 with a date inside the order window (<= seq 3's 2024-05-20)
+    const filled = fillReservedSale(db, reserved1.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-05',
+      lines: [{ purchase_id: a.id, qty_drawn_kg: 200, rate_per_kg: 90 }] })
+    expect(filled.status).toBe('created')
+    expect(filled.total_qty_kg).toBe(200)
+    expect(filled.amount).toBe(18000)
+    // Running remaining = 1000 - 100 (seq3) - 200 (seq1) = 700
+    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(700)
   })
 })
