@@ -5,13 +5,20 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "predev": "npm run rebuild:electron",
     "build": "electron-vite build",
     "start": "electron-vite preview",
+    "prestart": "npm run rebuild:electron",
     "test": "vitest run",
+    "pretest": "npm run rebuild:node",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "rebuild:electron": "electron-rebuild -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "postinstall": "npm run rebuild:electron"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@testing-library/react": "^16.0.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^18.3.3",

@@ -27,17 +27,25 @@ function bootstrapData(): void {
   if (s.data_folder && s.data_folder !== dataFolder) openIn(s.data_folder)
   const lock = acquireLock(dataFolder, hostname())
   if (!lock.ok) {
-    // Spec §4: warn the user; allow "Open anyway" only if they're sure it's closed elsewhere.
-    const choice = dialog.showMessageBoxSync({
-      type: 'warning',
-      buttons: ['Quit', 'Open anyway'],
-      defaultId: 0, cancelId: 0,
-      title: 'Data may be open elsewhere',
-      message: `This data is currently open on ${lock.existingHolder}.`,
-      detail: 'Open anyway only if you are sure it is closed there. Opening it on two machines at once can corrupt the file.'
-    })
-    if (choice === 0) { app.quit(); return }
-    releaseLock(dataFolder); acquireLock(dataFolder, hostname())   // Open anyway: replace the stale lock
+    const holder = (lock.existingHolder ?? '').trim()
+    if (holder === hostname()) {
+      // Lock belongs to THIS machine — a previous run crashed or was killed without
+      // releasing it. The app is not actually open here, so reclaim it silently.
+      releaseLock(dataFolder); acquireLock(dataFolder, hostname())
+    } else {
+      // Spec §4: a DIFFERENT machine holds the lock — warn; allow "Open anyway" only if
+      // the user is sure it's closed there (opening on two machines at once can corrupt the file).
+      const choice = dialog.showMessageBoxSync({
+        type: 'warning',
+        buttons: ['Quit', 'Open anyway'],
+        defaultId: 0, cancelId: 0,
+        title: 'Data may be open elsewhere',
+        message: `This data is currently open on ${holder}.`,
+        detail: 'Open anyway only if you are sure it is closed there. Opening it on two machines at once can corrupt the file.'
+      })
+      if (choice === 0) { app.quit(); return }
+      releaseLock(dataFolder); acquireLock(dataFolder, hostname())   // Open anyway: replace the lock
+    }
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   try { createBackup(dbPath, join(dataFolder, 'backups'), getSettings(db).backups_to_keep, stamp) } catch (e) { console.warn('backup failed', e) }
