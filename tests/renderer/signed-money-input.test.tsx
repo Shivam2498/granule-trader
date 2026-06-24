@@ -22,4 +22,14 @@ describe('SignedMoneyInput', () => {
     fireEvent.change(input, { target: { value: 'abc' } })
     expect(onChange).not.toHaveBeenCalledWith(NaN)
   })
+  it('re-syncs displayed text when the value prop changes externally', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<SignedMoneyInput value={0} onChange={onChange} id="ro" />)
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    expect(input.value).toBe('')
+    rerender(<SignedMoneyInput value={-0.4} onChange={onChange} id="ro" />)
+    expect(input.value).toBe('-0.4')
+    rerender(<SignedMoneyInput value={0} onChange={onChange} id="ro" />)
+    expect(input.value).toBe('')
+  })
 })
