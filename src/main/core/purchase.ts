@@ -13,7 +13,7 @@ export interface NewPurchase {
 }
 
 export function parsePurchaseSeq(code: string): number {
-  const m = code.match(/(\d+)/)
+  const m = code.trim().match(/^(\d+)/)
   return m ? Number(m[1]) : 0
 }
 

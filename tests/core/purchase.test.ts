@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
-import { nextPurchaseCode, createPurchase, listPurchases, deletePurchase } from '../../src/main/core/purchase'
+import { nextPurchaseCode, createPurchase, listPurchases, deletePurchase, updatePurchase } from '../../src/main/core/purchase'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -37,5 +37,23 @@ describe('deletePurchase', () => {
     expect(listPurchases(db)).toHaveLength(1)
     deletePurchase(db, p.id)
     expect(listPurchases(db)).toHaveLength(0)
+  })
+  it('blocks deletion when allocations reference the lot', () => {
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01' })
+    const info = db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date)
+      VALUES ('RP/001/2024-25','RP',1,'2024-25','created','2024-05-10')`).run()
+    db.prepare(`INSERT INTO sale_allocations (sale_id, purchase_id, qty_drawn_kg, rate_per_kg, line_amount)
+      VALUES (?, ?, 100, 80, 8000)`).run(info.lastInsertRowid, p.id)
+    expect(() => deletePurchase(db, p.id)).toThrow(/used by one or more sales/)
+    expect(listPurchases(db)).toHaveLength(1)
+  })
+})
+
+describe('updatePurchase', () => {
+  it('rejects qty below already-drawn', () => {
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01' })
+    db.prepare('UPDATE purchases SET qty_remaining_kg = 400 WHERE id = ?').run(p.id)
+    expect(() => updatePurchase(db, p.id, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 500 }))
+      .toThrow(/below 600/)
   })
 })
