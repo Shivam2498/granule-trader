@@ -47,7 +47,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   }
 
   const tax = computeSaleTax({
-    lines: input.lines.map(l => ({ qty_drawn_kg: l.qty_drawn_kg, rate_per_kg: l.rate_per_kg, gst_rate: l.gst_rate })),
+    lines: input.lines.map(l => ({ qty_drawn_kg: l.qty_drawn_kg, rate_per_kg: l.rate_per_kg, gst_rate: l.gst_rate, hsn_code: l.hsn_code })),
     placeOfSupplyState: input.place_of_supply_state, homeState: input.homeState, roundoff: input.roundoff
   })
 

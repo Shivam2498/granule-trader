@@ -23,7 +23,7 @@ export function computeTax(input: ComputeTaxInput): TaxResult {
   return { taxable_amount: round2(amount), cgst, sgst, igst, tcs: round2(tcs), roundoff: round2(roundoff), total }
 }
 
-export interface SaleTaxLine { qty_drawn_kg: number; rate_per_kg: number; gst_rate: number }
+export interface SaleTaxLine { qty_drawn_kg: number; rate_per_kg: number; gst_rate: number; hsn_code: string }
 export interface ComputeSaleTaxInput {
   lines: SaleTaxLine[]; placeOfSupplyState: string; homeState: string; roundoff?: number
 }
@@ -34,18 +34,20 @@ export interface SaleTaxResult {
 export function computeSaleTax(input: ComputeSaleTaxInput): SaleTaxResult {
   const roundoff = input.roundoff ?? 0
   const intra = isIntra(input.placeOfSupplyState, input.homeState)
-  const byRate = new Map<number, number>()   // gst_rate -> summed amount
+  const byRate = new Map<string, { rate: number; amount: number }>()   // `${hsn_code}@${gst_rate}` -> { rate, amount }
   let taxable = 0, totalQty = 0
   for (const l of input.lines) {
     const lineAmount = round2(l.qty_drawn_kg * l.rate_per_kg)
     taxable = round2(taxable + lineAmount)
     totalQty = round2(totalQty + l.qty_drawn_kg)
-    byRate.set(l.gst_rate, round2((byRate.get(l.gst_rate) ?? 0) + lineAmount))
+    const key = `${l.hsn_code}@${l.gst_rate}`
+    const existing = byRate.get(key)
+    byRate.set(key, { rate: l.gst_rate, amount: round2((existing?.amount ?? 0) + lineAmount) })
   }
   let cgst = 0, sgst = 0, igst = 0
-  for (const [rate, amount] of byRate) {
-    if (intra) { cgst = round2(cgst + round2((amount * rate) / 2 / 100)); sgst = cgst }
-    else { igst = round2(igst + round2((amount * rate) / 100)) }
+  for (const g of byRate.values()) {
+    if (intra) { cgst = round2(cgst + round2((g.amount * g.rate) / 2 / 100)); sgst = cgst }
+    else { igst = round2(igst + round2((g.amount * g.rate) / 100)) }
   }
   const total = round2(taxable + cgst + sgst + igst + roundoff)
   return { taxable, cgst, sgst, igst, roundoff: round2(roundoff), total, totalQty }
