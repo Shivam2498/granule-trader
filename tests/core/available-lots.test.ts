@@ -32,4 +32,22 @@ describe('listAvailableLots', () => {
     sale('2024-05-02', p.id, 100)
     expect(listAvailableLots(db, '2024-06-01')).toHaveLength(0)
   })
+  it('excludes a given sale\'s own allocations when excludeSaleId is set', () => {
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 1000 })
+    const info = db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date)
+      VALUES ('RP/001/2024-25','RP',1,'2024-25','created','2024-05-10')`).run()
+    db.prepare(`INSERT INTO sale_allocations (sale_id, purchase_id, qty_drawn_kg, rate_per_kg, line_amount)
+      VALUES (?, ?, 300, 1, 300)`).run(info.lastInsertRowid, p.id)
+    // normal view subtracts the 300
+    expect(listAvailableLots(db, '2024-06-01')[0].available_kg).toBe(700)
+    // excluding that sale's id makes the full lot available again
+    expect(listAvailableLots(db, '2024-06-01', { excludeSaleId: Number(info.lastInsertRowid) })[0].available_kg).toBe(1000)
+  })
+  it('subtracts stock adjustments dated on or before the as-of date', () => {
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 1000 })
+    db.prepare(`INSERT INTO stock_adjustments (purchase_id, qty_kg, reason, date)
+      VALUES (?, 150, 'spillage', '2024-07-01')`).run(p.id)
+    expect(listAvailableLots(db, '2024-06-01')[0].available_kg).toBe(1000)  // adjustment is in the future
+    expect(listAvailableLots(db, '2024-08-01')[0].available_kg).toBe(850)   // now counted
+  })
 })
