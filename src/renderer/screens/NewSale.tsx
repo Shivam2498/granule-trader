@@ -33,6 +33,7 @@ export default function NewSale() {
   const [buyerId, setBuyerId] = useState<number | null>(null)
   const [showOptional, setShowOptional] = useState(false)
   const [ewayNo, setEwayNo] = useState(''); const [ewayDate, setEwayDate] = useState(''); const [vehicle, setVehicle] = useState('')
+  const [vehicleTouched, setVehicleTouched] = useState(false)
   const [roundoff, setRoundoff] = useState(0)
   const [payment, setPayment] = useState<'pending' | 'done'>('pending'); const [paymentDate, setPaymentDate] = useState('')
   const [draw, setDraw] = useState<Record<number, Draw>>({})
@@ -125,8 +126,9 @@ export default function NewSale() {
             withAsterisk
             value={vehicle}
             onChange={e => setVehicle(e.currentTarget.value)}
+            onBlur={() => setVehicleTouched(true)}
             placeholder="By Taxi / By Van / GJ-05-…"
-            error={vehicle.trim() ? undefined : 'Enter the vehicle number.'}
+            error={vehicleTouched && !vehicle.trim() ? 'Enter the vehicle number.' : undefined}
           />
         </Group>
         {buyer && (
