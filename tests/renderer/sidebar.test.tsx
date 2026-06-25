@@ -6,9 +6,9 @@ import { renderWithMantine } from './mantine'
 import Sidebar from '../../src/renderer/components/Sidebar'
 
 describe('Sidebar', () => {
-  it('shows all six navigation items', () => {
+  it('shows all seven navigation items', () => {
     renderWithMantine(<HashRouter><Sidebar /></HashRouter>)
-    for (const label of ['Dashboard','Purchases','Sales','Stock','Customers','Settings'])
+    for (const label of ['Dashboard','Purchases','Sales','Stock','Customers','Suppliers','Settings'])
       expect(screen.getByText(label)).toBeTruthy()
   })
 })
