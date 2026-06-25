@@ -318,7 +318,19 @@ git commit -m "feat: suppliers IPC + api surface (list/create/update/delete)"
 - Modify: `src/renderer/routes.tsx`, `src/renderer/components/Sidebar.tsx`, `tests/renderer/sidebar.test.tsx`
 
 **Interfaces:**
-- Consumes: `window.api.listSuppliers/createSupplier/updateSupplier/deleteSupplier`, the `Supplier` type, `panFromGstin/isGstin/isMobile/isPincode` from `@shared/validation`, and the shared components `FormPage/FormSection/StateSelect/PincodeField/PageHeader/ListTable`.
+- Consumes: `window.api.listSuppliers/createSupplier/updateSupplier/deleteSupplier`, the `Supplier` type, `panFromGstin/isGstin/isMobile/isPincode` from `@shared/validation`, the shared components `FormPage/FormSection/StateSelect/PincodeField/PageHeader/ListTable`, and **`@mantine/form`** (`useForm`, `isNotEmpty`).
+
+**Sub-skill:** the implementer of this task MUST consult the `mantine-form` skill at
+`/Users/shivamchoudhary/.agents/skills/mantine-form/SKILL.md` — the Suppliers form is
+built with `@mantine/form` (`useForm` + `getInputProps` + validators), not the legacy
+manual `errs`/`valid` pattern. (The existing forms keep the manual pattern for now; a
+separate follow-up sub-project migrates them.)
+
+- [ ] **Step 0: Install `@mantine/form`** (pinned to the Mantine version in use)
+
+Run: `npm install @mantine/form@7.17.8`
+Expected: it is added to `dependencies` (pure-JS package; no native rebuild). `npm test`
+still green afterwards.
 
 - [ ] **Step 1: Create the Suppliers list screen** (`src/renderer/screens/Suppliers.tsx`)
 
@@ -366,12 +378,20 @@ export default function Suppliers() {
 }
 ```
 
-- [ ] **Step 2: Create the Supplier form** (`src/renderer/screens/SupplierForm.tsx`)
+- [ ] **Step 2: Create the Supplier form with `@mantine/form`** (`src/renderer/screens/SupplierForm.tsx`)
+
+Built with `useForm` per the `mantine-form` skill. Notes: `FormPage` renders footer
+buttons (not a `<form>` element), so Save is `onClick={form.onSubmit(handleSave)}` —
+`onSubmit` validates and only calls the handler when valid, surfacing field errors
+otherwise (no disabled-button gate needed). GSTIN's `onChange` is overridden after the
+`getInputProps` spread so it can also set the derived read-only PAN. `PincodeField` and
+`StateSelect` are custom components wired via `setFieldValue` + `form.errors`.
 
 ```tsx
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TextInput, Textarea, Button, Input } from '@mantine/core'
+import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
 import { isGstin, isMobile, isPincode, panFromGstin } from '@shared/validation'
@@ -388,63 +408,70 @@ export default function SupplierForm() {
   const nav = useNavigate()
   const { id } = useParams()
   const editId = id ? Number(id) : null
-  const [form, setForm] = useState<Omit<Supplier, 'id'>>(EMPTY)
   const [error, setError] = useState('')
-  const set = (p: Partial<Omit<Supplier, 'id'>>) => setForm(f => ({ ...f, ...p }))
+
+  const form = useForm<Omit<Supplier, 'id'>>({
+    mode: 'controlled',
+    initialValues: EMPTY,
+    validateInputOnBlur: true,
+    validate: {
+      name: isNotEmpty('Required'),
+      gstin: (v) => (isGstin(v) ? null : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)'),
+      phone: (v) => (isMobile(v) ? null : 'Enter a 10-digit phone number'),
+      city: isNotEmpty('Required'),
+      state: isNotEmpty('Required'),
+      address: isNotEmpty('Required'),
+      pincode: (v) => (isPincode(v) ? null : '6-digit pincode')
+    }
+  })
 
   useEffect(() => {
     if (!editId) return
     window.api.listSuppliers().then(all => {
       const s = all.find(x => x.id === editId)
-      if (s) { const { id: _i, ...rest } = s; setForm(rest) }
+      if (s) { const { id: _i, ...rest } = s; form.setValues(rest) }
     }).catch(e => setError(e.message ?? String(e)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId])
 
-  const errs: Record<string, string> = {
-    name: form.name.trim() ? '' : 'Required',
-    gstin: isGstin(form.gstin) ? '' : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)',
-    phone: isMobile(form.phone) ? '' : 'Enter a 10-digit phone number',
-    city: form.city.trim() ? '' : 'Required',
-    state: form.state.trim() ? '' : 'Required',
-    pincode: isPincode(form.pincode) ? '' : '6-digit pincode',
-    address: form.address.trim() ? '' : 'Required'
-  }
-  const valid = Object.values(errs).every(e => e === '')
-
-  async function save() {
+  async function handleSave(values: Omit<Supplier, 'id'>) {
     setError('')
-    if (!valid) { setError('Please fix the highlighted fields.'); return }
     try {
-      const payload = { ...form, gstin: form.gstin.toUpperCase(), pan: form.pan.toUpperCase() }
+      const payload = { ...values, gstin: values.gstin.toUpperCase(), pan: values.pan.toUpperCase() }
       if (editId) await window.api.updateSupplier(editId, payload); else await window.api.createSupplier(payload)
       notifications.show({ message: 'Supplier saved', color: 'green' })
       nav('/suppliers')
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  const cancel = () => nav('/suppliers')
-
   return (
     <FormPage title={editId ? 'Edit supplier' : 'Add supplier'} onBack={() => nav('/suppliers')} error={error}
-      footer={<><Button variant="default" onClick={cancel}>Cancel</Button><Button disabled={!valid} onClick={save}>Save supplier</Button></>}>
+      footer={<>
+        <Button variant="default" onClick={() => nav('/suppliers')}>Cancel</Button>
+        <Button onClick={form.onSubmit(handleSave)}>Save supplier</Button>
+      </>}>
       <FormSection title="Business details">
-        <TextInput label="Name" withAsterisk value={form.name} onChange={e => set({ name: e.currentTarget.value })} error={errs.name} />
-        <TextInput label="GSTIN" withAsterisk value={form.gstin}
-          onChange={e => set({ gstin: e.currentTarget.value.toUpperCase(), pan: panFromGstin(e.currentTarget.value) })}
-          error={errs.gstin} />
-        <TextInput label="PAN (from GSTIN)" disabled value={form.pan} />
-        <TextInput label="Phone" withAsterisk value={form.phone} onChange={e => set({ phone: e.currentTarget.value.replace(/\D/g, '').slice(0,10) })} error={errs.phone} />
+        <TextInput label="Name" withAsterisk {...form.getInputProps('name')} />
+        <TextInput label="GSTIN" withAsterisk {...form.getInputProps('gstin')}
+          onChange={e => {
+            const v = e.currentTarget.value.toUpperCase()
+            form.setFieldValue('gstin', v)
+            form.setFieldValue('pan', panFromGstin(v))
+          }} />
+        <TextInput label="PAN (from GSTIN)" disabled value={form.values.pan} />
+        <TextInput label="Phone" withAsterisk {...form.getInputProps('phone')}
+          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))} />
       </FormSection>
       <FormSection title="Address">
-        <Input.Wrapper label="Pincode" error={errs.pincode}>
-          <PincodeField value={form.pincode} onChange={v => set({ pincode: v })}
-            onResolved={r => set({ city: r.city, state: r.state })} />
+        <Input.Wrapper label="Pincode" error={form.errors.pincode}>
+          <PincodeField value={form.values.pincode} onChange={v => form.setFieldValue('pincode', v)}
+            onResolved={r => { form.setFieldValue('city', r.city); form.setFieldValue('state', r.state) }} />
         </Input.Wrapper>
-        <TextInput label="City" value={form.city} onChange={e => set({ city: e.currentTarget.value })} error={errs.city} />
-        <Input.Wrapper label="State" error={errs.state}>
-          <StateSelect value={form.state} onChange={v => set({ state: v })} />
+        <TextInput label="City" {...form.getInputProps('city')} />
+        <Input.Wrapper label="State" error={form.errors.state}>
+          <StateSelect value={form.values.state} onChange={v => form.setFieldValue('state', v)} />
         </Input.Wrapper>
-        <Textarea label="Address" autosize minRows={2} value={form.address} onChange={e => set({ address: e.currentTarget.value })} error={errs.address} />
+        <Textarea label="Address" autosize minRows={2} {...form.getInputProps('address')} />
       </FormSection>
     </FormPage>
   )
@@ -502,8 +529,8 @@ Expected: all green. Manual check (deferred to operator): a Suppliers nav item o
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/renderer/screens/Suppliers.tsx src/renderer/screens/SupplierForm.tsx src/renderer/routes.tsx src/renderer/components/Sidebar.tsx tests/renderer/sidebar.test.tsx
-git commit -m "feat: Suppliers list + form screens, route, and nav item"
+git add package.json package-lock.json src/renderer/screens/Suppliers.tsx src/renderer/screens/SupplierForm.tsx src/renderer/routes.tsx src/renderer/components/Sidebar.tsx tests/renderer/sidebar.test.tsx
+git commit -m "feat: Suppliers list + form (@mantine/form) screens, route, and nav item"
 ```
 
 ---
@@ -723,3 +750,8 @@ git commit -m "feat: purchase form — searchable supplier picker with read-only
 - Mantine `Select searchable` is the auto-suggest-by-name control (same as the sale's Buyer picker).
 - Do not change tax math, numbering, or stock draw-down. The supplier's `state` simply replaces the old free-text `party_state` as the place-of-supply input to `computeTax`.
 - The DB can be reset during development; no data preservation is required.
+- **`@mantine/form` adoption:** the Suppliers form (Task 3) uses `@mantine/form` per the
+  `mantine-form` skill. The existing forms (CustomerForm, PurchaseForm, FirstRun,
+  Settings) keep their manual `errs`/`valid` pattern in this sub-project; migrating them
+  to `@mantine/form` is a parked follow-up sub-project (E), so a transient mix of styles
+  is expected and intended. Task 5's PurchaseForm change stays on the manual pattern.
