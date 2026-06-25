@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Group, Button, Paper, Title, Text, List, Alert, Stack } from '@mantine/core'
 import type { Sale, Purchase, LedgerRow, Settings } from '@shared/types'
 import KpiCard from '../components/KpiCard'
 import PageHeader from '../components/PageHeader'
@@ -15,19 +16,14 @@ export default function Dashboard() {
 
   useEffect(() => { (async () => {
     try {
-      setSales(await window.api.listSales())
-      setPurchases(await window.api.listPurchases())
-      setLedger(await window.api.stockLedger())
-      setSettings(await window.api.getSettings())
-    } catch (e: any) {
-      setError('Could not load dashboard: ' + (e.message ?? e))
-    }
+      setSales(await window.api.listSales()); setPurchases(await window.api.listPurchases())
+      setLedger(await window.api.stockLedger()); setSettings(await window.api.getSettings())
+    } catch (e: any) { setError('Could not load dashboard: ' + (e.message ?? e)) }
   })() }, [])
 
   const month = today().slice(0, 7)
   const created = sales.filter(s => s.status === 'created')
-  const salesThisMonth = created.filter(s => (s.invoice_date ?? '').startsWith(month))
-  const salesTotal = salesThisMonth.reduce((a, s) => a + s.total_invoice_amount, 0)
+  const salesTotal = created.filter(s => (s.invoice_date ?? '').startsWith(month)).reduce((a, s) => a + s.total_invoice_amount, 0)
   const stockOnHand = ledger.reduce((a, r) => a + r.balance_kg, 0)
   const pendingSales = created.filter(s => s.payment_status === 'pending')
   const pendingPurchases = purchases.filter(p => p.payment_status === 'pending')
@@ -37,28 +33,28 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader title={`Welcome${settings?.seller_name ? `, ${settings.seller_name}` : ''}`} />
-      {error && <p className="error">{error}</p>}
-      <p style={{ color: 'var(--muted)' }}>{today()}</p>
-      <div className="row" style={{ marginBottom: 16 }}>
-        <button className="primary" style={{ fontSize: 22, padding: '18px 28px' }} onClick={() => nav('/sales/new')}>New sale</button>
-        <button style={{ fontSize: 22, padding: '18px 28px' }} onClick={() => nav('/purchases')}>New purchase</button>
-      </div>
-      <div className="row">
+      {error && <Alert color="red" mb="md">{error}</Alert>}
+      <Text c="dimmed" mb="md">{today()}</Text>
+      <Group mb="lg">
+        <Button size="lg" onClick={() => nav('/sales/new')}>New sale</Button>
+        <Button size="lg" variant="default" onClick={() => nav('/purchases/new')}>New purchase</Button>
+      </Group>
+      <Group align="stretch" mb="lg">
         <KpiCard label="Sales this month" value={formatINR(salesTotal)} />
         <KpiCard label="Stock on hand" value={`${stockOnHand} kg`} />
         <KpiCard label="Payments pending (sales)" value={String(pendingSales.length)} />
         <KpiCard label="Payments pending (purchases)" value={String(pendingPurchases.length)} />
-      </div>
-      <div className="panel">
-        <h2>Low stock</h2>
-        {lowLots.length === 0 ? <p>Nothing below {low} kg.</p> :
-          <ul>{lowLots.map(r => <li key={r.purchase_id}>{r.our_code} ({r.hsn_code}) — {r.balance_kg} kg</li>)}</ul>}
-      </div>
-      <div className="panel">
-        <h2>Pending sales payments</h2>
-        {pendingSales.length === 0 ? <p>All settled.</p> :
-          <ul>{pendingSales.map(s => <li key={s.id}>{s.invoice_number} — {s.buyer_name} — {formatINR(s.total_invoice_amount)}</li>)}</ul>}
-      </div>
+      </Group>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Title order={2} mb="sm">Low stock</Title>
+        {lowLots.length === 0 ? <Text>Nothing below {low} kg.</Text> :
+          <List>{lowLots.map(r => <List.Item key={r.purchase_id}>{r.our_code} ({r.hsn_code}) — {r.balance_kg} kg</List.Item>)}</List>}
+      </Paper>
+      <Paper withBorder p="lg" radius="md">
+        <Title order={2} mb="sm">Pending sales payments</Title>
+        {pendingSales.length === 0 ? <Text>All settled.</Text> :
+          <List>{pendingSales.map(s => <List.Item key={s.id}>{s.invoice_number} — {s.buyer_name} — {formatINR(s.total_invoice_amount)}</List.Item>)}</List>}
+      </Paper>
     </div>
   )
 }
