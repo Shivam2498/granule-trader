@@ -3,7 +3,7 @@ import {
   Container, Paper, Title, Divider, Group, TextInput, Textarea,
   Button, Alert, SimpleGrid, Input
 } from '@mantine/core'
-import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix } from '@shared/validation'
+import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin } from '@shared/validation'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
 
@@ -111,18 +111,11 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             label="GSTIN"
             withAsterisk
             value={gstin}
-            onChange={e => setGstin(e.currentTarget.value.toUpperCase())}
+            onChange={e => { setGstin(e.currentTarget.value.toUpperCase()); setPan(panFromGstin(e.currentTarget.value)) }}
             placeholder="24ABCDE1234F1Z5"
             error={gstin.length > 0 && !isGstin(gstin) ? 'GSTIN must be 15 characters, e.g. 24ABCDE1234F1Z5' : reqErr(gstin)}
           />
-          <TextInput
-            label="PAN"
-            withAsterisk
-            value={pan}
-            onChange={e => setPan(e.currentTarget.value.toUpperCase())}
-            placeholder="ABCDE1234F"
-            error={pan.length > 0 && !isPan(pan) ? 'PAN must be 10 characters, e.g. ABCDE1234F' : reqErr(pan)}
-          />
+          <TextInput label="PAN (from GSTIN)" disabled value={pan} placeholder="from GSTIN" />
           <Input.Wrapper
             label="Pincode"
             error={pincode.length > 0 && !isPincode(pincode) ? '6-digit pincode' : undefined}
