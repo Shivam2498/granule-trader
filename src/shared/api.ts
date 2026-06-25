@@ -13,14 +13,14 @@ export interface Api {
   nextPurchaseCode(date: string): Promise<string>
   createPurchase(input: NewPurchase): Promise<Purchase>
   updatePurchase(id: number, input: NewPurchase): Promise<Purchase>
-  listPurchases(): Promise<Purchase[]>
+  listPurchases(fyLabel?: string): Promise<Purchase[]>
   deletePurchase(id: number): Promise<void>
   // sales
   nextInvoiceNumber(date: string, prefix: string): Promise<string>
   listAvailableLots(asOfDate: string, excludeSaleId?: number): Promise<AvailableLot[]>
   createSale(input: NewSale): Promise<Sale>
   fillReservedSale(id: number, input: NewSale): Promise<Sale>
-  listSales(): Promise<Sale[]>
+  listSales(fyLabel?: string): Promise<Sale[]>
   getSaleWithAllocations(id: number): Promise<{ sale: Sale; allocations: SaleAllocation[] }>
   deleteSale(id: number): Promise<void>
   // stock
@@ -41,6 +41,8 @@ export interface Api {
   // hsn
   listHsn(): Promise<HsnProduct[]>
   upsertHsn(h: HsnProduct): Promise<void>
+  // financial years
+  listFinancialYears(): Promise<string[]>
 }
 declare global { interface Window { api: Api } }
 
@@ -49,5 +51,5 @@ export const CHANNELS = [
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
-  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn'
+  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','listFinancialYears'
 ] as const

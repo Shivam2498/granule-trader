@@ -10,6 +10,7 @@ import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from '.
 import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from './core/suppliers'
 import { listHsn, upsertHsn } from './core/reference'
 import { createBackup } from './core/backup'
+import { listFinancialYears } from './core/financial-year'
 import { join, dirname } from 'path'
 
 // CHANNELS lives in src/shared/api.ts (single source of truth, also imported by preload + the guard test).
@@ -44,14 +45,14 @@ export function registerIpc(ctx: IpcContext): void {
   h('nextPurchaseCode', (date) => nextPurchaseCode(db(), date))
   h('createPurchase', (input) => createPurchase(db(), input))
   h('updatePurchase', (id, input) => updatePurchase(db(), id, input))
-  h('listPurchases', () => listPurchases(db()))
+  h('listPurchases', (fyLabel) => listPurchases(db(), fyLabel))
   h('deletePurchase', (id) => deletePurchase(db(), id))
 
   h('nextInvoiceNumber', (date, prefix) => nextInvoiceNumber(db(), date, prefix))
   h('listAvailableLots', (asOfDate, excludeSaleId) => listAvailableLots(db(), asOfDate, { excludeSaleId }))
   h('createSale', (input) => createSale(db(), input))
   h('fillReservedSale', (id, input) => fillReservedSale(db(), id, input))
-  h('listSales', () => listSales(db()))
+  h('listSales', (fyLabel) => listSales(db(), fyLabel))
   h('getSaleWithAllocations', (id) => ({ sale: getSale(db(), id), allocations: getAllocations(db(), id) }))
   h('deleteSale', (id) => deleteSale(db(), id))
 
@@ -72,4 +73,6 @@ export function registerIpc(ctx: IpcContext): void {
 
   h('listHsn', () => listHsn(db()))
   h('upsertHsn', (hh) => upsertHsn(db(), hh))
+
+  h('listFinancialYears', () => listFinancialYears(db()))
 }
