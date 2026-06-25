@@ -4,7 +4,7 @@ import { TextInput, Textarea, Button, Input } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
-import { isGstin, isMobile, isPincode, panFromGstin } from '@shared/validation'
+import { isGstin, isMobile, isPincode, panFromGstin, VMSG } from '@shared/validation'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import StateSelect from '../components/StateSelect'
@@ -25,13 +25,13 @@ export default function SupplierForm() {
     initialValues: EMPTY,
     validateInputOnBlur: true,
     validate: {
-      name: isNotEmpty('Required'),
-      gstin: (v) => (isGstin(v) ? null : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)'),
-      phone: (v) => (isMobile(v) ? null : 'Enter a 10-digit phone number'),
-      city: isNotEmpty('Required'),
-      state: isNotEmpty('Required'),
-      address: isNotEmpty('Required'),
-      pincode: (v) => (isPincode(v) ? null : '6-digit pincode')
+      name: isNotEmpty('Enter the name.'),
+      gstin: (v) => (isGstin(v) ? null : VMSG.gstin),
+      phone: (v) => (isMobile(v) ? null : VMSG.phone),
+      city: isNotEmpty('Enter the city.'),
+      state: isNotEmpty('Choose the state.'),
+      address: isNotEmpty('Enter the address.'),
+      pincode: (v) => (isPincode(v) ? null : VMSG.pincode)
     }
   })
 

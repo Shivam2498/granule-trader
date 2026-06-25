@@ -25,7 +25,7 @@ export default function StockAdjust() {
 
   async function save() {
     setError('')
-    if (!adj.purchase_id || adj.qty_kg <= 0) { setError('Choose a lot and a quantity greater than 0.'); return }
+    if (!adj.purchase_id || adj.qty_kg <= 0) { setError('Please choose a lot and enter a quantity greater than 0.'); return }
     try {
       await window.api.createStockAdjustment({ purchase_id: adj.purchase_id, qty_kg: adj.qty_kg, reason: adj.reason, date: adj.date })
       setAdj({ purchase_id: null, qty_kg: 0, reason: REASONS[0], date: today() }); reload()

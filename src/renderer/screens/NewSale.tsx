@@ -12,7 +12,7 @@ import SignedMoneyInput from '../components/SignedMoneyInput'
 import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
-import { formatINR, today } from '../lib/format'
+import { formatINR, today, formatAddress } from '../lib/format'
 import { lotDrawError, saleFormError } from '../lib/sale-validation'
 
 interface Draw { include: boolean; qty: number; rate: number }
@@ -134,10 +134,7 @@ export default function NewSale() {
         {buyer && (
           <Paper withBorder p="sm" radius="sm" mb="xs" bg="var(--mantine-color-gray-0)">
             <Text size="sm">GSTIN: <Text component="span" fw={600}>{buyer.gstin || '—'}</Text></Text>
-            <Text size="sm">
-              Address: {[buyer.billing_address, buyer.billing_city, buyer.billing_state].filter(Boolean).join(', ')}
-              {buyer.billing_pincode ? ` — ${buyer.billing_pincode}` : ''}
-            </Text>
+            <Text size="sm">Address: {formatAddress({ address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode })}</Text>
             <Text size="sm">
               Place of supply: <Text component="span" fw={700}>{placeOfSupply || '—'}</Text> → {intra ? 'CGST + SGST' : 'IGST'}
             </Text>

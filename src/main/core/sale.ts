@@ -31,7 +31,7 @@ export function listSales(db: Database.Database): Sale[] {
 
 function writeSale(db: Database.Database, input: NewSale, existingReservedId: number | null): Sale {
   const parsed = parseInvoiceNumber(input.invoice_number)
-  if (!parsed) throw new Error(`Invoice number must look like RP/008/2024-25 (got "${input.invoice_number}")`)
+  if (!parsed) throw new Error(`Please enter the invoice number in the format RP/008/2024-25.`)
   const { prefix, seq, fyLabel } = parsed
 
   const order = validateInvoiceOrder(db, { fyLabel, seq, invoiceDate: input.invoice_date, excludeSaleId: existingReservedId ?? undefined })
@@ -43,7 +43,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
     const lot = avail.get(line.purchase_id)
     const have = lot?.available_kg ?? 0
     if (round2(line.qty_drawn_kg) > have)
-      throw new Error(`Lot ${lot?.our_code ?? line.purchase_id} only has ${have} kg left as of ${input.invoice_date}`)
+      throw new Error(`Lot ${lot?.our_code ?? line.purchase_id} only has ${have} kg available on ${input.invoice_date}.`)
   }
 
   const tax = computeSaleTax({

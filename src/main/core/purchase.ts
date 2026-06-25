@@ -82,10 +82,10 @@ export function listPurchases(db: Database.Database): Purchase[] {
 
 export function updatePurchase(db: Database.Database, id: number, input: NewPurchase): Purchase {
   const existing = getPurchase(db, id)
-  if (!existing) throw new Error('Purchase not found')
+  if (!existing) throw new Error(`We couldn't find that purchase.`)
   const consumed = round2(existing.qty_kg - existing.qty_remaining_kg)
   if (round2(input.qty_kg) < consumed)
-    throw new Error(`Quantity cannot be below ${consumed} kg already drawn from this lot`)
+    throw new Error(`You've already sold ${consumed} kg from this lot, so the quantity can't be less than that.`)
   const fy = financialYear(input.invoice_date)
   const tax = computeTax({
     amount: derivedAmount(input), gstRate: input.gst_rate,
@@ -115,7 +115,7 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
 
 export function deletePurchase(db: Database.Database, id: number): void {
   const used = db.prepare('SELECT COUNT(*) AS c FROM sale_allocations WHERE purchase_id = ?').get(id) as { c: number }
-  if (used.c > 0) throw new Error('Cannot delete: this lot is used by one or more sales. Delete those sales first.')
+  if (used.c > 0) throw new Error('This lot is used in one or more sales. Please delete those sales first.')
   db.prepare('DELETE FROM stock_adjustments WHERE purchase_id = ?').run(id)
   db.prepare('DELETE FROM purchases WHERE id = ?').run(id)
 }

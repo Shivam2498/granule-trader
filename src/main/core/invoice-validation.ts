@@ -24,8 +24,8 @@ export function validateInvoiceOrder(
     ORDER BY seq ASC LIMIT 1`).get(opts.fyLabel, opts.seq, exclude) as { invoice_date: string } | undefined
 
   if (prev && opts.invoiceDate < prev.invoice_date)
-    return { ok: false, message: `Date must be on or after ${prev.invoice_date} to keep invoice order valid` }
+    return { ok: false, message: `Pick a date on or after ${prev.invoice_date} so invoices stay in order.` }
   if (next && opts.invoiceDate > next.invoice_date)
-    return { ok: false, message: `Date must be on or before ${next.invoice_date} to keep invoice order valid` }
+    return { ok: false, message: `Pick a date on or before ${next.invoice_date} so invoices stay in order.` }
   return { ok: true }
 }

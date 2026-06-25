@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TextInput, Textarea, Checkbox, Button, Input } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Customer } from '@shared/types'
-import { isGstin, isMobile, isPincode, panFromGstin } from '@shared/validation'
+import { isGstin, isMobile, isPincode, panFromGstin, VMSG } from '@shared/validation'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import StateSelect from '../components/StateSelect'
@@ -32,25 +32,25 @@ export default function CustomerForm() {
   }, [editId])
 
   const errs: Record<string, string> = {
-    name: form.name.trim() ? '' : 'Required',
-    gstin: isGstin(form.gstin) ? '' : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)',
-    phone: isMobile(form.phone) ? '' : 'Enter a 10-digit phone number',
-    billing_city: form.billing_city.trim() ? '' : 'Required',
-    billing_state: form.billing_state.trim() ? '' : 'Required',
-    billing_pincode: isPincode(form.billing_pincode) ? '' : '6-digit pincode',
-    billing_address: form.billing_address.trim() ? '' : 'Required',
+    name: form.name.trim() ? '' : 'Enter the name.',
+    gstin: isGstin(form.gstin) ? '' : VMSG.gstin,
+    phone: isMobile(form.phone) ? '' : VMSG.phone,
+    billing_city: form.billing_city.trim() ? '' : 'Enter the city.',
+    billing_state: form.billing_state.trim() ? '' : 'Choose the state.',
+    billing_pincode: isPincode(form.billing_pincode) ? '' : VMSG.pincode,
+    billing_address: form.billing_address.trim() ? '' : 'Enter the address.',
     ...(form.shipping_same ? {} : {
-      shipping_address: form.shipping_address.trim() ? '' : 'Required',
-      shipping_city: form.shipping_city.trim() ? '' : 'Required',
-      shipping_state: form.shipping_state.trim() ? '' : 'Required',
-      shipping_pincode: isPincode(form.shipping_pincode) ? '' : '6-digit pincode'
+      shipping_address: form.shipping_address.trim() ? '' : 'Enter the shipping address.',
+      shipping_city: form.shipping_city.trim() ? '' : 'Enter the shipping city.',
+      shipping_state: form.shipping_state.trim() ? '' : 'Choose the shipping state.',
+      shipping_pincode: isPincode(form.shipping_pincode) ? '' : VMSG.pincode
     })
   }
   const valid = Object.values(errs).every(e => e === '')
 
   async function save() {
     setError('')
-    if (!valid) { setError('Please fix the highlighted fields.'); return }
+    if (!valid) { setError('Please fix the highlighted fields below.'); return }
     try {
       const payload = { ...form, gstin: form.gstin.toUpperCase(), pan: form.pan.toUpperCase() }
       if (editId) await window.api.updateCustomer(editId, payload); else await window.api.createCustomer(payload)

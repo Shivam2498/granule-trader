@@ -12,9 +12,9 @@ export function createStockAdjustment(
 ): void {
   const tx = db.transaction(() => {
     const lot = db.prepare('SELECT qty_remaining_kg FROM purchases WHERE id = ?').get(input.purchase_id) as { qty_remaining_kg: number } | undefined
-    if (!lot) throw new Error('Lot not found')
+    if (!lot) throw new Error(`We couldn't find that stock lot.`)
     if (round2(input.qty_kg) > lot.qty_remaining_kg)
-      throw new Error(`This lot only has ${lot.qty_remaining_kg} kg left`)
+      throw new Error(`This lot only has ${lot.qty_remaining_kg} kg available.`)
     db.prepare('INSERT INTO stock_adjustments (purchase_id, qty_kg, reason, date) VALUES (?, ?, ?, ?)')
       .run(input.purchase_id, round2(input.qty_kg), input.reason, input.date)
     db.prepare('UPDATE purchases SET qty_remaining_kg = round(qty_remaining_kg - ?, 2) WHERE id = ?')
