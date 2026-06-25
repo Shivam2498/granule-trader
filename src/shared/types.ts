@@ -103,6 +103,8 @@ export interface Settings {
   seller_gstin: string
   seller_pan: string
   seller_phone: string
+  seller_city: string
+  seller_pincode: string
   home_state: string
   invoice_prefix: string
   default_gst_rate: number
