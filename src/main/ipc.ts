@@ -7,6 +7,7 @@ import { listAvailableLots } from './core/available-lots'
 import { createSale, fillReservedSale, listSales, getSale, getAllocations, deleteSale } from './core/sale'
 import { stockLedger, createStockAdjustment, listAdjustments, deleteAdjustment } from './core/adjustment'
 import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from './core/customers'
+import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from './core/suppliers'
 import { listHsn, upsertHsn } from './core/reference'
 import { createBackup } from './core/backup'
 import { join, dirname } from 'path'
@@ -63,6 +64,11 @@ export function registerIpc(ctx: IpcContext): void {
   h('createCustomer', (c) => createCustomer(db(), c))
   h('updateCustomer', (id, c) => updateCustomer(db(), id, c))
   h('deleteCustomer', (id) => deleteCustomer(db(), id))
+
+  h('listSuppliers', (search) => listSuppliers(db(), search))
+  h('createSupplier', (s) => createSupplier(db(), s))
+  h('updateSupplier', (id, s) => updateSupplier(db(), id, s))
+  h('deleteSupplier', (id) => deleteSupplier(db(), id))
 
   h('listHsn', () => listHsn(db()))
   h('upsertHsn', (hh) => upsertHsn(db(), hh))
