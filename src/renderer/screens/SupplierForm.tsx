@@ -4,7 +4,8 @@ import { TextInput, Textarea, Button, Input } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
-import { isGstin, isMobile, isPincode, panFromGstin, VMSG } from '@shared/validation'
+import { panFromGstin } from '@shared/validation'
+import { vGstin, vPhone, vPincode } from '../lib/formValidators'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import StateSelect from '../components/StateSelect'
@@ -26,12 +27,12 @@ export default function SupplierForm() {
     validateInputOnBlur: true,
     validate: {
       name: isNotEmpty('Enter the name.'),
-      gstin: (v) => (isGstin(v) ? null : VMSG.gstin),
-      phone: (v) => (isMobile(v) ? null : VMSG.phone),
+      gstin: vGstin,
+      phone: vPhone,
       city: isNotEmpty('Enter the city.'),
       state: isNotEmpty('Choose the state.'),
       address: isNotEmpty('Enter the address.'),
-      pincode: (v) => (isPincode(v) ? null : VMSG.pincode)
+      pincode: vPincode
     }
   })
 

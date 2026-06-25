@@ -3,53 +3,45 @@ import {
   Container, Paper, Title, Divider, Group, TextInput, Textarea,
   Button, Alert, SimpleGrid, Input
 } from '@mantine/core'
-import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin, VMSG } from '@shared/validation'
+import { useForm, isNotEmpty } from '@mantine/form'
+import { deriveInvoicePrefix, panFromGstin } from '@shared/validation'
+import { vGstin, vPhone, vPincode } from '../lib/formValidators'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
 
 export default function FirstRun({ onDone }: { onDone: () => void }) {
-  const [folder, setFolder] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [prefix, setPrefix] = useState('')
   const [prefixEdited, setPrefixEdited] = useState(false)
-  const [gstin, setGstin] = useState('')
-  const [pan, setPan] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [homeState, setHomeState] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [pincode, setPincode] = useState('')
   const [error, setError] = useState('')
-  const [attempted, setAttempted] = useState(false)
+
+  const form = useForm({
+    mode: 'controlled',
+    initialValues: { folder: '', name: '', prefix: '', gstin: '', pan: '', mobile: '', homeState: '', address: '', city: '', pincode: '' },
+    validate: {
+      folder: (v) => v ? null : 'Choose a data folder.',
+      name: isNotEmpty('Enter the business name.'),
+      prefix: isNotEmpty('Enter the invoice prefix.'),
+      mobile: vPhone,
+      gstin: vGstin,
+      homeState: isNotEmpty('Choose the home state.'),
+      pincode: (v) => !v ? null : vPincode(v)
+    }
+  })
+
+  async function pick() { const f = await window.api.chooseDataFolder(); if (f) form.setFieldValue('folder', f) }
 
   function setBusinessName(v: string) {
-    setName(v)
-    if (!prefixEdited) setPrefix(deriveInvoicePrefix(v))
+    form.setFieldValue('name', v)
+    if (!prefixEdited) form.setFieldValue('prefix', deriveInvoicePrefix(v))
   }
-  async function pick() { const f = await window.api.chooseDataFolder(); if (f) setFolder(f) }
 
-  const valid =
-    !!folder && name.trim().length > 0 && isGstin(gstin) && isPan(pan) &&
-    isMobile(mobile) && homeState.trim().length > 0 && prefix.trim().length > 0 &&
-    (pincode === '' || isPincode(pincode))
-
-  // An empty required field shows "Enter the <field>." once the user has tried to submit; a
-  // filled-but-invalid field shows its format message immediately. This tells you what's missing.
-  const reqErr = (v: string, what: string) => (attempted && !v.trim() ? `Enter the ${what}.` : undefined)
-
-  async function start() {
+  async function start(v: typeof form.values) {
     setError('')
-    if (!valid) {
-      setAttempted(true)
-      setError('Please fix the highlighted fields below.')
-      return
-    }
     try {
       await window.api.saveSettings({
-        seller_name: name.trim(), seller_gstin: gstin.trim().toUpperCase(), seller_pan: pan.trim().toUpperCase(),
-        seller_phone: mobile.trim(), seller_address: address.trim(),
-        seller_city: city.trim(), seller_pincode: pincode.trim(), home_state: homeState,
-        invoice_prefix: prefix.trim().toUpperCase()
+        seller_name: v.name.trim(), seller_gstin: v.gstin.trim().toUpperCase(), seller_pan: v.pan.trim().toUpperCase(),
+        seller_phone: v.mobile.trim(), seller_address: v.address.trim(),
+        seller_city: v.city.trim(), seller_pincode: v.pincode.trim(), home_state: v.homeState,
+        invoice_prefix: v.prefix.trim().toUpperCase()
       })
       onDone()
     } catch (e: any) { setError(e.message ?? String(e)) }
@@ -70,9 +62,9 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
           <TextInput
             style={{ flex: 1 }}
             disabled
-            value={folder ?? ''}
+            value={form.values.folder}
             placeholder="Choose a folder for your data file…"
-            error={attempted && !folder ? 'Choose a data folder' : undefined}
+            error={form.errors.folder}
           />
           <Button onClick={pick}>Choose…</Button>
         </Group>
@@ -86,66 +78,66 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
           <TextInput
             label="Business name"
             withAsterisk
-            value={name}
+            value={form.values.name}
             onChange={e => setBusinessName(e.currentTarget.value)}
             placeholder="e.g. Ramaxton Plastocrafts"
-            error={reqErr(name, 'business name')}
+            error={form.errors.name}
             style={{ gridColumn: 'span 2' }}
           />
           <TextInput
             label="Invoice prefix (auto from name, editable)"
             withAsterisk
-            value={prefix}
-            onChange={e => { setPrefix(e.currentTarget.value.toUpperCase()); setPrefixEdited(true) }}
-            error={reqErr(prefix, 'invoice prefix')}
+            value={form.values.prefix}
+            onChange={e => { form.setFieldValue('prefix', e.currentTarget.value.toUpperCase()); setPrefixEdited(true) }}
+            error={form.errors.prefix}
           />
           <TextInput
             label="Mobile"
             withAsterisk
-            value={mobile}
-            onChange={e => setMobile(e.currentTarget.value.replace(/\D/g, '').slice(0, 10))}
+            value={form.values.mobile}
+            onChange={e => form.setFieldValue('mobile', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))}
             placeholder="10 digits"
-            error={mobile.length > 0 && !isMobile(mobile) ? VMSG.phone : reqErr(mobile, 'mobile number')}
+            error={form.errors.mobile}
           />
           <TextInput
             label="GSTIN"
             withAsterisk
-            value={gstin}
-            onChange={e => { setGstin(e.currentTarget.value.toUpperCase()); setPan(panFromGstin(e.currentTarget.value)) }}
+            value={form.values.gstin}
+            onChange={e => { const v = e.currentTarget.value.toUpperCase(); form.setFieldValue('gstin', v); form.setFieldValue('pan', panFromGstin(v)) }}
             placeholder="24ABCDE1234F1Z5"
-            error={gstin.length > 0 && !isGstin(gstin) ? VMSG.gstin : reqErr(gstin, 'GSTIN')}
+            error={form.errors.gstin}
           />
-          <TextInput label="PAN (from GSTIN)" disabled value={pan} placeholder="from GSTIN" />
+          <TextInput label="PAN (from GSTIN)" disabled value={form.values.pan} placeholder="from GSTIN" />
           <Input.Wrapper
             label="Pincode"
-            error={pincode.length > 0 && !isPincode(pincode) ? VMSG.pincode : undefined}
+            error={form.errors.pincode}
           >
             <PincodeField
-              value={pincode}
-              onChange={setPincode}
-              onResolved={r => { setCity(r.city); setHomeState(r.state) }}
+              value={form.values.pincode}
+              onChange={v => form.setFieldValue('pincode', v)}
+              onResolved={r => { form.setFieldValue('city', r.city); form.setFieldValue('homeState', r.state) }}
             />
           </Input.Wrapper>
           <TextInput
             label="City"
-            value={city}
-            onChange={e => setCity(e.currentTarget.value)}
+            value={form.values.city}
+            onChange={e => form.setFieldValue('city', e.currentTarget.value)}
           />
           <Textarea
             label="Street address"
             autosize
             minRows={2}
-            value={address}
-            onChange={e => setAddress(e.currentTarget.value)}
+            value={form.values.address}
+            onChange={e => form.setFieldValue('address', e.currentTarget.value)}
             style={{ gridColumn: 'span 2' }}
           />
-          <Input.Wrapper label="Home state (for tax)" withAsterisk error={reqErr(homeState, 'home state')}>
-            <StateSelect value={homeState} onChange={setHomeState} />
+          <Input.Wrapper label="Home state (for tax)" withAsterisk error={form.errors.homeState}>
+            <StateSelect value={form.values.homeState} onChange={v => form.setFieldValue('homeState', v)} />
           </Input.Wrapper>
         </SimpleGrid>
 
         <Group justify="flex-end" mt="md">
-          <Button onClick={start}>Start using Granule Trader</Button>
+          <Button onClick={() => form.onSubmit(start)()}>Start using Granule Trader</Button>
         </Group>
       </Paper>
     </Container>
