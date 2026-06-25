@@ -57,3 +57,15 @@ describe('updatePurchase', () => {
       .toThrow(/below 600/)
   })
 })
+
+describe('rate-driven amount', () => {
+  it('derives amount from quantity x rate and stores rate + address', () => {
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01',
+      qty_kg: 1000, rate_per_kg: 50, party_city: 'Surat', party_pincode: '395003', party_address: 'GIDC' })
+    expect(p.amount).toBe(50000)            // 1000 * 50
+    expect(p.rate_per_kg).toBe(50)
+    expect(p.party_city).toBe('Surat')
+    expect(p.cgst).toBe(4500)               // 9% of 50000 intra-state
+    expect(p.total_invoice_amount).toBe(59000)
+  })
+})

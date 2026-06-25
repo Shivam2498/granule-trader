@@ -8,9 +8,13 @@ export interface Purchase {
   invoice_date: string          // 'YYYY-MM-DD'
   party: string
   party_state: string
+  party_city: string
+  party_pincode: string
+  party_address: string
   hsn_code: string
   qty_kg: number
   qty_remaining_kg: number
+  rate_per_kg: number
   amount: number
   cgst: number
   sgst: number

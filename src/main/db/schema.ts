@@ -36,9 +36,13 @@ CREATE TABLE IF NOT EXISTS purchases (
   invoice_date TEXT NOT NULL,
   party TEXT NOT NULL DEFAULT '',
   party_state TEXT NOT NULL DEFAULT '',
+  party_city TEXT NOT NULL DEFAULT '',
+  party_pincode TEXT NOT NULL DEFAULT '',
+  party_address TEXT NOT NULL DEFAULT '',
   hsn_code TEXT NOT NULL DEFAULT '',
   qty_kg REAL NOT NULL,
   qty_remaining_kg REAL NOT NULL,
+  rate_per_kg REAL NOT NULL DEFAULT 0,
   amount REAL NOT NULL DEFAULT 0,
   cgst REAL NOT NULL DEFAULT 0,
   sgst REAL NOT NULL DEFAULT 0,
@@ -125,4 +129,14 @@ function migrate(db: Database.Database): void {
   // Backfill pre-existing allocations from their purchase's HSN + that HSN's rate (fallback 18)
   db.exec(`UPDATE sale_allocations SET hsn_code = COALESCE((SELECT p.hsn_code FROM purchases p WHERE p.id = sale_allocations.purchase_id), '') WHERE hsn_code = ''`)
   db.exec(`UPDATE sale_allocations SET gst_rate = COALESCE((SELECT h.gst_rate FROM hsn_products h JOIN purchases p ON p.hsn_code = h.hsn_code WHERE p.id = sale_allocations.purchase_id), 18) WHERE gst_rate = 0`)
+  for (const [col, ddl] of [
+    ['rate_per_kg', `ALTER TABLE purchases ADD COLUMN rate_per_kg REAL NOT NULL DEFAULT 0`],
+    ['party_city', `ALTER TABLE purchases ADD COLUMN party_city TEXT NOT NULL DEFAULT ''`],
+    ['party_pincode', `ALTER TABLE purchases ADD COLUMN party_pincode TEXT NOT NULL DEFAULT ''`],
+    ['party_address', `ALTER TABLE purchases ADD COLUMN party_address TEXT NOT NULL DEFAULT ''`]
+  ] as const) {
+    if (!hasColumn(db, 'purchases', col)) db.exec(ddl)
+  }
+  // Backfill a rate for legacy purchases that have an amount but no rate
+  db.exec(`UPDATE purchases SET rate_per_kg = round(amount / qty_kg, 2) WHERE rate_per_kg = 0 AND qty_kg > 0 AND amount > 0`)
 }

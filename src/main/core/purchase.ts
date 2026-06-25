@@ -7,7 +7,8 @@ import { round2 } from './money'
 export interface NewPurchase {
   our_code: string; supplier_invoice_number: string; invoice_date: string
   party: string; party_state: string; hsn_code: string
-  qty_kg: number; amount: number; gst_rate: number; homeState: string
+  party_city?: string; party_pincode?: string; party_address?: string
+  qty_kg: number; rate_per_kg?: number; amount?: number; gst_rate: number; homeState: string
   igst_manual?: number; tcs?: number; roundoff?: number
   payment_status?: 'pending' | 'done'; payment_date?: string | null
 }
@@ -26,6 +27,12 @@ export function nextPurchaseCode(db: Database.Database, date: string): string {
   return `${String(next).padStart(4, '0')}/${fy.code}`
 }
 
+function derivedAmount(input: NewPurchase): number {
+  return input.rate_per_kg && input.rate_per_kg > 0
+    ? round2(input.qty_kg * input.rate_per_kg)
+    : round2(input.amount ?? 0)
+}
+
 function ensureHsn(db: Database.Database, hsn: string, rate: number): void {
   if (!hsn) return
   db.prepare('INSERT OR IGNORE INTO hsn_products (hsn_code, description, gst_rate) VALUES (?, ?, ?)').run(hsn, '', rate)
@@ -34,21 +41,26 @@ function ensureHsn(db: Database.Database, hsn: string, rate: number): void {
 export function createPurchase(db: Database.Database, input: NewPurchase): Purchase {
   const fy = financialYear(input.invoice_date)
   const tax = computeTax({
-    amount: input.amount, gstRate: input.gst_rate,
+    amount: derivedAmount(input), gstRate: input.gst_rate,
     placeOfSupplyState: input.party_state, homeState: input.homeState,
     tcs: input.tcs, roundoff: input.roundoff
   })
   ensureHsn(db, input.hsn_code, input.gst_rate)
   const info = db.prepare(`
     INSERT INTO purchases (our_code, supplier_invoice_number, invoice_date, party, party_state, hsn_code,
-      qty_kg, qty_remaining_kg, amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount,
+      party_city, party_pincode, party_address,
+      qty_kg, qty_remaining_kg, rate_per_kg, amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount,
       payment_status, payment_date, fy_label, code_seq)
     VALUES (@our_code, @supplier_invoice_number, @invoice_date, @party, @party_state, @hsn_code,
-      @qty_kg, @qty_remaining_kg, @amount, @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount,
+      @party_city, @party_pincode, @party_address,
+      @qty_kg, @qty_remaining_kg, @rate_per_kg, @amount, @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount,
       @payment_status, @payment_date, @fy_label, @code_seq)`).run({
     our_code: input.our_code, supplier_invoice_number: input.supplier_invoice_number,
     invoice_date: input.invoice_date, party: input.party, party_state: input.party_state,
-    hsn_code: input.hsn_code, qty_kg: round2(input.qty_kg), qty_remaining_kg: round2(input.qty_kg),
+    hsn_code: input.hsn_code,
+    party_city: input.party_city ?? '', party_pincode: input.party_pincode ?? '', party_address: input.party_address ?? '',
+    rate_per_kg: round2(input.rate_per_kg ?? 0),
+    qty_kg: round2(input.qty_kg), qty_remaining_kg: round2(input.qty_kg),
     amount: tax.taxable_amount, cgst: tax.cgst, sgst: tax.sgst,
     igst: input.igst_manual != null ? round2(input.igst_manual) : tax.igst,
     tcs: tax.tcs, roundoff: tax.roundoff, total_invoice_amount: tax.total,
@@ -74,17 +86,21 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
     throw new Error(`Quantity cannot be below ${consumed} kg already drawn from this lot`)
   const fy = financialYear(input.invoice_date)
   const tax = computeTax({
-    amount: input.amount, gstRate: input.gst_rate,
+    amount: derivedAmount(input), gstRate: input.gst_rate,
     placeOfSupplyState: input.party_state, homeState: input.homeState,
     tcs: input.tcs, roundoff: input.roundoff
   })
   ensureHsn(db, input.hsn_code, input.gst_rate)
   db.prepare(`UPDATE purchases SET our_code=@our_code, supplier_invoice_number=@sin, invoice_date=@d,
-    party=@party, party_state=@ps, hsn_code=@hsn, qty_kg=@qty, qty_remaining_kg=@rem, amount=@amt,
+    party=@party, party_state=@ps, hsn_code=@hsn,
+    party_city=@pc, party_pincode=@pp, party_address=@pa, rate_per_kg=@rpk,
+    qty_kg=@qty, qty_remaining_kg=@rem, amount=@amt,
     cgst=@cgst, sgst=@sgst, igst=@igst, tcs=@tcs, roundoff=@ro, total_invoice_amount=@tot,
     payment_status=@pst, payment_date=@pd, fy_label=@fy, code_seq=@seq WHERE id=@id`).run({
     id, our_code: input.our_code, sin: input.supplier_invoice_number, d: input.invoice_date,
     party: input.party, ps: input.party_state, hsn: input.hsn_code, qty: round2(input.qty_kg),
+    pc: input.party_city ?? existing.party_city, pp: input.party_pincode ?? existing.party_pincode,
+    pa: input.party_address ?? existing.party_address, rpk: round2(input.rate_per_kg ?? 0),
     rem: round2(round2(input.qty_kg) - consumed), amt: tax.taxable_amount, cgst: tax.cgst, sgst: tax.sgst,
     igst: input.igst_manual != null ? round2(input.igst_manual) : tax.igst, tcs: tax.tcs, ro: tax.roundoff,
     tot: tax.total, pst: input.payment_status ?? existing.payment_status, pd: input.payment_date ?? existing.payment_date,
