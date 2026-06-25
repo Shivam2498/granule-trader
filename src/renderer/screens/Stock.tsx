@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Paper, Button, Alert, Group, Table } from '@mantine/core'
+import { Paper, Button, Alert, Group, Table, Text } from '@mantine/core'
 import type { LedgerRow, Settings } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
@@ -22,6 +22,7 @@ export default function Stock() {
         <Button onClick={() => nav('/stock/adjust')}>Adjust stock</Button>
       </Group>} />
       {error && <Alert color="red" mb="md">{error}</Alert>}
+      <Text c="dimmed" mb="md">Current stock on hand — all years (stock carries forward across financial years).</Text>
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>HSN</Table.Th><Table.Th>Lot</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th ta="right">In</Table.Th><Table.Th ta="right">Consumed</Table.Th><Table.Th ta="right">Balance</Table.Th><Table.Th ta="right">Running</Table.Th></>}>
           {rows.map(r => {

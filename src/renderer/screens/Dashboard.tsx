@@ -5,9 +5,11 @@ import type { Sale, Purchase, LedgerRow, Settings } from '@shared/types'
 import KpiCard from '../components/KpiCard'
 import PageHeader from '../components/PageHeader'
 import { formatINR, today } from '../lib/format'
+import { useFY } from '../fy'
 
 export default function Dashboard() {
   const nav = useNavigate()
+  const { fy } = useFY()
   const [sales, setSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [ledger, setLedger] = useState<LedgerRow[]>([])
@@ -16,14 +18,13 @@ export default function Dashboard() {
 
   useEffect(() => { (async () => {
     try {
-      setSales(await window.api.listSales()); setPurchases(await window.api.listPurchases())
+      setSales(await window.api.listSales(fy)); setPurchases(await window.api.listPurchases(fy))
       setLedger(await window.api.stockLedger()); setSettings(await window.api.getSettings())
     } catch (e: any) { setError('Could not load dashboard: ' + (e.message ?? e)) }
-  })() }, [])
+  })() }, [fy])
 
-  const month = today().slice(0, 7)
   const created = sales.filter(s => s.status === 'created')
-  const salesTotal = created.filter(s => (s.invoice_date ?? '').startsWith(month)).reduce((a, s) => a + s.total_invoice_amount, 0)
+  const salesTotal = created.reduce((a, s) => a + s.total_invoice_amount, 0)
   const stockOnHand = ledger.reduce((a, r) => a + r.balance_kg, 0)
   const pendingSales = created.filter(s => s.payment_status === 'pending')
   const pendingPurchases = purchases.filter(p => p.payment_status === 'pending')
@@ -40,7 +41,7 @@ export default function Dashboard() {
         <Button size="lg" variant="default" onClick={() => nav('/purchases/new')}>New purchase</Button>
       </Group>
       <Group align="stretch" mb="lg">
-        <KpiCard label="Sales this month" value={formatINR(salesTotal)} />
+        <KpiCard label={`Sales · ${fy}`} value={formatINR(salesTotal)} />
         <KpiCard label="Stock on hand" value={`${stockOnHand} kg`} />
         <KpiCard label="Payments pending (sales)" value={String(pendingSales.length)} />
         <KpiCard label="Payments pending (purchases)" value={String(pendingPurchases.length)} />
