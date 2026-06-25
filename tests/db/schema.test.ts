@@ -48,4 +48,15 @@ describe('schema', () => {
     expect(row.rate_per_kg).toBe(50)   // 5000 / 100 backfilled
     db.close()
   })
+
+  it('migration is idempotent across repeated initSchema calls', () => {
+    const db = new Database(':memory:')
+    db.exec(`CREATE TABLE purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, our_code TEXT, supplier_invoice_number TEXT, invoice_date TEXT, party TEXT, party_state TEXT, hsn_code TEXT, qty_kg REAL, qty_remaining_kg REAL, amount REAL, cgst REAL, sgst REAL, igst REAL, tcs REAL, roundoff REAL, total_invoice_amount REAL, payment_status TEXT, payment_date TEXT, fy_label TEXT, code_seq INTEGER, created_at TEXT)`)
+    db.prepare(`INSERT INTO purchases (qty_kg, amount, fy_label, code_seq, invoice_date, qty_remaining_kg) VALUES (100, 5000, '2024-25', 1, '2024-05-01', 100)`).run()
+    initSchema(db)
+    initSchema(db)   // must not throw (columns already added) and must not change the backfilled rate
+    const row = db.prepare('SELECT rate_per_kg FROM purchases WHERE id = 1').get() as { rate_per_kg: number }
+    expect(row.rate_per_kg).toBe(50)
+    db.close()
+  })
 })

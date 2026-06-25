@@ -37,7 +37,7 @@ export default function PurchaseForm() {
           our_code: p.our_code, supplier_invoice_number: p.supplier_invoice_number, invoice_date: p.invoice_date,
           party: p.party, party_state: p.party_state, party_city: p.party_city, party_pincode: p.party_pincode, party_address: p.party_address,
           hsn_code: p.hsn_code, qty_kg: p.qty_kg,
-          rate_per_kg: p.rate_per_kg > 0 ? p.rate_per_kg : (p.qty_kg > 0 ? Math.round((p.amount / p.qty_kg) * 100) / 100 : 0),
+          rate_per_kg: p.rate_per_kg > 0 ? p.rate_per_kg : (p.qty_kg > 0 ? round2(p.amount / p.qty_kg) : 0),
           roundoff: p.roundoff, tcs: p.tcs, payment_status: p.payment_status, payment_date: p.payment_date ?? ''
         })
       }
