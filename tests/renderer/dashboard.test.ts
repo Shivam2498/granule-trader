@@ -65,6 +65,23 @@ describe('receivables', () => {
     expect(r.buckets).toEqual({ b0_30: 100, b31_60: 200, b60plus: 300 })
     expect(r.overdue.map(o => o.sale.id)).toEqual([3, 2, 1])  // oldest first
   })
+
+  it('places aging-bucket boundary days in the correct bucket', () => {
+    // today − invoice_date semantics, today = '2026-06-13':
+    //   '2026-05-14' → 30 days (boundary into b0_30)
+    //   '2026-04-14' → 60 days (boundary into b31_60)
+    //   '2026-04-13' → 61 days (first day of b60plus)
+    const sales = [
+      sale({ id: 1, invoice_date: '2026-05-14', total_invoice_amount: 100 }),  // exactly 30 → b0_30
+      sale({ id: 2, invoice_date: '2026-04-14', total_invoice_amount: 200 }),  // exactly 60 → b31_60
+      sale({ id: 3, invoice_date: '2026-04-13', total_invoice_amount: 300 }),  // 61 → b60plus
+    ]
+    const r = receivables(sales, '2026-06-13')
+    expect(r.overdue.find(o => o.sale.id === 1)!.daysOld).toBe(30)
+    expect(r.overdue.find(o => o.sale.id === 2)!.daysOld).toBe(60)
+    expect(r.overdue.find(o => o.sale.id === 3)!.daysOld).toBe(61)
+    expect(r.buckets).toEqual({ b0_30: 100, b31_60: 200, b60plus: 300 })
+  })
 })
 
 describe('payables', () => {
@@ -78,6 +95,13 @@ describe('payables', () => {
     const p = payables(purchases, '2026-06-13')
     expect(p.total).toBe(600)
     expect(p.due.map(d => d.id)).toEqual([3])
+  })
+
+  it('counts a purchase aged exactly 3 days as the first day that IS due', () => {
+    // today − invoice_date = 3, strict >2 → due
+    const purchases = [purchase({ id: 7, invoice_date: '2026-06-10', total_invoice_amount: 100 })]
+    const p = payables(purchases, '2026-06-13')
+    expect(p.due.map(d => d.id)).toEqual([7])
   })
 })
 
@@ -97,5 +121,13 @@ describe('monthDelta', () => {
     ]
     expect(monthDelta(sales, '2026-06-20')).toEqual({ current: 150, previous: 100, pct: 50 })
     expect(monthDelta([sale({ invoice_date: '2026-06-05', total_invoice_amount: 150 })], '2026-06-20').pct).toBeNull()
+  })
+
+  it('wraps the previous month to the prior year at the January boundary', () => {
+    const sales = [
+      sale({ invoice_date: '2026-01-10', total_invoice_amount: 150 }),  // current → Jan 2026
+      sale({ invoice_date: '2025-12-10', total_invoice_amount: 100 }),  // previous → Dec 2025
+    ]
+    expect(monthDelta(sales, '2026-01-15')).toEqual({ current: 150, previous: 100, pct: 50 })
   })
 })
