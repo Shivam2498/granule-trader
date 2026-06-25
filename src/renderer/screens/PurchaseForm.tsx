@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { HsnProduct, Settings } from '@shared/types'
 import { computeTax } from '@shared/tax'
 import { isPincode } from '@shared/validation'
+import { round2 } from '@shared/money'
 import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
 import StateSelect from '../components/StateSelect'
@@ -48,7 +49,7 @@ export default function PurchaseForm() {
 
   if (!settings) return <FormPage title="Purchase" onBack={() => nav('/purchases')} footer={null}><p>Loading…</p></FormPage>
 
-  const amount = Math.round((form.qty_kg * form.rate_per_kg + Number.EPSILON) * 100) / 100
+  const amount = round2(form.qty_kg * form.rate_per_kg)
   const gstRate = hsn.find(h => h.hsn_code === form.hsn_code)?.gst_rate ?? settings.default_gst_rate
   const tax = computeTax({ amount, gstRate, placeOfSupplyState: form.party_state, homeState: settings.home_state, tcs: form.tcs, roundoff: form.roundoff })
   const intra = tax.igst === 0
@@ -87,7 +88,7 @@ export default function PurchaseForm() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  const F = (label: string, node: React.ReactNode, err?: string) => (
+  const F = (label: string, node: ReactNode, err?: string) => (
     <div className="field"><label>{label}</label>{node}{err ? <div className="err">{err}</div> : null}</div>
   )
 
