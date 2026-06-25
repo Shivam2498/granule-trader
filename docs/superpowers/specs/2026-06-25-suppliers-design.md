@@ -55,20 +55,23 @@ CREATE TABLE IF NOT EXISTS suppliers (
 `purchases` gains one column:
 
 ```sql
-supplier_id INTEGER NOT NULL DEFAULT 0 REFERENCES suppliers(id)
+supplier_id INTEGER REFERENCES suppliers(id)
 ```
 
-Added to the `CREATE TABLE purchases` definition for fresh databases, plus an
-idempotent `ALTER TABLE purchases ADD COLUMN supplier_id INTEGER NOT NULL DEFAULT 0`
-in `migrate()` (harmless safety for any un-wiped dev DB; `0` = "no supplier", which
-cannot occur via the UI because the picker is required). The `party*` snapshot columns
+**Nullable**, mirroring the existing `buyer_customer_id INTEGER REFERENCES customers(id)`
+on `sales` — the column is nullable in the DB (foreign keys are enforced, so a `NOT NULL
+DEFAULT 0` sentinel would violate the constraint), and "a supplier is required" is
+enforced in the purchase form exactly as the buyer is required on a sale. Added to the
+`CREATE TABLE purchases` definition for fresh databases, plus an idempotent
+`ALTER TABLE purchases ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)` in
+`migrate()` (harmless safety for any un-wiped dev DB). The `party*` snapshot columns
 (`party`, `party_state`, `party_city`, `party_pincode`, `party_address`) are unchanged.
 
 ## 4. Types & API (mirror customers)
 
 - `src/shared/types.ts` — new `Supplier` interface:
   `{ id, name, gstin, pan, phone, address, city, state, pincode }`. `Purchase` gains
-  `supplier_id: number`.
+  `supplier_id: number | null`.
 - `src/shared/api.ts` — add to `Api` and `CHANNELS`:
   `listSuppliers(search?: string): Promise<Supplier[]>`, `createSupplier(s: Omit<Supplier,'id'>): Promise<Supplier>`,
   `updateSupplier(id, s): Promise<Supplier>`, `deleteSupplier(id): Promise<void>`.
