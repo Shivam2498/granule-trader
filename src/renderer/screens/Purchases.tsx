@@ -5,13 +5,15 @@ import type { Purchase } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
 import { formatINR } from '../lib/format'
+import { useFY } from '../fy'
 
 export default function Purchases() {
   const nav = useNavigate()
+  const { fy } = useFY()
   const [list, setList] = useState<Purchase[]>([])
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listPurchases()) } catch (e: any) { setError(e.message ?? String(e)) } }
-  useEffect(() => { reload() }, [])
+  async function reload() { try { setList(await window.api.listPurchases(fy)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  useEffect(() => { reload() }, [fy])
   async function remove(id: number) {
     setError('')
     if (!confirm('Delete this purchase? Stock will be recalculated.')) return
@@ -19,7 +21,7 @@ export default function Purchases() {
   }
   return (
     <div>
-      <PageHeader title="Purchases" action={<Button onClick={() => nav('/purchases/new')}>+ Add purchase</Button>} />
+      <PageHeader title={`Purchases · ${fy}`} action={<Button onClick={() => nav('/purchases/new')}>+ Add purchase</Button>} />
       {error && <Alert color="red" mb="md">{error}</Alert>}
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>Code</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th>HSN</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Remaining</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>

@@ -1,6 +1,7 @@
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
 import { NavLink, Title, Stack } from '@mantine/core'
 import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconBuildingWarehouse, IconSettings } from '@tabler/icons-react'
+import FYSelect from './FYSelect'
 
 const items = [
   { to: '/', label: 'Dashboard', icon: IconDashboard },
@@ -17,6 +18,7 @@ export default function Sidebar() {
   return (
     <Stack gap="xs">
       <Title order={3} mb="sm">Granule Trader</Title>
+      <FYSelect />
       {items.map(({ to, label, icon: Icon }) => (
         <NavLink key={to} component={RouterNavLink} to={to} label={label}
           leftSection={<Icon size={20} />}

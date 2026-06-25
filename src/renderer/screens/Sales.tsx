@@ -5,13 +5,15 @@ import type { Sale } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
 import { formatINR } from '../lib/format'
+import { useFY } from '../fy'
 
 export default function Sales() {
   const nav = useNavigate()
+  const { fy } = useFY()
   const [list, setList] = useState<Sale[]>([])
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listSales()) } catch (e: any) { setError(e.message ?? String(e)) } }
-  useEffect(() => { reload() }, [])
+  async function reload() { try { setList(await window.api.listSales(fy)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  useEffect(() => { reload() }, [fy])
   async function remove(id: number) {
     setError('')
     if (!confirm('Delete this sale? Stock will be restored.')) return
@@ -19,7 +21,7 @@ export default function Sales() {
   }
   return (
     <div>
-      <PageHeader title="Sales" action={<Button onClick={() => nav('/sales/new')}>+ New sale</Button>} />
+      <PageHeader title={`Sales · ${fy}`} action={<Button onClick={() => nav('/sales/new')}>+ New sale</Button>} />
       {error && <Alert color="red" mb="md">{error}</Alert>}
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>Invoice</Table.Th><Table.Th>Date</Table.Th><Table.Th>Buyer</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>

@@ -4,6 +4,7 @@ import { AppShell, Loader, Center } from '@mantine/core'
 import Sidebar from './components/Sidebar'
 import AppRoutes from './routes'
 import FirstRun from './screens/FirstRun'
+import { FYProvider } from './fy'
 
 export default function App() {
   const [ready, setReady] = useState(false)
@@ -13,10 +14,12 @@ export default function App() {
   if (needsSetup) return <FirstRun onDone={() => setNeedsSetup(false)} />
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppShell navbar={{ width: 240, breakpoint: 'sm' }} padding="lg">
-        <AppShell.Navbar p="md"><Sidebar /></AppShell.Navbar>
-        <AppShell.Main><AppRoutes /></AppShell.Main>
-      </AppShell>
+      <FYProvider>
+        <AppShell navbar={{ width: 240, breakpoint: 'sm' }} padding="lg">
+          <AppShell.Navbar p="md"><Sidebar /></AppShell.Navbar>
+          <AppShell.Main><AppRoutes /></AppShell.Main>
+        </AppShell>
+      </FYProvider>
     </HashRouter>
   )
 }

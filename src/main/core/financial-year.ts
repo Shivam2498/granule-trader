@@ -1,3 +1,13 @@
+import type Database from 'better-sqlite3'
+
+export function listFinancialYears(db: Database.Database): string[] {
+  return (db.prepare(`
+    SELECT DISTINCT fy_label FROM
+      (SELECT fy_label FROM purchases UNION SELECT fy_label FROM sales)
+    ORDER BY fy_label DESC
+  `).all() as Array<{ fy_label: string }>).map(r => r.fy_label)
+}
+
 export function financialYear(date: string): { startYear: number; endYear: number; code: string; label: string } {
   const [yStr, mStr] = date.split('-')
   const year = Number(yStr)
