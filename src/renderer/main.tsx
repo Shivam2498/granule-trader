@@ -4,6 +4,7 @@ import { Notifications } from '@mantine/notifications'
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/notifications/styles.css'
+import './theme.css'
 import { theme } from './theme'
 import App from './App'
 
