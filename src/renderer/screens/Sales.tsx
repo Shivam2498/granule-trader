@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Paper, Button, Alert, Badge, Group, Table, Text } from '@mantine/core'
 import type { Sale } from '@shared/types'
 import PageHeader from '../components/PageHeader'
+import ListTable from '../components/ListTable'
 import { formatINR } from '../lib/format'
 
 export default function Sales() {
@@ -17,31 +19,31 @@ export default function Sales() {
   }
   return (
     <div>
-      <PageHeader title="Sales" action={<button className="primary" onClick={() => nav('/sales/new')}>+ New sale</button>} />
-      {error && <div className="error-banner">{error}</div>}
-      <div className="card">
-        <table>
-          <thead><tr><th>Invoice</th><th>Date</th><th>Buyer</th><th className="num">Qty</th><th className="num">Total</th><th>Payment</th><th></th></tr></thead>
-          <tbody>{list.map(s => s.status === 'reserved' ? (
-            <tr key={s.id} className="muted">
-              <td>{s.invoice_number}</td><td colSpan={4}><i>reserved — blank</i></td><td></td>
-              <td className="num"><button className="link" onClick={() => nav(`/sales/fill/${s.id}`)}>Fill</button></td>
-            </tr>
+      <PageHeader title="Sales" action={<Button onClick={() => nav('/sales/new')}>+ New sale</Button>} />
+      {error && <Alert color="red" mb="md">{error}</Alert>}
+      <Paper withBorder p="lg" radius="md">
+        <ListTable head={<><Table.Th>Invoice</Table.Th><Table.Th>Date</Table.Th><Table.Th>Buyer</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>
+          {list.map(s => s.status === 'reserved' ? (
+            <Table.Tr key={s.id}>
+              <Table.Td>{s.invoice_number}</Table.Td><Table.Td colSpan={4}><Text c="dimmed" fs="italic">reserved — blank</Text></Table.Td><Table.Td />
+              <Table.Td><Button variant="subtle" size="compact-sm" onClick={() => nav(`/sales/fill/${s.id}`)}>Fill</Button></Table.Td>
+            </Table.Tr>
           ) : (
-            <tr key={s.id}>
-              <td>{s.invoice_number}</td><td>{s.invoice_date}</td><td>{s.buyer_name}</td>
-              <td className="num">{s.total_qty_kg}</td><td className="num">{formatINR(s.total_invoice_amount)}</td>
-              <td><span className={'pill ' + s.payment_status}>{s.payment_status}</span></td>
-              <td className="num">
-                <button className="link" onClick={() => nav(`/invoice/${s.id}`)}>Preview / PDF</button>{' '}
-                <button className="link danger" onClick={() => remove(s.id)}>Delete</button>
-              </td>
-            </tr>
+            <Table.Tr key={s.id}>
+              <Table.Td>{s.invoice_number}</Table.Td><Table.Td>{s.invoice_date}</Table.Td><Table.Td>{s.buyer_name}</Table.Td>
+              <Table.Td ta="right">{s.total_qty_kg}</Table.Td><Table.Td ta="right">{formatINR(s.total_invoice_amount)}</Table.Td>
+              <Table.Td><Badge color={s.payment_status === 'done' ? 'green' : 'orange'}>{s.payment_status}</Badge></Table.Td>
+              <Table.Td>
+                <Group gap="xs" justify="flex-end">
+                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/invoice/${s.id}`)}>Preview / PDF</Button>
+                  <Button variant="subtle" color="red" size="compact-sm" onClick={() => remove(s.id)}>Delete</Button>
+                </Group>
+              </Table.Td>
+            </Table.Tr>
           ))}
-          {list.length === 0 && <tr><td colSpan={7} className="muted">No sales yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+          {list.length === 0 && <Table.Tr><Table.Td colSpan={7} c="dimmed">No sales yet.</Table.Td></Table.Tr>}
+        </ListTable>
+      </Paper>
     </div>
   )
 }
