@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import {
+  Alert, Button, Center, Checkbox, Collapse, Group, Input, Loader, Paper,
+  Select, Table, Text, TextInput
+} from '@mantine/core'
 import type { Customer, AvailableLot, Settings, HsnProduct } from '@shared/types'
 import { computeSaleTax } from '@shared/tax'
 import { placeOfSupplyState } from '../../main/core/customers'
@@ -7,6 +11,7 @@ import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
 import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
+import DateField from '../components/DateField'
 import { formatINR, today } from '../lib/format'
 
 interface Draw { include: boolean; qty: number; rate: number }
@@ -89,72 +94,128 @@ export default function NewSale() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  if (!settings) return <div className="content">Loading…</div>
+  if (!settings) return <Center h="60vh"><Loader /></Center>
   return (
     <div>
       <PageHeader title={fillId ? 'Fill reserved invoice' : 'New sale'} back={() => nav('/sales')} />
-      {error && <div className="error-banner">{error}</div>}
-      <div className="card">
-        <div className="form-grid">
-          <div className="field"><label>Invoice number</label><input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} /></div>
-          <div className="field"><label>Invoice date</label><input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
-          <div className="field full"><label>Buyer</label>
-            <select value={buyerId ?? ''} onChange={e => setBuyerId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">— choose customer —</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}{c.gstin ? ` (${c.gstin})` : ''}</option>)}
-            </select></div>
-        </div>
-        {buyer && <p className="muted">Place of supply: <b>{placeOfSupply || '—'}</b> → {intra ? 'CGST + SGST' : 'IGST'}</p>}
-        <button className="link" onClick={() => setShowOptional(s => !s)}>{showOptional ? '▾' : '▸'} Optional (e-way bill, vehicle)</button>
-        {showOptional && (
-          <div className="form-grid" style={{ marginTop: 8 }}>
-            <div className="field"><label>E-way bill no.</label><input value={ewayNo} onChange={e => setEwayNo(e.target.value)} /></div>
-            <div className="field"><label>E-way bill date</label><input type="date" value={ewayDate} onChange={e => setEwayDate(e.target.value)} /></div>
-            <div className="field full"><label>Vehicle</label><input value={vehicle} onChange={e => setVehicle(e.target.value)} placeholder="By Taxi / By Van / GJ-05-…" /></div>
-          </div>
+      {error && <Alert color="red" mb="md">{error}</Alert>}
+
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Group grow align="flex-start" mb="sm">
+          <TextInput label="Invoice number" value={invoiceNumber} onChange={e => setInvoiceNumber(e.currentTarget.value)} />
+          <Input.Wrapper label="Invoice date">
+            <DateField value={invoiceDate} onChange={setInvoiceDate} />
+          </Input.Wrapper>
+          <Select
+            label="Buyer"
+            searchable
+            data={customers.map(c => ({ value: String(c.id), label: c.name + (c.gstin ? ` (${c.gstin})` : '') }))}
+            value={buyerId ? String(buyerId) : null}
+            onChange={v => setBuyerId(v ? Number(v) : null)}
+          />
+        </Group>
+        {buyer && (
+          <Text size="sm" c="dimmed" mb="xs">
+            Place of supply: <Text component="span" fw={700}>{placeOfSupply || '—'}</Text> → {intra ? 'CGST + SGST' : 'IGST'}
+          </Text>
         )}
-      </div>
+        <Button variant="subtle" size="xs" onClick={() => setShowOptional(s => !s)} mb="xs">
+          {showOptional ? '▾' : '▸'} Optional (e-way bill, vehicle)
+        </Button>
+        <Collapse in={showOptional}>
+          <Group grow align="flex-start" mt="xs">
+            <TextInput label="E-way bill no." value={ewayNo} onChange={e => setEwayNo(e.currentTarget.value)} />
+            <Input.Wrapper label="E-way bill date">
+              <DateField value={ewayDate} onChange={setEwayDate} />
+            </Input.Wrapper>
+            <TextInput label="Vehicle" value={vehicle} onChange={e => setVehicle(e.currentTarget.value)} placeholder="By Taxi / By Van / GJ-05-…" />
+          </Group>
+        </Collapse>
+      </Paper>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 12 }}>Choose stock to sell (lots available on {invoiceDate})</h3>
-        <table>
-          <thead><tr><th></th><th>Lot</th><th>HSN</th><th>Supplier</th><th className="num">Avail</th><th className="num">Cost/kg</th><th className="num">Sell/kg</th><th className="num">Qty</th><th className="num">Amount</th></tr></thead>
-          <tbody>{lots.map(l => {
-            const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
-            const amt = d.include ? d.qty * d.rate : 0
-            return (
-              <tr key={l.purchase_id}>
-                <td><input type="checkbox" style={{ width: 'auto' }} checked={d.include} onChange={e => setLine(l.purchase_id, { include: e.target.checked })} /></td>
-                <td>{l.our_code}</td><td>{l.hsn_code}</td><td>{l.party}</td><td className="num">{l.available_kg}</td>
-                <td className="num">{formatINR(purchaseCost.get(l.purchase_id) ?? 0)}</td>
-                <td className="num">{d.include ? <MoneyInput value={d.rate} onChange={n => setLine(l.purchase_id, { rate: n })} /> : '—'}</td>
-                <td className="num">{d.include ? <MoneyInput value={d.qty} onChange={n => setLine(l.purchase_id, { qty: n })} /> : '—'}</td>
-                <td className="num">{formatINR(amt)}</td>
-              </tr>)
-          })}
-          {lots.length === 0 && <tr><td colSpan={9} className="error">No stock available on this date.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Text fw={600} mb="sm">Choose stock to sell (lots available on {invoiceDate})</Text>
+        <Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th></Table.Th>
+              <Table.Th>Lot</Table.Th>
+              <Table.Th>HSN</Table.Th>
+              <Table.Th>Supplier</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Avail</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Cost/kg</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Sell/kg</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Qty</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Amount</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {lots.map(l => {
+              const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
+              const amt = d.include ? d.qty * d.rate : 0
+              return (
+                <Table.Tr key={l.purchase_id}>
+                  <Table.Td>
+                    <Checkbox
+                      checked={d.include}
+                      onChange={e => setLine(l.purchase_id, { include: e.currentTarget.checked })}
+                    />
+                  </Table.Td>
+                  <Table.Td>{l.our_code}</Table.Td>
+                  <Table.Td>{l.hsn_code}</Table.Td>
+                  <Table.Td>{l.party}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{l.available_kg}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatINR(purchaseCost.get(l.purchase_id) ?? 0)}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {d.include ? <MoneyInput value={d.rate} onChange={n => setLine(l.purchase_id, { rate: n })} /> : '—'}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {d.include ? <MoneyInput value={d.qty} onChange={n => setLine(l.purchase_id, { qty: n })} /> : '—'}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatINR(amt)}</Table.Td>
+                </Table.Tr>
+              )
+            })}
+            {lots.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={9}>
+                  <Text c="red">No stock available on this date.</Text>
+                </Table.Td>
+              </Table.Tr>
+            )}
+          </Table.Tbody>
+        </Table>
+      </Paper>
 
-      <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Group justify="space-between" align="flex-start">
           <div>
-            <div className="field" style={{ maxWidth: 220 }}><label>Round off (can be negative)</label><SignedMoneyInput value={roundoff} onChange={setRoundoff} /></div>
-            <div className="field" style={{ maxWidth: 320 }}><label>Payment</label>
-              <div className="row" style={{ alignItems: 'center' }}>
-                <select value={payment} onChange={e => setPayment(e.target.value as 'pending' | 'done')}>
-                  <option value="pending">Pending</option><option value="done">Done</option></select>
-                {payment === 'done' && <input type="date" value={paymentDate || today()} onChange={e => setPaymentDate(e.target.value)} />}
-              </div></div>
+            <Input.Wrapper label="Round off (can be negative)" maw={220} mb="sm">
+              <SignedMoneyInput value={roundoff} onChange={setRoundoff} />
+            </Input.Wrapper>
+            <Group align="flex-end" gap="sm">
+              <Select
+                label="Payment"
+                data={[{ value: 'pending', label: 'Pending' }, { value: 'done', label: 'Done' }]}
+                value={payment}
+                onChange={v => setPayment(v as 'pending' | 'done')}
+                maw={160}
+              />
+              {payment === 'done' && (
+                <Input.Wrapper label="Payment date">
+                  <DateField value={paymentDate || today()} onChange={setPaymentDate} />
+                </Input.Wrapper>
+              )}
+            </Group>
           </div>
           <TaxSummary taxable={tax.taxable} rows={rows} total={tax.total} />
-        </div>
-        <div className="form-actions">
-          <button onClick={() => nav('/sales')}>Cancel</button>
-          <button className="primary" onClick={() => save(false)}>Save</button>
-          <button className="primary" onClick={() => save(true)}>Save &amp; preview PDF</button>
-        </div>
-      </div>
+        </Group>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => nav('/sales')}>Cancel</Button>
+          <Button onClick={() => save(false)}>Save</Button>
+          <Button onClick={() => save(true)}>Save &amp; preview PDF</Button>
+        </Group>
+      </Paper>
     </div>
   )
 }

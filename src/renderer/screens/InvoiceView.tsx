@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Group, Button, Center, Loader } from '@mantine/core'
 import type { Sale, SaleAllocation, Settings } from '@shared/types'
 import InvoiceTemplate from '../invoice/InvoiceTemplate'
 
@@ -12,13 +13,13 @@ export default function InvoiceView() {
     if (id) setData(await window.api.getSaleWithAllocations(Number(id)))
     setSettings(await window.api.getSettings())
   })() }, [id])
-  if (!data || !settings) return <div className="content">Loading…</div>
+  if (!data || !settings) return <Center h="60vh"><Loader /></Center>
   return (
     <div>
-      <div className="no-print" style={{ padding: 16 }}>
-        <button className="primary" onClick={() => window.print()}>Print / Save as PDF</button>{' '}
-        <button onClick={() => nav('/sales')}>Back to sales</button>
-      </div>
+      <Group className="no-print" p="md">
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
+        <Button variant="default" onClick={() => nav('/sales')}>Back to sales</Button>
+      </Group>
       <InvoiceTemplate sale={data.sale} allocations={data.allocations} settings={settings} />
     </div>
   )

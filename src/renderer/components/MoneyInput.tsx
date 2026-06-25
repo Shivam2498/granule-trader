@@ -1,20 +1,7 @@
-import { useState, useEffect } from 'react'
-
+import { NumberInput } from '@mantine/core'
 export default function MoneyInput({ value, onChange, id }: { value: number; onChange: (n: number) => void; id?: string }) {
-  const [text, setText] = useState(value === 0 ? '' : String(value))
-
-  useEffect(() => {
-    setText(value === 0 ? '' : String(value))
-  }, [value])
-
   return (
-    <input id={id} type="text" inputMode="decimal" value={text}
-      onChange={e => {
-        const v = e.target.value
-        if (v !== '' && !/^\d*\.?\d*$/.test(v)) return   // reject non-numeric keystrokes
-        setText(v)
-        const trimmed = v.trim()
-        onChange(trimmed === '' ? 0 : Number(trimmed))
-      }} />
+    <NumberInput id={id} value={value === 0 ? '' : value} min={0} decimalScale={2} step={1} hideControls allowNegative={false} thousandSeparator="," clampBehavior="strict"
+      onChange={v => onChange(typeof v === 'number' ? v : (v === '' ? 0 : Number(v)))} />
   )
 }

@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
+import { renderWithMantine } from './mantine'
 import StateSelect from '../../src/renderer/components/StateSelect'
 
 describe('StateSelect', () => {
-  it('lists states and reports the chosen one', () => {
+  it('opens the dropdown and reports the chosen state', () => {
     const onChange = vi.fn()
-    render(<StateSelect value="" onChange={onChange} id="st" />)
-    const sel = screen.getByRole('combobox') as HTMLSelectElement
-    expect(screen.getByRole('option', { name: 'Gujarat' })).toBeTruthy()
-    fireEvent.change(sel, { target: { value: 'Maharashtra' } })
-    expect(onChange).toHaveBeenCalledWith('Maharashtra')
+    renderWithMantine(<StateSelect value="" onChange={onChange} id="st" />)
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    fireEvent.click(input)                      // open the Mantine Select dropdown
+    fireEvent.click(screen.getByText('Gujarat'))
+    expect(onChange).toHaveBeenCalledWith('Gujarat')
   })
 })

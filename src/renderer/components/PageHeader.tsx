@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
+import { Group, Title, Button } from '@mantine/core'
+import { IconChevronLeft } from '@tabler/icons-react'
 export default function PageHeader({ title, action, back }: { title: string; action?: ReactNode; back?: () => void }) {
   return (
-    <div className="page-head">
-      <div className="left">
-        {back && <button className="link" onClick={back}>‹ Back</button>}
-        <h1>{title}</h1>
-      </div>
+    <Group justify="space-between" mb="lg" wrap="nowrap">
+      <Group gap="xs">
+        {back && <Button variant="subtle" leftSection={<IconChevronLeft size={18} />} onClick={back} px="xs">Back</Button>}
+        <Title order={1}>{title}</Title>
+      </Group>
       {action}
-    </div>
+    </Group>
   )
 }

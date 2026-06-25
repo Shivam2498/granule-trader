@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Paper, Text, List, Alert, Select, Input, Button, Table } from '@mantine/core'
 import type { LedgerRow } from '@shared/types'
 import type { AdjustmentRow } from '../../main/core/adjustment'
 import PageHeader from '../components/PageHeader'
 import MoneyInput from '../components/MoneyInput'
+import DateField from '../components/DateField'
 import { today } from '../lib/format'
 
 const REASONS = ['Spillage / wastage', 'Sample given', 'Loss / damage', 'Correction']
@@ -37,46 +39,74 @@ export default function StockAdjust() {
   return (
     <div>
       <PageHeader title="Stock adjustment" back={() => nav('/stock')} />
-      {error && <div className="error-banner">{error}</div>}
+      {error && <Alert color="red" mb="md">{error}</Alert>}
 
-      <div className="card">
-        <p>A stock adjustment records granules that left your stock <b>without a sale</b>, so your stock figures stay correct. Use it for:</p>
-        <ul className="muted" style={{ marginTop: 4 }}>
-          <li><b>Spillage / wastage</b> — material spilled or unusable</li>
-          <li><b>Sample given</b> — free sample handed to a customer</li>
-          <li><b>Loss / damage</b> — stock damaged, lost, or stolen</li>
-          <li><b>Correction</b> — fixing a counting mistake</li>
-        </ul>
-        <div className="notice">This permanently reduces the selected lot's remaining quantity. It does <b>not</b> create an invoice, does <b>not</b> involve a customer, and has <b>no GST effect</b> — it is not a sale. You cannot remove more than the lot's available balance.</div>
-      </div>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Text mb="xs">A stock adjustment records granules that left your stock <b>without a sale</b>, so your stock figures stay correct. Use it for:</Text>
+        <List mt={4} c="dimmed">
+          <List.Item><b>Spillage / wastage</b> — material spilled or unusable</List.Item>
+          <List.Item><b>Sample given</b> — free sample handed to a customer</List.Item>
+          <List.Item><b>Loss / damage</b> — stock damaged, lost, or stolen</List.Item>
+          <List.Item><b>Correction</b> — fixing a counting mistake</List.Item>
+        </List>
+        <Alert color="orange" variant="light" mb="md" mt="md">
+          This permanently reduces the selected lot's remaining quantity. It does <b>not</b> create an invoice, does <b>not</b> involve a customer, and has <b>no GST effect</b> — it is not a sale. You cannot remove more than the lot's available balance.
+        </Alert>
+      </Paper>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 12 }}>Record an adjustment</h3>
-        <div className="form-grid">
-          <div className="field full"><label>Lot</label>
-            <select value={adj.purchase_id ?? ''} onChange={e => setAdj({ ...adj, purchase_id: e.target.value ? Number(e.target.value) : null })}>
-              <option value="">— choose lot —</option>
-              {lots.map(r => <option key={r.purchase_id} value={r.purchase_id}>{r.our_code} ({r.hsn_code}) — {r.balance_kg} kg left</option>)}
-            </select></div>
-          <div className="field"><label>Quantity removed (kg)</label><MoneyInput value={adj.qty_kg} onChange={n => setAdj({ ...adj, qty_kg: n })} /></div>
-          <div className="field"><label>Date</label><input type="date" value={adj.date} onChange={e => setAdj({ ...adj, date: e.target.value })} /></div>
-          <div className="field full"><label>Reason</label>
-            <select value={adj.reason} onChange={e => setAdj({ ...adj, reason: e.target.value })}>{REASONS.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-        </div>
-        <div className="form-actions"><button className="primary" onClick={save}>Record adjustment</button></div>
-      </div>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Text fw={600} mb="md">Record an adjustment</Text>
+        <Select
+          label="Lot"
+          data={lots.map(r => ({ value: String(r.purchase_id), label: `${r.our_code} (${r.hsn_code}) — ${r.balance_kg} kg left` }))}
+          value={adj.purchase_id ? String(adj.purchase_id) : null}
+          onChange={v => setAdj({ ...adj, purchase_id: v ? Number(v) : null })}
+          mb="sm"
+        />
+        <Input.Wrapper label="Quantity removed (kg)" mb="sm">
+          <MoneyInput value={adj.qty_kg} onChange={n => setAdj({ ...adj, qty_kg: n })} />
+        </Input.Wrapper>
+        <Input.Wrapper label="Date" mb="sm">
+          <DateField value={adj.date} onChange={d => setAdj({ ...adj, date: d })} />
+        </Input.Wrapper>
+        <Select
+          label="Reason"
+          data={REASONS}
+          value={adj.reason}
+          onChange={v => setAdj({ ...adj, reason: v ?? REASONS[0] })}
+          mb="md"
+        />
+        <Button onClick={save}>Record adjustment</Button>
+      </Paper>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 12 }}>Recent adjustments</h3>
-        <table>
-          <thead><tr><th>Lot</th><th className="num">Qty removed</th><th>Reason</th><th>Date</th><th></th></tr></thead>
-          <tbody>{recent.map(a => (
-            <tr key={a.id}><td>{a.our_code}</td><td className="num">{a.qty_kg}</td><td>{a.reason}</td><td>{a.date}</td>
-              <td className="num"><button className="link danger" onClick={() => undo(a.id)}>Undo</button></td></tr>))}
-            {recent.length === 0 && <tr><td colSpan={5} className="muted">No adjustments yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Text fw={600} mb="md">Recent adjustments</Text>
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Lot</Table.Th>
+              <Table.Th ta="right">Qty removed</Table.Th>
+              <Table.Th>Reason</Table.Th>
+              <Table.Th>Date</Table.Th>
+              <Table.Th></Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {recent.map(a => (
+              <Table.Tr key={a.id}>
+                <Table.Td>{a.our_code}</Table.Td>
+                <Table.Td ta="right">{a.qty_kg}</Table.Td>
+                <Table.Td>{a.reason}</Table.Td>
+                <Table.Td>{a.date}</Table.Td>
+                <Table.Td ta="right">
+                  <Button variant="subtle" color="red" size="compact-sm" onClick={() => undo(a.id)}>Undo</Button>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+            {recent.length === 0 && <Table.Tr><Table.Td colSpan={5} c="dimmed">No adjustments yet.</Table.Td></Table.Tr>}
+          </Table.Tbody>
+        </Table>
+      </Paper>
     </div>
   )
 }
