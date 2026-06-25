@@ -1,18 +1,15 @@
-import React from 'react'
+import { Stack, Group, Text, Divider } from '@mantine/core'
 import { formatINR } from '../lib/format'
-
 export default function TaxSummary({ taxable, rows, total }:
   { taxable: number; rows: { label: string; value: number }[]; total: number }) {
   return (
-    <div className="tax-summary">
-      <div className="label">Taxable</div><div className="val">{formatINR(taxable)}</div>
+    <Stack gap={4} maw={360} ml="auto">
+      <Group justify="space-between"><Text c="dimmed">Taxable</Text><Text>{formatINR(taxable)}</Text></Group>
       {rows.map(r => (
-        <React.Fragment key={r.label}>
-          <div className="label">{r.label}</div>
-          <div className="val">{formatINR(r.value)}</div>
-        </React.Fragment>
+        <Group key={r.label} justify="space-between"><Text c="dimmed">{r.label}</Text><Text>{formatINR(r.value)}</Text></Group>
       ))}
-      <div className="label total">Net total</div><div className="val total">{formatINR(total)}</div>
-    </div>
+      <Divider my={4} />
+      <Group justify="space-between"><Text fw={700}>Net total</Text><Text fw={700} size="lg">{formatINR(total)}</Text></Group>
+    </Stack>
   )
 }
