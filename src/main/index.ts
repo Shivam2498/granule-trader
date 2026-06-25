@@ -4,14 +4,13 @@ import { hostname } from 'os'
 import type Database from 'better-sqlite3'
 import { openDatabase, closeDatabase } from './db/connection'
 import { getSettings } from './core/reference'
+import { dbPathFor, resolveDataFolder, rememberDataFolder } from './core/data-location'
 import { createBackup, acquireLock, releaseLock } from './core/backup'
 import { registerIpc } from './ipc'
 
 let db: Database.Database
 let dbPath: string
 let dataFolder: string
-
-function dbPathFor(folder: string): string { return join(folder, 'granule-trader.db') }
 
 function openIn(folder: string): void {
   if (db) closeDatabase(db)
@@ -20,11 +19,17 @@ function openIn(folder: string): void {
   db = openDatabase(dbPath)
 }
 
+// Switch the active data folder and persist the pointer in the bootstrap (userData)
+// DB, so the next launch reopens here instead of falling back to onboarding.
+function setDataFolder(folder: string): void {
+  rememberDataFolder(app.getPath('userData'), folder)
+  openIn(folder)
+}
+
 function bootstrapData(): void {
   // First launch with no chosen folder: use userData until the user picks one in Settings/FirstRun.
-  openIn(app.getPath('userData'))
-  const s = getSettings(db)
-  if (s.data_folder && s.data_folder !== dataFolder) openIn(s.data_folder)
+  // resolveDataFolder reads the data_folder pointer recorded in the userData DB.
+  openIn(resolveDataFolder(app.getPath('userData')))
   const lock = acquireLock(dataFolder, hostname())
   if (!lock.ok) {
     const holder = (lock.existingHolder ?? '').trim()
@@ -63,7 +68,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   bootstrapData()
-  registerIpc({ getDb: () => db, getDbPath: () => dbPath, reopenWithFolder: openIn })
+  registerIpc({ getDb: () => db, getDbPath: () => dbPath, setDataFolder })
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })

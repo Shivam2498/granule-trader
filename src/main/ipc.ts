@@ -18,7 +18,7 @@ import { join, dirname } from 'path'
 export interface IpcContext {
   getDb(): Database.Database
   getDbPath(): string
-  reopenWithFolder(folder: string): void
+  setDataFolder(folder: string): void
 }
 
 export function registerIpc(ctx: IpcContext): void {
@@ -29,8 +29,7 @@ export function registerIpc(ctx: IpcContext): void {
   h('chooseDataFolder', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
     if (r.canceled || !r.filePaths[0]) return null
-    ctx.reopenWithFolder(r.filePaths[0])
-    saveSettings(db(), { data_folder: r.filePaths[0] })
+    ctx.setDataFolder(r.filePaths[0])
     return r.filePaths[0]
   })
   h('getSettings', () => getSettings(db()))

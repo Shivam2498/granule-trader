@@ -27,7 +27,13 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
     }
   })
 
-  async function pick() { const f = await window.api.chooseDataFolder(); if (f) form.setFieldValue('folder', f) }
+  async function pick() {
+    const f = await window.api.chooseDataFolder()
+    if (!f) return
+    form.setFieldValue('folder', f)
+    // If the chosen folder already holds a configured data file, skip onboarding and open it.
+    if (!(await window.api.needsSetup())) onDone()
+  }
 
   function setBusinessName(v: string) {
     form.setFieldValue('name', v)
