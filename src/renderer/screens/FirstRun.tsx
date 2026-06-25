@@ -20,6 +20,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
   const [city, setCity] = useState('')
   const [pincode, setPincode] = useState('')
   const [error, setError] = useState('')
+  const [attempted, setAttempted] = useState(false)
 
   function setBusinessName(v: string) {
     setName(v)
@@ -32,9 +33,17 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
     isMobile(mobile) && homeState.trim().length > 0 && prefix.trim().length > 0 &&
     (pincode === '' || isPincode(pincode))
 
+  // A required field shows "Required" once the user has tried to submit; a filled-but-invalid
+  // field shows its format message immediately. This is how the button tells you what's missing.
+  const reqErr = (v: string) => (attempted && !v.trim() ? 'Required' : undefined)
+
   async function start() {
     setError('')
-    if (!valid) { setError('Please fill every field correctly before continuing.'); return }
+    if (!valid) {
+      setAttempted(true)
+      setError('Please complete the highlighted fields below.')
+      return
+    }
     try {
       await window.api.saveSettings({
         seller_name: name.trim(), seller_gstin: gstin.trim().toUpperCase(), seller_pan: pan.trim().toUpperCase(),
@@ -57,12 +66,13 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
       <Paper withBorder p="xl" radius="md">
         <Title order={3}>Data file</Title>
         <Divider mb="md" />
-        <Group>
+        <Group align="flex-start">
           <TextInput
             style={{ flex: 1 }}
             disabled
             value={folder ?? ''}
             placeholder="Choose a folder for your data file…"
+            error={attempted && !folder ? 'Choose a data folder' : undefined}
           />
           <Button onClick={pick}>Choose…</Button>
         </Group>
@@ -75,36 +85,43 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput
             label="Business name"
+            withAsterisk
             value={name}
             onChange={e => setBusinessName(e.currentTarget.value)}
             placeholder="e.g. Ramaxton Plastocrafts"
+            error={reqErr(name)}
             style={{ gridColumn: 'span 2' }}
           />
           <TextInput
             label="Invoice prefix (auto from name, editable)"
+            withAsterisk
             value={prefix}
             onChange={e => { setPrefix(e.currentTarget.value.toUpperCase()); setPrefixEdited(true) }}
+            error={reqErr(prefix)}
           />
           <TextInput
             label="Mobile"
+            withAsterisk
             value={mobile}
             onChange={e => setMobile(e.currentTarget.value.replace(/\D/g, '').slice(0, 10))}
             placeholder="10 digits"
-            error={mobile.length > 0 && !isMobile(mobile) ? 'Enter a 10-digit mobile number' : undefined}
+            error={mobile.length > 0 && !isMobile(mobile) ? 'Enter a 10-digit mobile number' : reqErr(mobile)}
           />
           <TextInput
             label="GSTIN"
+            withAsterisk
             value={gstin}
             onChange={e => setGstin(e.currentTarget.value.toUpperCase())}
             placeholder="24ABCDE1234F1Z5"
-            error={gstin.length > 0 && !isGstin(gstin) ? 'GSTIN must be 15 characters, e.g. 24ABCDE1234F1Z5' : undefined}
+            error={gstin.length > 0 && !isGstin(gstin) ? 'GSTIN must be 15 characters, e.g. 24ABCDE1234F1Z5' : reqErr(gstin)}
           />
           <TextInput
             label="PAN"
+            withAsterisk
             value={pan}
             onChange={e => setPan(e.currentTarget.value.toUpperCase())}
             placeholder="ABCDE1234F"
-            error={pan.length > 0 && !isPan(pan) ? 'PAN must be 10 characters, e.g. ABCDE1234F' : undefined}
+            error={pan.length > 0 && !isPan(pan) ? 'PAN must be 10 characters, e.g. ABCDE1234F' : reqErr(pan)}
           />
           <Input.Wrapper
             label="Pincode"
@@ -129,13 +146,13 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             onChange={e => setAddress(e.currentTarget.value)}
             style={{ gridColumn: 'span 2' }}
           />
-          <Input.Wrapper label="Home state (for tax)">
+          <Input.Wrapper label="Home state (for tax)" withAsterisk error={reqErr(homeState)}>
             <StateSelect value={homeState} onChange={setHomeState} />
           </Input.Wrapper>
         </SimpleGrid>
 
         <Group justify="flex-end" mt="md">
-          <Button disabled={!valid} onClick={start}>Start using Granule Trader</Button>
+          <Button onClick={start}>Start using Granule Trader</Button>
         </Group>
       </Paper>
     </Container>
