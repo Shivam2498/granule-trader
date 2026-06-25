@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { HashRouter } from 'react-router-dom'
+import { renderWithMantine } from './mantine'
 import Sidebar from '../../src/renderer/components/Sidebar'
 
 describe('Sidebar', () => {
   it('shows all six navigation items', () => {
-    render(<HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Sidebar /></HashRouter>)
+    renderWithMantine(<HashRouter><Sidebar /></HashRouter>)
     for (const label of ['Dashboard','Purchases','Sales','Stock','Customers','Settings'])
       expect(screen.getByText(label)).toBeTruthy()
   })

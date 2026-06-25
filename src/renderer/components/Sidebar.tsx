@@ -1,16 +1,26 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
+import { NavLink, Title, Stack } from '@mantine/core'
+import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconSettings } from '@tabler/icons-react'
+
 const items = [
-  ['/', 'Dashboard'], ['/purchases', 'Purchases'], ['/sales', 'Sales'],
-  ['/stock', 'Stock'], ['/customers', 'Customers'], ['/settings', 'Settings']
-] as const
+  { to: '/', label: 'Dashboard', icon: IconDashboard },
+  { to: '/purchases', label: 'Purchases', icon: IconShoppingCart },
+  { to: '/sales', label: 'Sales', icon: IconReceipt },
+  { to: '/stock', label: 'Stock', icon: IconBox },
+  { to: '/customers', label: 'Customers', icon: IconUsers },
+  { to: '/settings', label: 'Settings', icon: IconSettings }
+]
+
 export default function Sidebar() {
+  const loc = useLocation()
   return (
-    <nav className="sidebar">
-      <h2 style={{ marginTop: 0 }}>Granule Trader</h2>
-      {items.map(([to, label]) => (
-        <NavLink key={to} to={to} end={to === '/'}
-          className={({ isActive }) => isActive ? 'active' : ''}>{label}</NavLink>
+    <Stack gap="xs">
+      <Title order={3} mb="sm">Granule Trader</Title>
+      {items.map(({ to, label, icon: Icon }) => (
+        <NavLink key={to} component={RouterNavLink} to={to} label={label}
+          leftSection={<Icon size={20} />}
+          active={to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(to)} />
       ))}
-    </nav>
+    </Stack>
   )
 }
