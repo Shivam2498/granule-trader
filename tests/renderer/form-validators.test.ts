@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { vGstin, vPhone, vPincode } from '../../src/renderer/lib/formValidators'
+import { vGstin, vPhone, vPincode, vPhoneOptional } from '../../src/renderer/lib/formValidators'
 import { VMSG } from '../../src/shared/validation'
 
 describe('form validators', () => {
@@ -14,5 +14,10 @@ describe('form validators', () => {
   it('vPincode: null when 6 digits, VMSG.pincode when not', () => {
     expect(vPincode('395003')).toBeNull()
     expect(vPincode('99')).toBe(VMSG.pincode)
+  })
+  it('vPhoneOptional: null when blank or valid, VMSG.phone when present-but-invalid', () => {
+    expect(vPhoneOptional('')).toBeNull()
+    expect(vPhoneOptional('9876543210')).toBeNull()
+    expect(vPhoneOptional('123')).toBe(VMSG.phone)
   })
 })
