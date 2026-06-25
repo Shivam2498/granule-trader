@@ -33,8 +33,8 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
     isMobile(mobile) && homeState.trim().length > 0 && prefix.trim().length > 0 &&
     (pincode === '' || isPincode(pincode))
 
-  // A required field shows "Required" once the user has tried to submit; a filled-but-invalid
-  // field shows its format message immediately. This is how the button tells you what's missing.
+  // An empty required field shows "Enter the <field>." once the user has tried to submit; a
+  // filled-but-invalid field shows its format message immediately. This tells you what's missing.
   const reqErr = (v: string, what: string) => (attempted && !v.trim() ? `Enter the ${what}.` : undefined)
 
   async function start() {
