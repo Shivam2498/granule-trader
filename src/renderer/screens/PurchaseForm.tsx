@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { TextInput, Select, Input, Button, Textarea } from '@mantine/core'
 import type { HsnProduct, Settings } from '@shared/types'
 import { computeTax } from '@shared/tax'
 import { isPincode } from '@shared/validation'
@@ -11,6 +12,7 @@ import PincodeField from '../components/PincodeField'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import TaxSummary from '../components/TaxSummary'
+import DateField from '../components/DateField'
 import { formatINR, today } from '../lib/format'
 
 export default function PurchaseForm() {
@@ -88,38 +90,49 @@ export default function PurchaseForm() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  const F = (label: string, node: ReactNode, err?: string) => (
-    <div className="field"><label>{label}</label>{node}{err ? <div className="err">{err}</div> : null}</div>
-  )
-
   return (
     <FormPage title={editId ? 'Edit purchase' : 'Add purchase'} onBack={() => nav('/purchases')} error={error}
-      footer={<><button onClick={() => nav('/purchases')}>Cancel</button><button className="primary" disabled={!valid} onClick={save}>{editId ? 'Update purchase' : 'Save purchase'}</button></>}>
+      footer={<><Button variant="default" onClick={() => nav('/purchases')}>Cancel</Button><Button disabled={!valid} onClick={save}>{editId ? 'Update purchase' : 'Save purchase'}</Button></>}>
       <FormSection title="Invoice">
-        {F('Our code', <input value={form.our_code} onChange={e => set({ our_code: e.target.value })} />, errs.our_code)}
-        {F('Supplier invoice no.', <input value={form.supplier_invoice_number} onChange={e => set({ supplier_invoice_number: e.target.value })} />)}
-        {F('Invoice date', <input type="date" value={form.invoice_date} onChange={e => set({ invoice_date: e.target.value })} />, errs.invoice_date)}
-        {F('HSN', <select value={form.hsn_code} onChange={e => set({ hsn_code: e.target.value })}>
-            <option value="">— select —</option>{hsn.map(h => <option key={h.hsn_code} value={h.hsn_code}>{h.hsn_code} ({h.gst_rate}%)</option>)}
-          </select>, errs.hsn_code)}
+        <TextInput label="Our code" value={form.our_code} onChange={e => set({ our_code: e.currentTarget.value })} error={errs.our_code} />
+        <TextInput label="Supplier invoice no." value={form.supplier_invoice_number} onChange={e => set({ supplier_invoice_number: e.currentTarget.value })} />
+        <Input.Wrapper label="Invoice date" error={errs.invoice_date}>
+          <DateField value={form.invoice_date} onChange={d => set({ invoice_date: d })} />
+        </Input.Wrapper>
+        <Select label="HSN" data={hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))} value={form.hsn_code || null} onChange={v => set({ hsn_code: v ?? '' })} error={errs.hsn_code} />
       </FormSection>
       <FormSection title="Supplier">
-        {F('Supplier name', <input value={form.party} onChange={e => set({ party: e.target.value })} />, errs.party)}
-        {F('Pincode', <PincodeField value={form.party_pincode} onChange={v => set({ party_pincode: v })}
-            onResolved={r => set({ party_city: r.city, party_state: r.state })} />, errs.party_pincode)}
-        {F('City', <input value={form.party_city} onChange={e => set({ party_city: e.target.value })} />)}
-        {F('State', <StateSelect value={form.party_state} onChange={v => set({ party_state: v })} />, errs.party_state)}
-        {F('Street address', <textarea rows={2} value={form.party_address} onChange={e => set({ party_address: e.target.value })} />)}
+        <TextInput label="Supplier name" value={form.party} onChange={e => set({ party: e.currentTarget.value })} error={errs.party} />
+        <Input.Wrapper label="Pincode" error={errs.party_pincode}>
+          <PincodeField value={form.party_pincode} onChange={v => set({ party_pincode: v })}
+            onResolved={r => set({ party_city: r.city, party_state: r.state })} />
+        </Input.Wrapper>
+        <TextInput label="City" value={form.party_city} onChange={e => set({ party_city: e.currentTarget.value })} />
+        <Input.Wrapper label="Supplier state" error={errs.party_state}>
+          <StateSelect value={form.party_state} onChange={v => set({ party_state: v })} />
+        </Input.Wrapper>
+        <Textarea label="Street address" rows={2} value={form.party_address} onChange={e => set({ party_address: e.currentTarget.value })} />
       </FormSection>
       <FormSection title="Amounts">
-        {F('Quantity (kg)', <MoneyInput value={form.qty_kg} onChange={n => set({ qty_kg: n })} />, errs.qty_kg)}
-        {F('Rate per kg', <MoneyInput value={form.rate_per_kg} onChange={n => set({ rate_per_kg: n })} />, errs.rate_per_kg)}
-        {F('Taxable amount', <input readOnly value={formatINR(amount)} />)}
-        {F('Round off (can be negative)', <SignedMoneyInput value={form.roundoff} onChange={n => set({ roundoff: n })} />)}
-        {F('TCS', <MoneyInput value={form.tcs} onChange={n => set({ tcs: n })} />)}
-        {F('Payment', <select value={form.payment_status} onChange={e => set({ payment_status: e.target.value as 'pending' | 'done' })}>
-            <option value="pending">Pending</option><option value="done">Done</option></select>)}
-        {form.payment_status === 'done' && F('Payment date', <input type="date" value={form.payment_date || today()} onChange={e => set({ payment_date: e.target.value })} />)}
+        <Input.Wrapper label="Quantity (kg)" error={errs.qty_kg}>
+          <MoneyInput value={form.qty_kg} onChange={n => set({ qty_kg: n })} />
+        </Input.Wrapper>
+        <Input.Wrapper label="Rate per kg" error={errs.rate_per_kg}>
+          <MoneyInput value={form.rate_per_kg} onChange={n => set({ rate_per_kg: n })} />
+        </Input.Wrapper>
+        <TextInput label="Taxable amount" disabled value={formatINR(amount)} />
+        <Input.Wrapper label="Round off (can be negative)">
+          <SignedMoneyInput value={form.roundoff} onChange={n => set({ roundoff: n })} />
+        </Input.Wrapper>
+        <Input.Wrapper label="TCS">
+          <MoneyInput value={form.tcs} onChange={n => set({ tcs: n })} />
+        </Input.Wrapper>
+        <Select label="Payment" data={[{ value: 'pending', label: 'Pending' }, { value: 'done', label: 'Done' }]} value={form.payment_status} onChange={v => set({ payment_status: (v as 'pending' | 'done') })} />
+        {form.payment_status === 'done' && (
+          <Input.Wrapper label="Payment date">
+            <DateField value={form.payment_date || today()} onChange={d => set({ payment_date: d })} />
+          </Input.Wrapper>
+        )}
       </FormSection>
       <div className="section"><h3>Tax</h3><div className="divider" /><TaxSummary taxable={tax.taxable_amount} rows={rows} total={tax.total} /></div>
     </FormPage>
