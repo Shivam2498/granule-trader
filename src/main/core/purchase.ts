@@ -76,8 +76,10 @@ export function getPurchase(db: Database.Database, id: number): Purchase | undef
   return db.prepare('SELECT * FROM purchases WHERE id = ?').get(id) as Purchase | undefined
 }
 
-export function listPurchases(db: Database.Database): Purchase[] {
-  return db.prepare('SELECT * FROM purchases ORDER BY invoice_date DESC, id DESC').all() as Purchase[]
+export function listPurchases(db: Database.Database, fyLabel?: string): Purchase[] {
+  return (fyLabel
+    ? db.prepare('SELECT * FROM purchases WHERE fy_label = ? ORDER BY invoice_date DESC, id DESC').all(fyLabel)
+    : db.prepare('SELECT * FROM purchases ORDER BY invoice_date DESC, id DESC').all()) as Purchase[]
 }
 
 export function updatePurchase(db: Database.Database, id: number, input: NewPurchase): Purchase {

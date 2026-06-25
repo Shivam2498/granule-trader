@@ -25,8 +25,10 @@ export function getSale(db: Database.Database, id: number): Sale {
 export function getAllocations(db: Database.Database, saleId: number): SaleAllocation[] {
   return db.prepare('SELECT * FROM sale_allocations WHERE sale_id = ? ORDER BY id').all(saleId) as SaleAllocation[]
 }
-export function listSales(db: Database.Database): Sale[] {
-  return db.prepare(`SELECT * FROM sales ORDER BY fy_label DESC, seq DESC`).all() as Sale[]
+export function listSales(db: Database.Database, fyLabel?: string): Sale[] {
+  return (fyLabel
+    ? db.prepare('SELECT * FROM sales WHERE fy_label = ? ORDER BY seq DESC').all(fyLabel)
+    : db.prepare('SELECT * FROM sales ORDER BY fy_label DESC, seq DESC').all()) as Sale[]
 }
 
 function writeSale(db: Database.Database, input: NewSale, existingReservedId: number | null): Sale {

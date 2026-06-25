@@ -82,3 +82,13 @@ describe('createSale', () => {
     expect(allocs[0].gst_rate).toBe(18)
   })
 })
+
+describe('listSales FY filter', () => {
+  it('filters by fy_label and returns all when omitted', () => {
+    db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date) VALUES ('RP/1','RP',1,'2024-25','created','2024-05-10')`).run()
+    db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date) VALUES ('RP/1','RP',1,'2025-26','created','2025-05-10')`).run()
+    expect(listSales(db).length).toBeGreaterThanOrEqual(2)
+    expect(listSales(db, '2024-25').every(s => s.fy_label === '2024-25')).toBe(true)
+    expect(listSales(db, '2024-25')).toHaveLength(1)
+  })
+})

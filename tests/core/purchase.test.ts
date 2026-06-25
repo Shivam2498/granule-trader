@@ -86,3 +86,14 @@ describe('purchase supplier link', () => {
     expect(p.supplier_id).toBeNull()
   })
 })
+
+describe('listPurchases FY filter', () => {
+  it('filters by fy_label and returns all when omitted', () => {
+    createPurchase(db, { ...base, our_code: nextPurchaseCode(db, '2024-05-01'), invoice_date: '2024-05-01' })
+    createPurchase(db, { ...base, our_code: nextPurchaseCode(db, '2025-06-01'), invoice_date: '2025-06-01' })
+    expect(listPurchases(db)).toHaveLength(2)
+    expect(listPurchases(db, '2024-25')).toHaveLength(1)
+    expect(listPurchases(db, '2024-25')[0].fy_label).toBe('2024-25')
+    expect(listPurchases(db, '2099-00')).toHaveLength(0)
+  })
+})
