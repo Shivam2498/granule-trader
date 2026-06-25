@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  Alert, Button, Checkbox, Collapse, Group, Input, Paper,
+  Alert, Button, Center, Checkbox, Collapse, Group, Input, Loader, Paper,
   Select, Table, Text, TextInput
 } from '@mantine/core'
 import type { Customer, AvailableLot, Settings, HsnProduct } from '@shared/types'
@@ -94,7 +94,7 @@ export default function NewSale() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  if (!settings) return <div className="content">Loading…</div>
+  if (!settings) return <Center h="60vh"><Loader /></Center>
   return (
     <div>
       <PageHeader title={fillId ? 'Fill reserved invoice' : 'New sale'} back={() => nav('/sales')} />

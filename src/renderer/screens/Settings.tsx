@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid } from '@mantine/core'
+import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Settings as S, HsnProduct } from '@shared/types'
 import MoneyInput from '../components/MoneyInput'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
 import ListTable from '../components/ListTable'
-import { Table } from '@mantine/core'
 
 export default function Settings() {
   const [s, setS] = useState<S | null>(null)

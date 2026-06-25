@@ -134,7 +134,7 @@ export default function PurchaseForm() {
           </Input.Wrapper>
         )}
       </FormSection>
-      <div className="section"><h3>Tax</h3><div className="divider" /><TaxSummary taxable={tax.taxable_amount} rows={rows} total={tax.total} /></div>
+      <FormSection title="Tax"><TaxSummary taxable={tax.taxable_amount} rows={rows} total={tax.total} /></FormSection>
     </FormPage>
   )
 }

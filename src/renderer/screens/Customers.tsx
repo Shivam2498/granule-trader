@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Paper, TextInput, Button, Alert, Group } from '@mantine/core'
+import { Paper, TextInput, Button, Alert, Group, Table } from '@mantine/core'
 import type { Customer } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
-import { Table } from '@mantine/core'
 
 export default function Customers() {
   const nav = useNavigate()

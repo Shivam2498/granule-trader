@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Group, Button, Paper, Title, Text, List, Alert, Stack } from '@mantine/core'
+import { Group, Button, Paper, Title, Text, List, Alert } from '@mantine/core'
 import type { Sale, Purchase, LedgerRow, Settings } from '@shared/types'
 import KpiCard from '../components/KpiCard'
 import PageHeader from '../components/PageHeader'
