@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Settings as S, HsnProduct } from '@shared/types'
+import { panFromGstin } from '@shared/validation'
 import MoneyInput from '../components/MoneyInput'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
@@ -32,8 +33,9 @@ export default function Settings() {
         <Title order={2} mb="sm">Business</Title>
         <SimpleGrid cols={3} mb="md">
           <TextInput label="Business name" value={s.seller_name} onChange={e => set({ seller_name: e.currentTarget.value })} />
-          <TextInput label="GSTIN" value={s.seller_gstin} onChange={e => set({ seller_gstin: e.currentTarget.value })} />
-          <TextInput label="PAN" value={s.seller_pan} onChange={e => set({ seller_pan: e.currentTarget.value })} />
+          <TextInput label="GSTIN" value={s.seller_gstin}
+            onChange={e => set({ seller_gstin: e.currentTarget.value.toUpperCase(), seller_pan: panFromGstin(e.currentTarget.value) })} />
+          <TextInput label="PAN (from GSTIN)" disabled value={s.seller_pan} />
         </SimpleGrid>
         <Group grow mb="md">
           <Input.Wrapper label="Pincode">

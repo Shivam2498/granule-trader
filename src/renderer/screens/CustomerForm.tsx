@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TextInput, Textarea, Checkbox, Button, Input } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Customer } from '@shared/types'
-import { isGstin, isPan, isMobile, isPincode } from '@shared/validation'
+import { isGstin, isMobile, isPincode, panFromGstin } from '@shared/validation'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import StateSelect from '../components/StateSelect'
@@ -34,8 +34,7 @@ export default function CustomerForm() {
   const errs: Record<string, string> = {
     name: form.name.trim() ? '' : 'Required',
     gstin: isGstin(form.gstin) ? '' : 'Invalid GSTIN (e.g. 24ABCDE1234F1Z5)',
-    pan: !form.pan || isPan(form.pan) ? '' : 'PAN must be 10 characters',
-    phone: !form.phone || isMobile(form.phone) ? '' : '10-digit mobile',
+    phone: isMobile(form.phone) ? '' : 'Enter a 10-digit phone number',
     billing_city: form.billing_city.trim() ? '' : 'Required',
     billing_state: form.billing_state.trim() ? '' : 'Required',
     billing_pincode: isPincode(form.billing_pincode) ? '' : '6-digit pincode',
@@ -66,10 +65,12 @@ export default function CustomerForm() {
     <FormPage title={editId ? 'Edit customer' : 'Add customer'} onBack={() => nav('/customers')} error={error}
       footer={<><Button variant="default" onClick={cancel}>Cancel</Button><Button disabled={!valid} onClick={save}>Save customer</Button></>}>
       <FormSection title="Business details">
-        <TextInput label="Name" value={form.name} onChange={e => set({ name: e.currentTarget.value })} error={errs.name} />
-        <TextInput label="GSTIN" value={form.gstin} onChange={e => set({ gstin: e.currentTarget.value.toUpperCase() })} error={errs.gstin} />
-        <TextInput label="PAN" value={form.pan} onChange={e => set({ pan: e.currentTarget.value.toUpperCase() })} error={errs.pan} />
-        <TextInput label="Phone" value={form.phone} onChange={e => set({ phone: e.currentTarget.value.replace(/\D/g, '').slice(0,10) })} error={errs.phone} />
+        <TextInput label="Name" withAsterisk value={form.name} onChange={e => set({ name: e.currentTarget.value })} error={errs.name} />
+        <TextInput label="GSTIN" withAsterisk value={form.gstin}
+          onChange={e => set({ gstin: e.currentTarget.value.toUpperCase(), pan: panFromGstin(e.currentTarget.value) })}
+          error={errs.gstin} />
+        <TextInput label="PAN (from GSTIN)" disabled value={form.pan} />
+        <TextInput label="Phone" withAsterisk value={form.phone} onChange={e => set({ phone: e.currentTarget.value.replace(/\D/g, '').slice(0,10) })} error={errs.phone} />
       </FormSection>
       <FormSection title="Billing address">
         <Input.Wrapper label="Pincode" error={errs.billing_pincode}>
