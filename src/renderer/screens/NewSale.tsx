@@ -44,7 +44,7 @@ export default function NewSale() {
       // cost/kg per lot = purchase.amount / qty_kg (reference only)
       const ps = await window.api.listPurchases()
       setPurchaseCost(new Map(ps.map(p => [p.id, p.qty_kg > 0 ? p.amount / p.qty_kg : 0])))
-      if (fillId) { const { sale } = await window.api.getSaleWithAllocations(fillId); setInvoiceNumber(sale.invoice_number); setInvoiceDate(sale.invoice_date ?? today()) }
+      if (fillId) { const { sale } = await window.api.getSaleWithAllocations(fillId); setInvoiceNumber(sale.invoice_number); setInvoiceDate(sale.invoice_date ?? today()); setVehicle(sale.vehicle ?? '') }
     } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [fillId])
 

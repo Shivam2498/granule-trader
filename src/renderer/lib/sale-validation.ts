@@ -28,7 +28,9 @@ export function lotDrawError(d: LotDraw): string {
 export function saleFormError(s: SaleFormState): string {
   if (!s.hasBuyer) return 'Please choose a buyer.'
   if (!s.vehicle.trim()) return 'Enter the vehicle number.'
-  const ticked = s.lots.filter(l => l.include && l.qty > 0)
+  // "ticked" = the checkbox is on. A ticked-but-empty lot is not "no lot chosen";
+  // it falls through to the per-lot loop below, which asks for its quantity.
+  const ticked = s.lots.filter(l => l.include)
   if (ticked.length === 0) return 'Tick at least one stock lot, then enter its quantity and selling rate.'
   for (const l of s.lots) {
     const e = lotDrawError(l)

@@ -34,9 +34,13 @@ describe('saleFormError', () => {
   it('requires a vehicle number', () => {
     expect(saleFormError({ ...okForm(), vehicle: '   ' })).toBe('Enter the vehicle number.')
   })
-  it('requires at least one ticked lot with a quantity', () => {
+  it('asks to tick a lot only when none is ticked', () => {
     expect(saleFormError({ ...okForm(), lots: [lot({ include: false })] }))
       .toBe('Tick at least one stock lot, then enter its quantity and selling rate.')
+  })
+  it('asks for the quantity when the only ticked lot has none', () => {
+    expect(saleFormError({ ...okForm(), lots: [lot({ include: true, qty: 0 })] }))
+      .toBe('Enter a quantity.')
   })
   it('surfaces an over-drawn lot', () => {
     expect(saleFormError({ ...okForm(), lots: [lot({ qty: 150, available: 100, rate: 8 })] }))
