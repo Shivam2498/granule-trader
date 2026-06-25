@@ -108,7 +108,7 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
     igst: input.igst_manual != null ? round2(input.igst_manual) : tax.igst, tcs: tax.tcs, ro: tax.roundoff,
     tot: tax.total, pst: input.payment_status ?? existing.payment_status, pd: input.payment_date ?? existing.payment_date,
     fy: fy.label, seq: parsePurchaseSeq(input.our_code),
-    supplier_id: input.supplier_id ?? null
+    supplier_id: input.supplier_id ?? existing.supplier_id
   })
   return getPurchase(db, id)!
 }
