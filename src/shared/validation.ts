@@ -4,6 +4,11 @@ export function isGstin(s: string): boolean {
 export function isPan(s: string): boolean {
   return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(s.trim())
 }
+
+export function panFromGstin(gstin: string): string {
+  const g = gstin.trim().toUpperCase()
+  return g.length >= 12 ? g.slice(2, 12) : ''
+}
 export function isMobile(s: string): boolean {
   return /^[0-9]{10}$/.test(s.trim())
 }

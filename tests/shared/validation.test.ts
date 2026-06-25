@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix } from '../../src/shared/validation'
+import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin } from '../../src/shared/validation'
 
 describe('format validators', () => {
   it('accepts a valid GSTIN and rejects bad ones', () => {
@@ -30,5 +30,19 @@ describe('deriveInvoicePrefix', () => {
   })
   it('returns empty for empty input', () => {
     expect(deriveInvoicePrefix('   ')).toBe('')
+  })
+})
+
+describe('panFromGstin', () => {
+  it('extracts the PAN (chars 3-12) from a valid GSTIN', () => {
+    expect(panFromGstin('24CCGPC8555A1Z5')).toBe('CCGPC8555A')
+    expect(isPan(panFromGstin('24CCGPC8555A1Z5'))).toBe(true)   // a valid GSTIN yields a valid PAN
+  })
+  it('uppercases and derives once 12+ chars are present', () => {
+    expect(panFromGstin('24ccgpc8555a')).toBe('CCGPC8555A')
+  })
+  it('returns empty for a too-short GSTIN', () => {
+    expect(panFromGstin('24CCGPC')).toBe('')
+    expect(panFromGstin('')).toBe('')
   })
 })
