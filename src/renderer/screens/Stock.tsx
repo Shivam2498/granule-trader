@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Paper, Button, Alert, Group, Table } from '@mantine/core'
 import type { LedgerRow, Settings } from '@shared/types'
 import PageHeader from '../components/PageHeader'
+import ListTable from '../components/ListTable'
 
 export default function Stock() {
   const nav = useNavigate()
@@ -15,28 +17,26 @@ export default function Stock() {
   let lastHsn = ''; let running = 0
   return (
     <div>
-      <PageHeader title="Stock" action={<>
-        <button onClick={() => nav('/sales/new')}>New sale from stock</button>{' '}
-        <button className="primary" onClick={() => nav('/stock/adjust')}>Adjust stock</button>
-      </>} />
-      {error && <div className="error-banner">{error}</div>}
-      <div className="card">
-        <table>
-          <thead><tr><th>HSN</th><th>Lot</th><th>Date</th><th>Supplier</th><th className="num">In</th><th className="num">Consumed</th><th className="num">Balance</th><th className="num">Running</th></tr></thead>
-          <tbody>{rows.map(r => {
+      <PageHeader title="Stock" action={<Group gap="sm">
+        <Button variant="default" onClick={() => nav('/sales/new')}>New sale from stock</Button>
+        <Button onClick={() => nav('/stock/adjust')}>Adjust stock</Button>
+      </Group>} />
+      {error && <Alert color="red" mb="md">{error}</Alert>}
+      <Paper withBorder p="lg" radius="md">
+        <ListTable head={<><Table.Th>HSN</Table.Th><Table.Th>Lot</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th ta="right">In</Table.Th><Table.Th ta="right">Consumed</Table.Th><Table.Th ta="right">Balance</Table.Th><Table.Th ta="right">Running</Table.Th></>}>
+          {rows.map(r => {
             if (r.hsn_code !== lastHsn) { lastHsn = r.hsn_code; running = 0 }
             running += r.balance_kg
             const isLow = r.balance_kg < low
             return (
-              <tr key={r.purchase_id} style={isLow ? { background: 'var(--warn-bg)' } : undefined}>
-                <td>{r.hsn_code}</td><td>{r.our_code}</td><td>{r.invoice_date}</td><td>{r.party}</td>
-                <td className="num">{r.qty_kg}</td><td className="num">{r.consumed_kg}</td><td className="num">{r.balance_kg}{isLow ? ' ⚠' : ''}</td><td className="num">{running}</td>
-              </tr>)
+              <Table.Tr key={r.purchase_id} bg={isLow ? 'orange.0' : undefined}>
+                <Table.Td>{r.hsn_code}</Table.Td><Table.Td>{r.our_code}</Table.Td><Table.Td>{r.invoice_date}</Table.Td><Table.Td>{r.party}</Table.Td>
+                <Table.Td ta="right">{r.qty_kg}</Table.Td><Table.Td ta="right">{r.consumed_kg}</Table.Td><Table.Td ta="right">{r.balance_kg}{isLow ? ' ⚠' : ''}</Table.Td><Table.Td ta="right">{running}</Table.Td>
+              </Table.Tr>)
           })}
-          {rows.length === 0 && <tr><td colSpan={8} className="muted">No stock on hand.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+          {rows.length === 0 && <Table.Tr><Table.Td colSpan={8} c="dimmed">No stock on hand.</Table.Td></Table.Tr>}
+        </ListTable>
+      </Paper>
     </div>
   )
 }
