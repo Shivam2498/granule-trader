@@ -23,7 +23,7 @@ export default function InvoiceTemplate({ sale, allocations, settings }: { sale:
   return (
     <div className="invoice">
       <div className="head">
-        <div><h2>{settings.seller_name}</h2><div>{settings.seller_address}</div>
+        <div><h2>{settings.seller_name}</h2><div>{[settings.seller_address, settings.seller_city, settings.home_state].filter(Boolean).join(', ')}</div>
           <div>GSTIN: {settings.seller_gstin} · PAN: {settings.seller_pan}{settings.seller_phone ? ` · ${settings.seller_phone}` : ''}</div></div>
         <div style={{ textAlign: 'right' }}><b>TAX INVOICE</b><div>{sale.invoice_number}</div><div>{sale.invoice_date}</div></div>
       </div>

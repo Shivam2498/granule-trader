@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Settings as S, HsnProduct } from '@shared/types'
 import MoneyInput from '../components/MoneyInput'
 import StateSelect from '../components/StateSelect'
+import PincodeField from '../components/PincodeField'
 
 export default function Settings() {
   const [s, setS] = useState<S | null>(null)
@@ -32,7 +33,14 @@ export default function Settings() {
           <div className="field grow"><label>GSTIN</label><input value={s.seller_gstin} onChange={e => set({ seller_gstin: e.target.value })} /></div>
           <div className="field grow"><label>PAN</label><input value={s.seller_pan} onChange={e => set({ seller_pan: e.target.value })} /></div>
         </div>
-        <div className="field"><label>Address</label><textarea value={s.seller_address} onChange={e => set({ seller_address: e.target.value })} /></div>
+        <div className="row">
+          <div className="field"><label>Pincode</label>
+            <PincodeField value={s.seller_pincode} onChange={v => set({ seller_pincode: v })}
+              onResolved={r => set({ seller_city: r.city, home_state: r.state })} /></div>
+          <div className="field grow"><label>City</label>
+            <input value={s.seller_city} onChange={e => set({ seller_city: e.target.value })} /></div>
+        </div>
+        <div className="field"><label>Street address</label><textarea value={s.seller_address} onChange={e => set({ seller_address: e.target.value })} /></div>
         <div className="row">
           <div className="field grow"><label>Mobile</label><input value={s.seller_phone} onChange={e => set({ seller_phone: e.target.value.replace(/\D/g,'').slice(0,10) })} /></div>
           <div className="field grow"><label>Home state (tax)</label><StateSelect value={s.home_state} onChange={v => set({ home_state: v })} /></div>

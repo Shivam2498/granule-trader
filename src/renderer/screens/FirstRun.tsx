@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { isGstin, isPan, isMobile, deriveInvoicePrefix } from '@shared/validation'
+import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix } from '@shared/validation'
 import StateSelect from '../components/StateSelect'
+import PincodeField from '../components/PincodeField'
 
 export default function FirstRun({ onDone }: { onDone: () => void }) {
   const [folder, setFolder] = useState<string | null>(null)
@@ -12,6 +13,8 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
   const [mobile, setMobile] = useState('')
   const [homeState, setHomeState] = useState('')
   const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [pincode, setPincode] = useState('')
   const [error, setError] = useState('')
 
   function setBusinessName(v: string) {
@@ -22,7 +25,8 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
 
   const valid =
     !!folder && name.trim().length > 0 && isGstin(gstin) && isPan(pan) &&
-    isMobile(mobile) && homeState.trim().length > 0 && address.trim().length > 0 && prefix.trim().length > 0
+    isMobile(mobile) && homeState.trim().length > 0 && prefix.trim().length > 0 &&
+    (pincode === '' || isPincode(pincode))
 
   async function start() {
     setError('')
@@ -30,7 +34,8 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
     try {
       await window.api.saveSettings({
         seller_name: name.trim(), seller_gstin: gstin.trim().toUpperCase(), seller_pan: pan.trim().toUpperCase(),
-        seller_phone: mobile.trim(), seller_address: address.trim(), home_state: homeState,
+        seller_phone: mobile.trim(), seller_address: address.trim(),
+        seller_city: city.trim(), seller_pincode: pincode.trim(), home_state: homeState,
         invoice_prefix: prefix.trim().toUpperCase()
       })
       onDone()
@@ -71,10 +76,16 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             <div className="field"><label>PAN</label>
               <input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
               {fieldErr(pan.length > 0 && !isPan(pan), 'PAN must be 10 characters, e.g. ABCDE1234F')}</div>
+            <div className="field"><label>Pincode</label>
+              <PincodeField value={pincode} onChange={setPincode}
+                onResolved={r => { setCity(r.city); setHomeState(r.state) }} />
+              {fieldErr(pincode.length > 0 && !isPincode(pincode), '6-digit pincode')}</div>
+            <div className="field"><label>City</label>
+              <input value={city} onChange={e => setCity(e.target.value)} /></div>
+            <div className="field full"><label>Street address</label>
+              <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} /></div>
             <div className="field"><label>Home state (for tax)</label>
               <StateSelect value={homeState} onChange={setHomeState} /></div>
-            <div className="field full"><label>Address</label>
-              <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2} /></div>
           </div>
         </div>
 
