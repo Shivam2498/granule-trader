@@ -10,7 +10,7 @@ import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
-import { formatINR, today } from '../lib/format'
+import { formatINR, today, formatAddress } from '../lib/format'
 
 export default function PurchaseForm() {
   const nav = useNavigate()
@@ -62,18 +62,18 @@ export default function PurchaseForm() {
   ]
 
   const errs = {
-    our_code: form.our_code.trim() ? '' : 'Required',
-    invoice_date: form.invoice_date ? '' : 'Required',
-    supplier_id: form.supplier_id ? '' : 'Choose a supplier',
-    hsn_code: form.hsn_code ? '' : 'Required',
-    qty_kg: form.qty_kg > 0 ? '' : 'Enter a quantity',
-    rate_per_kg: form.rate_per_kg > 0 ? '' : 'Enter a rate',
+    our_code: form.our_code.trim() ? '' : 'Enter the code.',
+    invoice_date: form.invoice_date ? '' : 'Pick the invoice date.',
+    supplier_id: form.supplier_id ? '' : 'Choose a supplier.',
+    hsn_code: form.hsn_code ? '' : 'Choose the HSN.',
+    qty_kg: form.qty_kg > 0 ? '' : 'Enter a quantity.',
+    rate_per_kg: form.rate_per_kg > 0 ? '' : 'Enter a rate per kg.',
   }
   const valid = Object.values(errs).every(e => e === '')
 
   async function save() {
     setError('')
-    if (!valid) { setError('Please fix the highlighted fields.'); return }
+    if (!valid) { setError('Please fix the highlighted fields below.'); return }
     try {
       const payload = {
         our_code: form.our_code, supplier_invoice_number: form.supplier_invoice_number, invoice_date: form.invoice_date,
@@ -115,10 +115,7 @@ export default function PurchaseForm() {
           <Paper withBorder p="sm" radius="sm" bg="var(--mantine-color-gray-0)">
             <Text size="sm">GSTIN: <Text component="span" fw={600}>{supplier.gstin || '—'}</Text></Text>
             <Text size="sm">Phone: {supplier.phone || '—'}</Text>
-            <Text size="sm">
-              Address: {[supplier.address, supplier.city, supplier.state].filter(Boolean).join(', ')}
-              {supplier.pincode ? ` — ${supplier.pincode}` : ''}
-            </Text>
+            <Text size="sm">Address: {formatAddress(supplier)}</Text>
             <Text size="xs" c="dimmed" mt={4}>To edit these, open the Suppliers screen.</Text>
           </Paper>
         )}

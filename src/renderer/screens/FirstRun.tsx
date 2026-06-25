@@ -3,7 +3,7 @@ import {
   Container, Paper, Title, Divider, Group, TextInput, Textarea,
   Button, Alert, SimpleGrid, Input
 } from '@mantine/core'
-import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin } from '@shared/validation'
+import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin, VMSG } from '@shared/validation'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
 
@@ -35,13 +35,13 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
 
   // A required field shows "Required" once the user has tried to submit; a filled-but-invalid
   // field shows its format message immediately. This is how the button tells you what's missing.
-  const reqErr = (v: string) => (attempted && !v.trim() ? 'Required' : undefined)
+  const reqErr = (v: string, what: string) => (attempted && !v.trim() ? `Enter the ${what}.` : undefined)
 
   async function start() {
     setError('')
     if (!valid) {
       setAttempted(true)
-      setError('Please complete the highlighted fields below.')
+      setError('Please fix the highlighted fields below.')
       return
     }
     try {
@@ -89,7 +89,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             value={name}
             onChange={e => setBusinessName(e.currentTarget.value)}
             placeholder="e.g. Ramaxton Plastocrafts"
-            error={reqErr(name)}
+            error={reqErr(name, 'business name')}
             style={{ gridColumn: 'span 2' }}
           />
           <TextInput
@@ -97,7 +97,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             withAsterisk
             value={prefix}
             onChange={e => { setPrefix(e.currentTarget.value.toUpperCase()); setPrefixEdited(true) }}
-            error={reqErr(prefix)}
+            error={reqErr(prefix, 'invoice prefix')}
           />
           <TextInput
             label="Mobile"
@@ -105,7 +105,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             value={mobile}
             onChange={e => setMobile(e.currentTarget.value.replace(/\D/g, '').slice(0, 10))}
             placeholder="10 digits"
-            error={mobile.length > 0 && !isMobile(mobile) ? 'Enter a 10-digit mobile number' : reqErr(mobile)}
+            error={mobile.length > 0 && !isMobile(mobile) ? VMSG.phone : reqErr(mobile, 'mobile number')}
           />
           <TextInput
             label="GSTIN"
@@ -113,12 +113,12 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             value={gstin}
             onChange={e => { setGstin(e.currentTarget.value.toUpperCase()); setPan(panFromGstin(e.currentTarget.value)) }}
             placeholder="24ABCDE1234F1Z5"
-            error={gstin.length > 0 && !isGstin(gstin) ? 'GSTIN must be 15 characters, e.g. 24ABCDE1234F1Z5' : reqErr(gstin)}
+            error={gstin.length > 0 && !isGstin(gstin) ? VMSG.gstin : reqErr(gstin, 'GSTIN')}
           />
           <TextInput label="PAN (from GSTIN)" disabled value={pan} placeholder="from GSTIN" />
           <Input.Wrapper
             label="Pincode"
-            error={pincode.length > 0 && !isPincode(pincode) ? '6-digit pincode' : undefined}
+            error={pincode.length > 0 && !isPincode(pincode) ? VMSG.pincode : undefined}
           >
             <PincodeField
               value={pincode}
@@ -139,7 +139,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             onChange={e => setAddress(e.currentTarget.value)}
             style={{ gridColumn: 'span 2' }}
           />
-          <Input.Wrapper label="Home state (for tax)" withAsterisk error={reqErr(homeState)}>
+          <Input.Wrapper label="Home state (for tax)" withAsterisk error={reqErr(homeState, 'home state')}>
             <StateSelect value={homeState} onChange={setHomeState} />
           </Input.Wrapper>
         </SimpleGrid>
