@@ -8,6 +8,8 @@ import Stock from './screens/Stock'
 import StockAdjust from './screens/StockAdjust'
 import Customers from './screens/Customers'
 import CustomerForm from './screens/CustomerForm'
+import Suppliers from './screens/Suppliers'
+import SupplierForm from './screens/SupplierForm'
 import Settings from './screens/Settings'
 import InvoiceView from './screens/InvoiceView'
 export default function AppRoutes() {
@@ -25,6 +27,9 @@ export default function AppRoutes() {
       <Route path="/customers" element={<Customers />} />
       <Route path="/customers/new" element={<CustomerForm />} />
       <Route path="/customers/edit/:id" element={<CustomerForm />} />
+      <Route path="/suppliers" element={<Suppliers />} />
+      <Route path="/suppliers/new" element={<SupplierForm />} />
+      <Route path="/suppliers/edit/:id" element={<SupplierForm />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/invoice/:id" element={<InvoiceView />} />
     </Routes>

@@ -1,6 +1,6 @@
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
 import { NavLink, Title, Stack } from '@mantine/core'
-import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconSettings } from '@tabler/icons-react'
+import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconBuildingWarehouse, IconSettings } from '@tabler/icons-react'
 
 const items = [
   { to: '/', label: 'Dashboard', icon: IconDashboard },
@@ -8,6 +8,7 @@ const items = [
   { to: '/sales', label: 'Sales', icon: IconReceipt },
   { to: '/stock', label: 'Stock', icon: IconBox },
   { to: '/customers', label: 'Customers', icon: IconUsers },
+  { to: '/suppliers', label: 'Suppliers', icon: IconBuildingWarehouse },
   { to: '/settings', label: 'Settings', icon: IconSettings }
 ]
 

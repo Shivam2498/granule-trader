@@ -29,6 +29,18 @@ CREATE TABLE IF NOT EXISTS customers (
   shipping_pincode TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  gstin TEXT NOT NULL DEFAULT '',
+  pan TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  city TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT '',
+  pincode TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS purchases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   our_code TEXT NOT NULL,
@@ -39,6 +51,7 @@ CREATE TABLE IF NOT EXISTS purchases (
   party_city TEXT NOT NULL DEFAULT '',
   party_pincode TEXT NOT NULL DEFAULT '',
   party_address TEXT NOT NULL DEFAULT '',
+  supplier_id INTEGER REFERENCES suppliers(id),
   hsn_code TEXT NOT NULL DEFAULT '',
   qty_kg REAL NOT NULL,
   qty_remaining_kg REAL NOT NULL,
@@ -133,7 +146,8 @@ function migrate(db: Database.Database): void {
     ['rate_per_kg', `ALTER TABLE purchases ADD COLUMN rate_per_kg REAL NOT NULL DEFAULT 0`],
     ['party_city', `ALTER TABLE purchases ADD COLUMN party_city TEXT NOT NULL DEFAULT ''`],
     ['party_pincode', `ALTER TABLE purchases ADD COLUMN party_pincode TEXT NOT NULL DEFAULT ''`],
-    ['party_address', `ALTER TABLE purchases ADD COLUMN party_address TEXT NOT NULL DEFAULT ''`]
+    ['party_address', `ALTER TABLE purchases ADD COLUMN party_address TEXT NOT NULL DEFAULT ''`],
+    ['supplier_id', `ALTER TABLE purchases ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)`]
   ] as const) {
     if (!hasColumn(db, 'purchases', col)) db.exec(ddl)
   }

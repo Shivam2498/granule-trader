@@ -1,4 +1,4 @@
-import type { Purchase, Customer, Sale, SaleAllocation, HsnProduct, Settings, AvailableLot, LedgerRow } from './types'
+import type { Purchase, Customer, Supplier, Sale, SaleAllocation, HsnProduct, Settings, AvailableLot, LedgerRow } from './types'
 import type { NewPurchase } from '../main/core/purchase'   // type-only import; not bundled into renderer
 import type { NewSale } from '../main/core/sale'
 import type { AdjustmentRow } from '../main/core/adjustment'
@@ -33,6 +33,11 @@ export interface Api {
   createCustomer(c: Omit<Customer, 'id'>): Promise<Customer>
   updateCustomer(id: number, c: Omit<Customer, 'id'>): Promise<Customer>
   deleteCustomer(id: number): Promise<void>
+  // suppliers
+  listSuppliers(search?: string): Promise<Supplier[]>
+  createSupplier(s: Omit<Supplier, 'id'>): Promise<Supplier>
+  updateSupplier(id: number, s: Omit<Supplier, 'id'>): Promise<Supplier>
+  deleteSupplier(id: number): Promise<void>
   // hsn
   listHsn(): Promise<HsnProduct[]>
   upsertHsn(h: HsnProduct): Promise<void>
@@ -44,5 +49,5 @@ export const CHANNELS = [
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
-  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listHsn','upsertHsn'
+  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn'
 ] as const

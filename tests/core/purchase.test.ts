@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { nextPurchaseCode, createPurchase, listPurchases, deletePurchase, updatePurchase } from '../../src/main/core/purchase'
+import { createSupplier } from '../../src/main/core/suppliers'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -67,5 +68,21 @@ describe('rate-driven amount', () => {
     expect(p.party_city).toBe('Surat')
     expect(p.cgst).toBe(4500)               // 9% of 50000 intra-state
     expect(p.total_invoice_amount).toBe(59000)
+  })
+})
+
+describe('purchase supplier link', () => {
+  it('stores and returns supplier_id', () => {
+    const sup = createSupplier(db, {
+      name: 'Acme Polymers', gstin: '24CCGPC8555A1Z5', pan: 'CCGPC8555A', phone: '9876543210',
+      address: '1 Estate', city: 'Surat', state: 'Gujarat', pincode: '395003'
+    })
+    const p = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', supplier_id: sup.id })
+    expect(p.supplier_id).toBe(sup.id)
+    expect(listPurchases(db)[0].supplier_id).toBe(sup.id)
+  })
+  it('defaults supplier_id to null when omitted', () => {
+    const p = createPurchase(db, { ...base, our_code: '0002/2425', invoice_date: '2024-05-01' })
+    expect(p.supplier_id).toBeNull()
   })
 })

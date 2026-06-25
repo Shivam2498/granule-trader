@@ -9,7 +9,7 @@ describe('schema', () => {
     const names = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     ).all().map((r: any) => r.name)
-    for (const t of ['customers','hsn_products','purchases','sale_allocations','sales','settings','stock_adjustments'])
+    for (const t of ['customers','hsn_products','purchases','sale_allocations','sales','settings','stock_adjustments','suppliers'])
       expect(names).toContain(t)
     db.close()
   })
@@ -46,6 +46,15 @@ describe('schema', () => {
     for (const c of ['rate_per_kg','party_city','party_pincode','party_address']) expect(cols).toContain(c)
     const row = db.prepare('SELECT rate_per_kg FROM purchases WHERE id = 1').get() as { rate_per_kg: number }
     expect(row.rate_per_kg).toBe(50)   // 5000 / 100 backfilled
+    db.close()
+  })
+
+  it('creates the suppliers table and a supplier_id column on purchases', () => {
+    const db = openDatabase(':memory:')
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r: any) => r.name)
+    expect(tables).toContain('suppliers')
+    const cols = db.prepare("PRAGMA table_info(purchases)").all().map((r: any) => r.name)
+    expect(cols).toContain('supplier_id')
     db.close()
   })
 

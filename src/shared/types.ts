@@ -27,6 +27,19 @@ export interface Purchase {
   fy_label: string
   code_seq: number
   created_at: string
+  supplier_id: number | null
+}
+
+export interface Supplier {
+  id: number
+  name: string
+  gstin: string
+  pan: string
+  phone: string
+  address: string
+  city: string
+  state: string
+  pincode: string
 }
 
 export interface Customer {
