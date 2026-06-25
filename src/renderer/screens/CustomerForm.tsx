@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { TextInput, Textarea, Checkbox, Button, Input } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import type { Customer } from '@shared/types'
 import { isGstin, isPan, isMobile, isPincode } from '@shared/validation'
 import FormPage from '../components/FormPage'
@@ -53,41 +55,45 @@ export default function CustomerForm() {
     try {
       const payload = { ...form, gstin: form.gstin.toUpperCase(), pan: form.pan.toUpperCase() }
       if (editId) await window.api.updateCustomer(editId, payload); else await window.api.createCustomer(payload)
+      notifications.show({ message: 'Customer saved', color: 'green' })
       nav('/customers')
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
-  const F = (label: string, node: React.ReactNode, err?: string, full?: boolean) => (
-    <div className={'field' + (full ? ' full' : '')}><label>{label}</label>{node}{err ? <div className="err">{err}</div> : null}</div>
-  )
+  const cancel = () => nav('/customers')
 
   return (
     <FormPage title={editId ? 'Edit customer' : 'Add customer'} onBack={() => nav('/customers')} error={error}
-      footer={<><button onClick={() => nav('/customers')}>Cancel</button><button className="primary" disabled={!valid} onClick={save}>Save customer</button></>}>
+      footer={<><Button variant="default" onClick={cancel}>Cancel</Button><Button disabled={!valid} onClick={save}>Save customer</Button></>}>
       <FormSection title="Business details">
-        {F('Name', <input value={form.name} onChange={e => set({ name: e.target.value })} />, errs.name)}
-        {F('GSTIN', <input value={form.gstin} onChange={e => set({ gstin: e.target.value.toUpperCase() })} />, errs.gstin)}
-        {F('PAN', <input value={form.pan} onChange={e => set({ pan: e.target.value.toUpperCase() })} />, errs.pan)}
-        {F('Phone', <input value={form.phone} onChange={e => set({ phone: e.target.value.replace(/\D/g, '').slice(0,10) })} />, errs.phone)}
+        <TextInput label="Name" value={form.name} onChange={e => set({ name: e.currentTarget.value })} error={errs.name} />
+        <TextInput label="GSTIN" value={form.gstin} onChange={e => set({ gstin: e.currentTarget.value.toUpperCase() })} error={errs.gstin} />
+        <TextInput label="PAN" value={form.pan} onChange={e => set({ pan: e.currentTarget.value.toUpperCase() })} error={errs.pan} />
+        <TextInput label="Phone" value={form.phone} onChange={e => set({ phone: e.currentTarget.value.replace(/\D/g, '').slice(0,10) })} error={errs.phone} />
       </FormSection>
       <FormSection title="Billing address">
-        {F('Pincode', <PincodeField value={form.billing_pincode} onChange={v => set({ billing_pincode: v })}
-            onResolved={r => set({ billing_city: r.city, billing_state: r.state })} />, errs.billing_pincode)}
-        {F('City', <input value={form.billing_city} onChange={e => set({ billing_city: e.target.value })} />, errs.billing_city)}
-        {F('State', <StateSelect value={form.billing_state} onChange={v => set({ billing_state: v })} />, errs.billing_state)}
-        {F('Address', <textarea rows={2} value={form.billing_address} onChange={e => set({ billing_address: e.target.value })} />, errs.billing_address, true)}
+        <Input.Wrapper label="Pincode" error={errs.billing_pincode}>
+          <PincodeField value={form.billing_pincode} onChange={v => set({ billing_pincode: v })}
+            onResolved={r => set({ billing_city: r.city, billing_state: r.state })} />
+        </Input.Wrapper>
+        <TextInput label="City" value={form.billing_city} onChange={e => set({ billing_city: e.currentTarget.value })} error={errs.billing_city} />
+        <Input.Wrapper label="State" error={errs.billing_state}>
+          <StateSelect value={form.billing_state} onChange={v => set({ billing_state: v })} />
+        </Input.Wrapper>
+        <Textarea label="Address" autosize minRows={2} value={form.billing_address} onChange={e => set({ billing_address: e.currentTarget.value })} error={errs.billing_address} />
       </FormSection>
-      <label style={{ display: 'block', margin: '4px 0 14px' }}>
-        <input type="checkbox" style={{ width: 'auto', marginRight: 8 }} checked={form.shipping_same} onChange={e => set({ shipping_same: e.target.checked })} />
-        Shipping address is the same as billing
-      </label>
+      <Checkbox label="Shipping address is the same as billing" checked={form.shipping_same} onChange={e => set({ shipping_same: e.currentTarget.checked })} />
       {!form.shipping_same && (
         <FormSection title="Shipping address">
-          {F('Pincode', <PincodeField value={form.shipping_pincode} onChange={v => set({ shipping_pincode: v })}
-              onResolved={r => set({ shipping_city: r.city, shipping_state: r.state })} />, errs.shipping_pincode)}
-          {F('City', <input value={form.shipping_city} onChange={e => set({ shipping_city: e.target.value })} />, errs.shipping_city)}
-          {F('State', <StateSelect value={form.shipping_state} onChange={v => set({ shipping_state: v })} />, errs.shipping_state)}
-          {F('Address', <textarea rows={2} value={form.shipping_address} onChange={e => set({ shipping_address: e.target.value })} />, errs.shipping_address, true)}
+          <Input.Wrapper label="Pincode" error={errs.shipping_pincode}>
+            <PincodeField value={form.shipping_pincode} onChange={v => set({ shipping_pincode: v })}
+              onResolved={r => set({ shipping_city: r.city, shipping_state: r.state })} />
+          </Input.Wrapper>
+          <TextInput label="City" value={form.shipping_city} onChange={e => set({ shipping_city: e.currentTarget.value })} error={errs.shipping_city} />
+          <Input.Wrapper label="State" error={errs.shipping_state}>
+            <StateSelect value={form.shipping_state} onChange={v => set({ shipping_state: v })} />
+          </Input.Wrapper>
+          <Textarea label="Address" autosize minRows={2} value={form.shipping_address} onChange={e => set({ shipping_address: e.currentTarget.value })} error={errs.shipping_address} />
         </FormSection>
       )}
     </FormPage>
