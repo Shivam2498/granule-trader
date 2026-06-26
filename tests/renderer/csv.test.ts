@@ -1,0 +1,38 @@
+import { describe, it, expect } from 'vitest'
+import { toCsv, salesColumns, purchaseColumns } from '../../src/renderer/lib/csv'
+import type { Sale, Purchase } from '../../src/shared/types'
+
+describe('toCsv', () => {
+  it('joins headers and rows, escaping quotes/commas/newlines', () => {
+    const cols = [
+      { header: 'Name', value: (r: { n: string; v: number }) => r.n },
+      { header: 'Val', value: (r: { n: string; v: number }) => r.v },
+    ]
+    const out = toCsv([{ n: 'Plain', v: 1 }, { n: 'Has, comma', v: 2 }, { n: 'Quote"x', v: 3 }], cols)
+    expect(out).toBe('Name,Val\nPlain,1\n"Has, comma",2\n"Quote""x",3')
+  })
+  it('returns just the header row for no data', () => {
+    expect(toCsv([], [{ header: 'A', value: () => '' }])).toBe('A')
+  })
+})
+
+describe('salesColumns', () => {
+  it('maps invoice-level GST fields and reads buyer state from JSON', () => {
+    const s = { invoice_number: 'RP/1', invoice_date: '2026-06-10', buyer_name: 'Acme', buyer_gstin: '24X',
+      buyer_billing_json: '{"state":"Gujarat"}', total_qty_kg: 5, amount: 100, cgst: 9, sgst: 9, igst: 0, tcs: 0,
+      roundoff: 0, total_invoice_amount: 118, payment_status: 'pending', payment_date: null } as Sale
+    const row = salesColumns.map(c => c.value(s))
+    expect(row).toEqual(['RP/1', '2026-06-10', 'Acme', '24X', 'Gujarat', 5, 100, 9, 9, 0, 0, 0, 118, 'pending', ''])
+    expect(salesColumns.map(c => c.header)).toContain('Buyer GSTIN')
+  })
+})
+
+describe('purchaseColumns', () => {
+  it('maps purchase GST fields including HSN', () => {
+    const p = { our_code: 'P1', supplier_invoice_number: 'S1', invoice_date: '2026-06-10', party: 'Supp',
+      party_state: 'Gujarat', hsn_code: '3901', qty_kg: 10, rate_per_kg: 50, amount: 500, cgst: 45, sgst: 45,
+      igst: 0, tcs: 0, total_invoice_amount: 590, payment_status: 'done', payment_date: '2026-06-12' } as Purchase
+    const row = purchaseColumns.map(c => c.value(p))
+    expect(row).toEqual(['P1', 'S1', '2026-06-10', 'Supp', 'Gujarat', '3901', 10, 50, 500, 45, 45, 0, 0, 590, 'done', '2026-06-12'])
+  })
+})
