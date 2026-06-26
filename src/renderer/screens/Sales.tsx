@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Paper, Button, Alert, Badge, Group, Table, Text } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import type { Sale } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
@@ -23,7 +24,11 @@ export default function Sales() {
   }
   async function exportCsv(rows: Sale[], name: string) {
     if (rows.length === 0) return
-    await window.api.exportCsv(name, toCsv(rows, salesColumns))
+    try {
+      await window.api.exportCsv(name, toCsv(rows, salesColumns))
+    } catch (e: any) {
+      notifications.show({ color: 'red', title: 'Export failed', message: e.message ?? String(e) })
+    }
   }
   return (
     <div>

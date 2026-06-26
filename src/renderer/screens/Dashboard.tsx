@@ -21,6 +21,7 @@ export default function Dashboard() {
   const { fy } = useFY()
   const [sales, setSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [allPurchases, setAllPurchases] = useState<Purchase[]>([])
   const [ledger, setLedger] = useState<LedgerRow[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [error, setError] = useState('')
@@ -28,6 +29,7 @@ export default function Dashboard() {
   useEffect(() => { (async () => {
     try {
       setSales(await window.api.listSales(fy)); setPurchases(await window.api.listPurchases(fy))
+      setAllPurchases(await window.api.listPurchases())
       setLedger(await window.api.stockLedger()); setSettings(await window.api.getSettings())
     } catch (e: any) { setError('Could not load dashboard: ' + (e.message ?? e)) }
   })() }, [fy])
@@ -38,8 +40,8 @@ export default function Dashboard() {
   const pay = payables(purchases, now)
   const gst = gstSnapshot(sales, purchases)
   const delta = monthDelta(sales, now)
-  const stock = stockByProduct(ledger, purchases)
-  const aging = inventoryAging(ledger, purchases, now)
+  const stock = stockByProduct(ledger, allPurchases)
+  const aging = inventoryAging(ledger, allPurchases, now)
   const lowLots = lowStock(ledger, settings?.low_stock_threshold ?? 0)
   const reserved = reservedPendingFill(sales)
 
