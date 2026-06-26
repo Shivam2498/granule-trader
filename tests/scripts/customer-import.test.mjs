@@ -43,6 +43,14 @@ describe('mapCustomerRows', () => {
     expect(toImport[0]).toMatchObject({ name: 'Gamma', gstin: '', pan: '' })
   })
 
+  it('skips a leading "Table 1" title row (Numbers export) and finds the real header', () => {
+    const { toImport, skipped } = mapCustomerRows(parseCsv(
+      `Table 1\n${header}\n2,Acme Traders,12 MG Road,Kolkata,West Bengal,700001,9876543210,19ABCDE1234F1Z5,\n`))
+    expect(skipped).toEqual([])
+    expect(toImport).toHaveLength(1)
+    expect(toImport[0]).toMatchObject({ name: 'Acme Traders', billing_city: 'Kolkata' })
+  })
+
   it('skips a row missing the Customer Name', () => {
     const { toImport, skipped } = mapCustomerRows(parseCsv(`${header}\n4,,Addr,City,State,700004,,,\n`))
     expect(toImport).toEqual([])

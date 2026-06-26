@@ -9,9 +9,11 @@ const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
 // and skips blank lines.
 export function parseCsv(text) {
   const clean = text.replace(/^﻿/, '')
-  const first = clean.split(/\r?\n/, 1)[0] ?? ''
-  const tabs = first.split('\t').length - 1
-  const commas = first.split(',').length - 1
+  // Detect delimiter from the first few non-empty lines (a leading "Table 1"
+  // title row from Numbers has no delimiter, so sniff several lines).
+  const sniff = clean.split(/\r?\n/).filter(l => l.trim() !== '').slice(0, 5)
+  let tabs = 0, commas = 0
+  for (const l of sniff) { tabs += l.split('\t').length - 1; commas += l.split(',').length - 1 }
   const delim = tabs > commas ? '\t' : ','
 
   const rows = []
@@ -58,12 +60,16 @@ export function mapCustomerRows(rows) {
   const toImport = [], skipped = []
   if (rows.length === 0) return { toImport, skipped }
 
-  const header = rows[0].map(norm)
+  // Find the header row by its column names (skips a leading "Table 1" title
+  // row that Numbers/Excel may prepend). Falls back to the first row.
+  let headerIdx = rows.findIndex(r => r.map(norm).some(h => HEADER_MAP[h] !== undefined))
+  if (headerIdx === -1) headerIdx = 0
+  const header = rows[headerIdx].map(norm)
   const col = {}
   header.forEach((h, i) => { const f = HEADER_MAP[h]; if (f && col[f] === undefined) col[f] = i })
   const get = (r, key) => col[key] !== undefined ? (r[col[key]] ?? '').trim() : ''
 
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i]
     const line = i + 1
     const name = get(r, 'name')
