@@ -26,8 +26,8 @@ describe('ActionCenter', () => {
     expect(screen.getByText('Overdue receivables')).toBeTruthy()
     expect(screen.getByText('Reserved invoices')).toBeTruthy()
     expect(screen.getByText('Low stock')).toBeTruthy()
-    expect(screen.getByText('RP/7')).toBeTruthy()   // overdue invoice number rendered
-    expect(screen.getByText('L1')).toBeTruthy()      // low-stock lot rendered
+    expect(screen.getByText(/RP\/7.*Acme/)).toBeTruthy()   // overdue invoice number rendered
+    expect(screen.getByText(/L1 /)).toBeTruthy()      // low-stock lot rendered
   })
 
   it('renders empty copy when a group has no items', () => {
