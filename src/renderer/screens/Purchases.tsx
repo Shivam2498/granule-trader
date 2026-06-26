@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
 import { formatINR } from '../lib/format'
 import { groupByMonth, monthLabel } from '../lib/group'
+import { toCsv, purchaseColumns } from '../lib/csv'
 import { useFY } from '../fy'
 
 export default function Purchases() {
@@ -20,9 +21,18 @@ export default function Purchases() {
     if (!confirm('Delete this purchase? Stock will be recalculated.')) return
     try { await window.api.deletePurchase(id); reload() } catch (e: any) { setError(e.message ?? String(e)) }
   }
+  async function exportCsv(rows: Purchase[], name: string) {
+    if (rows.length === 0) return
+    await window.api.exportCsv(name, toCsv(rows, purchaseColumns))
+  }
   return (
     <div>
-      <PageHeader title={`Purchases · ${fy}`} action={<Button onClick={() => nav('/purchases/new')}>+ Add purchase</Button>} />
+      <PageHeader title={`Purchases · ${fy}`} action={
+        <Group>
+          <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list, `Purchases-FY-${fy}.csv`)}>Export FY</Button>
+          <Button onClick={() => nav('/purchases/new')}>+ Add purchase</Button>
+        </Group>
+      } />
       {error && <Alert color="red" mb="md">{error}</Alert>}
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>Code</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th>HSN</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Remaining</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>
@@ -30,7 +40,10 @@ export default function Purchases() {
             <Fragment key={g.key}>
               <Table.Tr>
                 <Table.Td colSpan={9} bg="var(--mantine-color-gray-1)" fw={700}>
-                  {`${monthLabel(g.key)} — ${g.items.reduce((sum, p) => sum + p.qty_kg, 0)} kg · ${formatINR(g.items.reduce((sum, p) => sum + p.total_invoice_amount, 0))}`}
+                  <Group justify="space-between">
+                    <span>{`${monthLabel(g.key)} — ${g.items.reduce((sum, p) => sum + p.qty_kg, 0)} kg · ${formatINR(g.items.reduce((sum, p) => sum + p.total_invoice_amount, 0))}`}</span>
+                    <Button variant="subtle" size="compact-xs" onClick={() => exportCsv(g.items, `Purchases-${monthLabel(g.key).replace(' ', '-')}.csv`)}>⭳ CSV</Button>
+                  </Group>
                 </Table.Td>
               </Table.Tr>
               {g.items.map(p => (

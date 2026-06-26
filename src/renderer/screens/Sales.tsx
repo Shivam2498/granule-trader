@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
 import { formatINR } from '../lib/format'
 import { groupByMonth, monthLabel } from '../lib/group'
+import { toCsv, salesColumns } from '../lib/csv'
 import { useFY } from '../fy'
 
 export default function Sales() {
@@ -20,9 +21,18 @@ export default function Sales() {
     if (!confirm('Delete this sale? Stock will be restored.')) return
     try { await window.api.deleteSale(id); reload() } catch (e: any) { setError(e.message ?? String(e)) }
   }
+  async function exportCsv(rows: Sale[], name: string) {
+    if (rows.length === 0) return
+    await window.api.exportCsv(name, toCsv(rows, salesColumns))
+  }
   return (
     <div>
-      <PageHeader title={`Sales · ${fy}`} action={<Button onClick={() => nav('/sales/new')}>+ New sale</Button>} />
+      <PageHeader title={`Sales · ${fy}`} action={
+        <Group>
+          <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list, `Sales-FY-${fy}.csv`)}>Export FY</Button>
+          <Button onClick={() => nav('/sales/new')}>+ New sale</Button>
+        </Group>
+      } />
       {error && <Alert color="red" mb="md">{error}</Alert>}
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>Invoice</Table.Th><Table.Th>Date</Table.Th><Table.Th>Buyer</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>
@@ -30,7 +40,11 @@ export default function Sales() {
             <Fragment key={g.key}>
               <Table.Tr>
                 <Table.Td colSpan={7} bg="var(--mantine-color-gray-1)" fw={700}>
-                  {g.key === 'undated' ? 'Reserved' : `${monthLabel(g.key)} — ${g.items.reduce((sum, s) => sum + s.total_qty_kg, 0)} kg · ${formatINR(g.items.reduce((sum, s) => sum + s.total_invoice_amount, 0))}`}
+                  <Group justify="space-between">
+                    <span>{g.key === 'undated' ? 'Reserved' : `${monthLabel(g.key)} — ${g.items.reduce((sum, s) => sum + s.total_qty_kg, 0)} kg · ${formatINR(g.items.reduce((sum, s) => sum + s.total_invoice_amount, 0))}`}</span>
+                    {g.key !== 'undated' &&
+                      <Button variant="subtle" size="compact-xs" onClick={() => exportCsv(g.items, `Sales-${monthLabel(g.key).replace(' ', '-')}.csv`)}>⭳ CSV</Button>}
+                  </Group>
                 </Table.Td>
               </Table.Tr>
               {g.items.map(s => s.status === 'reserved' ? (
