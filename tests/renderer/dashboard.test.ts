@@ -151,6 +151,19 @@ describe('stockByProduct', () => {
       { hsn: '3902', kg: 10, value: 50 },
     ])
   })
+
+  it('counts kg but values at 0 when the lot has no matching purchase', () => {
+    const rows = [
+      ledger({ purchase_id: 1, hsn_code: '3901', balance_kg: 100 }),
+      ledger({ purchase_id: 99, hsn_code: '3903', balance_kg: 5 }),  // no matching purchase → rate falls back to 0
+    ]
+    const purchases = [purchase({ id: 1, rate_per_kg: 2 })]
+    const slices = stockByProduct(rows, purchases)
+    expect(slices).toEqual([
+      { hsn: '3901', kg: 100, value: 200 },
+      { hsn: '3903', kg: 5, value: 0 },
+    ])
+  })
 })
 
 describe('inventoryAging', () => {
@@ -164,6 +177,29 @@ describe('inventoryAging', () => {
     expect(buckets.map(b => b.bucket)).toEqual(['0-30', '31-60', '61-90', '90+'])
     expect(buckets[0]).toEqual({ bucket: '0-30', kg: 10, value: 20 })
     expect(buckets[3]).toEqual({ bucket: '90+', kg: 20, value: 60 })
+  })
+
+  it('places lots at the exact bucket boundary days correctly', () => {
+    // today − invoice_date, today = '2026-06-13':
+    //   '2026-05-14' → 30 days → 0-30 ; '2026-05-13' → 31 days → 31-60
+    //   '2026-04-14' → 60 days → 31-60 ; '2026-04-13' → 61 days → 61-90
+    //   '2026-03-15' → 90 days → 61-90 ; '2026-03-14' → 91 days → 90+
+    const rows = [
+      ledger({ purchase_id: 1, invoice_date: '2026-05-14', balance_kg: 1 }),   // 30 → 0-30
+      ledger({ purchase_id: 1, invoice_date: '2026-05-13', balance_kg: 2 }),   // 31 → 31-60
+      ledger({ purchase_id: 1, invoice_date: '2026-04-14', balance_kg: 4 }),   // 60 → 31-60
+      ledger({ purchase_id: 1, invoice_date: '2026-04-13', balance_kg: 8 }),   // 61 → 61-90
+      ledger({ purchase_id: 1, invoice_date: '2026-03-15', balance_kg: 16 }),  // 90 → 61-90
+      ledger({ purchase_id: 1, invoice_date: '2026-03-14', balance_kg: 32 }),  // 91 → 90+
+    ]
+    const purchases = [purchase({ id: 1, rate_per_kg: 10 })]
+    const buckets = inventoryAging(rows, purchases, '2026-06-13')
+    expect(buckets).toEqual([
+      { bucket: '0-30', kg: 1, value: 10 },
+      { bucket: '31-60', kg: 2 + 4, value: 60 },
+      { bucket: '61-90', kg: 8 + 16, value: 240 },
+      { bucket: '90+', kg: 32, value: 320 },
+    ])
   })
 })
 
