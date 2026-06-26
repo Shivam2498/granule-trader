@@ -15,7 +15,11 @@
 .invoice table.items th { background: #f0f0f0; }
 .invoice table.items tr.firstline td { height: 130px; vertical-align: top; }
 @media print {
-  .no-print { display: none; }
+  .no-print { display: none !important; }
   body { background: #fff; }
-  .invoice { width: auto; margin: 0; page-break-after: always; }
+  /* Remove AppShell's navbar offset/padding so only the invoice prints, full width. */
+  .mantine-AppShell-main { padding: 0 !important; }
+  .invoice { width: auto; margin: 0; }
+  /* Page-break BETWEEN the two copies only (no trailing blank page after the last). */
+  .invoice + .invoice { page-break-before: always; }
 }

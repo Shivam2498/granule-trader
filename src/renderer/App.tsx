@@ -16,7 +16,7 @@ export default function App() {
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <FYProvider>
         <AppShell navbar={{ width: 240, breakpoint: 'sm' }} padding="lg">
-          <AppShell.Navbar p="md"><Sidebar /></AppShell.Navbar>
+          <AppShell.Navbar p="md" className="no-print"><Sidebar /></AppShell.Navbar>
           <AppShell.Main><AppRoutes /></AppShell.Main>
         </AppShell>
       </FYProvider>
