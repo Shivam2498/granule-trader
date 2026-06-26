@@ -12,6 +12,7 @@ import { listHsn, upsertHsn } from './core/reference'
 import { createBackup } from './core/backup'
 import { listFinancialYears } from './core/financial-year'
 import { join, dirname } from 'path'
+import { writeFileSync } from 'fs'
 
 // CHANNELS lives in src/shared/api.ts (single source of truth, also imported by preload + the guard test).
 
@@ -39,6 +40,13 @@ export function registerIpc(ctx: IpcContext): void {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupDir = join(dirname(ctx.getDbPath()), 'backups')
     return createBackup(ctx.getDbPath(), backupDir, s.backups_to_keep, stamp)
+  })
+
+  h('exportCsv', async (suggestedName: string, content: string) => {
+    const r = await dialog.showSaveDialog({ defaultPath: suggestedName, filters: [{ name: 'CSV', extensions: ['csv'] }] })
+    if (r.canceled || !r.filePath) return { saved: false }
+    writeFileSync(r.filePath, content, 'utf8')
+    return { saved: true, path: r.filePath }
   })
 
   h('nextPurchaseCode', (date) => nextPurchaseCode(db(), date))

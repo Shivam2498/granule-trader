@@ -43,11 +43,13 @@ export interface Api {
   upsertHsn(h: HsnProduct): Promise<void>
   // financial years
   listFinancialYears(): Promise<string[]>
+  // export
+  exportCsv(suggestedName: string, content: string): Promise<{ saved: boolean; path?: string }>
 }
 declare global { interface Window { api: Api } }
 
 export const CHANNELS = [
-  'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow',
+  'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow','exportCsv',
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
