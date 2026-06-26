@@ -25,8 +25,8 @@ describe('sale → stock → invoice', () => {
     expect(sale.amount).toBe(84000)
     expect(sale.total_invoice_amount).toBe(99120)   // 84000 + 7560 + 7560
 
-    render(<InvoiceTemplate sale={getSale(db, sale.id)} allocations={getAllocations(db, sale.id)} settings={getSettings(db)} />)
-    expect(screen.getByText(/RP\/008\/2024-25/)).toBeTruthy()
-    expect(screen.getByText(/99,120\.00/)).toBeTruthy()
+    render(<InvoiceTemplate sale={getSale(db, sale.id)} allocations={getAllocations(db, sale.id)} settings={getSettings(db)} hsnDescriptions={{}} />)
+    expect(screen.getAllByText(/RP\/008\/2024-25/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/99,120\.00/).length).toBeGreaterThan(0)
   })
 })

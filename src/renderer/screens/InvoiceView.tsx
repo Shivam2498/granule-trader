@@ -9,9 +9,12 @@ export default function InvoiceView() {
   const nav = useNavigate()
   const [data, setData] = useState<{ sale: Sale; allocations: SaleAllocation[] } | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [hsnDescriptions, setHsnDescriptions] = useState<Record<string, string>>({})
   useEffect(() => { (async () => {
     if (id) setData(await window.api.getSaleWithAllocations(Number(id)))
     setSettings(await window.api.getSettings())
+    const hsn = await window.api.listHsn()
+    setHsnDescriptions(Object.fromEntries(hsn.map(h => [h.hsn_code, h.description])))
   })() }, [id])
   if (!data || !settings) return <Center h="60vh"><Loader /></Center>
   return (
@@ -20,7 +23,7 @@ export default function InvoiceView() {
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Button variant="default" onClick={() => nav('/sales')}>Back to sales</Button>
       </Group>
-      <InvoiceTemplate sale={data.sale} allocations={data.allocations} settings={settings} />
+      <InvoiceTemplate sale={data.sale} allocations={data.allocations} settings={settings} hsnDescriptions={hsnDescriptions} />
     </div>
   )
 }

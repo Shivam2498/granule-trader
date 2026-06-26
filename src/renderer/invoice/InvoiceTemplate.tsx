@@ -1,67 +1,178 @@
 import type { Sale, SaleAllocation, Settings } from '@shared/types'
-import { formatINR } from '../lib/format'
+import { panFromGstin } from '@shared/validation'
+import { rupeesInWords } from '../lib/words'
 import './invoice.css'
 
-function addr(json: string): string {
-  if (!json) return ''
-  try { const o = JSON.parse(json); return [o.address, o.city, o.state, o.pincode].filter(Boolean).join(', ') } catch { return '' }
+const PAYMENT_TERMS = 'Immediate'
+const DELIVERY_TERMS = 'Ex-Godown - Freight arranged & paid by party'
+const DECLARATION = 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.'
+
+type Addr = { address?: string; city?: string; state?: string; pincode?: string }
+function parseAddr(json: string): Addr { try { return (JSON.parse(json) || {}) as Addr } catch { return {} } }
+const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+const num = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const addrLine = (a: Addr) => [a.address, a.city, a.pincode].filter(Boolean).join(', ')
+
+export interface InvoiceTemplateProps {
+  sale: Sale; allocations: SaleAllocation[]; settings: Settings; hsnDescriptions: Record<string, string>
 }
 
-export default function InvoiceTemplate({ sale, allocations, settings }: { sale: Sale; allocations: SaleAllocation[]; settings: Settings }) {
+export default function InvoiceTemplate({ sale, allocations, settings, hsnDescriptions }: InvoiceTemplateProps) {
   const interState = sale.igst > 0
-  // HSN-wise taxable + tax breakup
-  const byHsn = new Map<string, { hsn: string; rate: number; taxable: number }>()
+
+  const lineMap = new Map<string, { hsn: string; rate: number; qty: number; amount: number }>()
   for (const a of allocations) {
-    const key = `${a.hsn_code}@${a.gst_rate}`
-    const cur = byHsn.get(key) ?? { hsn: a.hsn_code, rate: a.gst_rate, taxable: 0 }
-    cur.taxable = Math.round((cur.taxable + a.line_amount + Number.EPSILON) * 100) / 100
-    byHsn.set(key, cur)
+    const k = `${a.hsn_code}@${a.rate_per_kg}`
+    const g = lineMap.get(k) ?? { hsn: a.hsn_code, rate: a.rate_per_kg, qty: 0, amount: 0 }
+    g.qty = r2(g.qty + a.qty_drawn_kg); g.amount = r2(g.amount + a.line_amount); lineMap.set(k, g)
   }
-  const groups = [...byHsn.values()]
-  const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+  const lines = [...lineMap.values()]
 
-  return (
-    <div className="invoice">
-      <div className="head">
-        <div><h2>{settings.seller_name}</h2><div>{[settings.seller_address, settings.seller_city, settings.home_state].filter(Boolean).join(', ')}</div>
-          <div>GSTIN: {settings.seller_gstin} · PAN: {settings.seller_pan}{settings.seller_phone ? ` · ${settings.seller_phone}` : ''}</div></div>
-        <div style={{ textAlign: 'right' }}><b>TAX INVOICE</b><div>{sale.invoice_number}</div><div>{sale.invoice_date}</div></div>
-      </div>
-      <table>
+  const taxMap = new Map<string, { hsn: string; rate: number; taxable: number }>()
+  for (const a of allocations) {
+    const k = `${a.hsn_code}@${a.gst_rate}`
+    const g = taxMap.get(k) ?? { hsn: a.hsn_code, rate: a.gst_rate, taxable: 0 }
+    g.taxable = r2(g.taxable + a.line_amount); taxMap.set(k, g)
+  }
+  const taxGroups = [...taxMap.values()]
+  const totalTax = r2(sale.cgst + sale.sgst + sale.igst)
+  const billing = parseAddr(sale.buyer_billing_json)
+  const shipping = parseAddr(sale.buyer_shipping_json)
+  const ship = (shipping.address || shipping.city || shipping.state || shipping.pincode) ? shipping : billing
+  const buyerPan = panFromGstin(sale.buyer_gstin)
+
+  const copy = (marker: string) => (
+    <div className="invoice" key={marker}>
+      <div className="inv-marker">{marker}</div>
+      <div className="inv-title">TAX INVOICE</div>
+
+      <table className="inv"><tbody>
+        <tr>
+          <td className="seller">
+            <div className="bold big">{settings.seller_name}</div>
+            <div><b>Off:</b> {settings.seller_address}</div>
+            <div><b>Godown:</b> {settings.seller_godown_address}</div>
+            <div>{settings.home_state}</div>
+            <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
+            <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
+            <div><b>UDYAM No.:</b> {settings.seller_udyam}</div>
+            <div><b>Email:</b> {settings.seller_email}</div>
+          </td>
+          <td className="meta">
+            <table className="kv"><tbody>
+              <tr><td>Invoice No</td><td className="bold">{sale.invoice_number}</td><td>Date</td><td>{sale.invoice_date}</td></tr>
+              <tr><td>e-Way Bill No</td><td>{sale.eway_bill_no ?? ''}</td><td>Date</td><td>{sale.eway_bill_date ?? ''}</td></tr>
+              <tr><td>Delivery Note</td><td></td><td>Date</td><td></td></tr>
+              <tr><td>Order No</td><td></td><td>Date</td><td></td></tr>
+              <tr><td>Payment Terms</td><td colSpan={3}>{PAYMENT_TERMS}</td></tr>
+              <tr><td>Vehicle No</td><td colSpan={3}>{sale.vehicle ?? ''}</td></tr>
+              <tr><td>Delivery Terms</td><td colSpan={3}>{DELIVERY_TERMS}</td></tr>
+              <tr><td>Remarks</td><td colSpan={3}></td></tr>
+            </tbody></table>
+          </td>
+        </tr>
+      </tbody></table>
+
+      <table className="inv"><tbody>
+        <tr><td className="bold half">Buyer (if other than consignee)</td><td className="bold half">Consignee</td></tr>
+        <tr>
+          <td className="party">
+            <div className="bold">{sale.buyer_name}</div>
+            <div>{addrLine(billing)}</div>
+            <div><b>GSTIN/UIN:</b> {sale.buyer_gstin}</div>
+            <div><b>PAN/IT No.:</b> {buyerPan}</div>
+            <div><b>State Name:</b> {billing.state ?? ''}</div>
+            <div><b>Place of Supply:</b> {billing.state ?? ''}</div>
+          </td>
+          <td className="party">
+            <div className="bold">{sale.buyer_name}</div>
+            <div>{addrLine(ship)}</div>
+            <div><b>GSTIN/UIN:</b> {sale.buyer_gstin}</div>
+            <div><b>PAN/IT No.:</b> {buyerPan}</div>
+            <div><b>State Name:</b> {ship.state ?? ''}</div>
+            <div><b>Place of Supply:</b> {ship.state ?? ''}</div>
+          </td>
+        </tr>
+      </tbody></table>
+
+      <table className="inv items">
+        <thead><tr>
+          <th>Sl No.</th><th>DESCRIPTION OF GOODS</th><th>HSN/SAC</th><th>Qty</th><th>Unit</th><th>Rate/Unit</th><th>AMOUNT Rs.</th>
+        </tr></thead>
         <tbody>
-          <tr><td><b>Buyer:</b> {sale.buyer_name}<br />{addr(sale.buyer_billing_json)}<br />GSTIN: {sale.buyer_gstin}</td>
-            <td><b>Ship to:</b><br />{addr(sale.buyer_shipping_json) || addr(sale.buyer_billing_json)}</td></tr>
-        </tbody>
-      </table>
-      {(() => { const parts = [sale.eway_bill_no ? `E-way bill: ${sale.eway_bill_no} (${sale.eway_bill_date ?? ''})` : '', sale.vehicle ? `Vehicle: ${sale.vehicle}` : ''].filter(Boolean); return parts.length ? <p>{parts.join(' · ')}</p> : null })()}
-      <table>
-        <thead><tr><th>#</th><th>HSN</th><th>Qty (kg)</th><th>Rate/kg</th><th>Amount</th></tr></thead>
-        <tbody>{allocations.map((a, i) => (
-          <tr key={a.id}><td>{i + 1}</td><td>{a.hsn_code}</td><td>{a.qty_drawn_kg}</td><td>{formatINR(a.rate_per_kg)}</td><td>{formatINR(a.line_amount)}</td></tr>
-        ))}</tbody>
-      </table>
-
-      <table style={{ marginTop: 8 }}>
-        <thead><tr><th>HSN</th><th>Taxable</th>{interState ? <th>IGST</th> : <><th>CGST</th><th>SGST</th></>}</tr></thead>
-        <tbody>{groups.map(g => (
-          <tr key={g.hsn + g.rate}><td>{g.hsn} ({g.rate}%)</td><td>{formatINR(g.taxable)}</td>
-            {interState
-              ? <td>{formatINR(r2(g.taxable * g.rate / 100))}</td>
-              : <><td>{formatINR(r2(g.taxable * g.rate / 2 / 100))}</td><td>{formatINR(r2(g.taxable * g.rate / 2 / 100))}</td></>}
-          </tr>))}</tbody>
-      </table>
-
-      <table className="totals" style={{ marginTop: 8 }}>
-        <tbody>
-          <tr><td style={{ textAlign: 'right' }}>Taxable value</td><td style={{ textAlign: 'right' }}>{formatINR(sale.amount)}</td></tr>
+          {lines.map((l, i) => (
+            <tr key={i} className={i === 0 ? 'firstline' : undefined}>
+              <td>{i + 1}</td><td>{hsnDescriptions[l.hsn] ?? ''}</td><td>{l.hsn}</td>
+              <td className="right">{l.qty}</td><td>Kgs</td><td className="right">₹ {num(l.rate)}</td><td className="right">{num(l.amount)}</td>
+            </tr>
+          ))}
           {interState
-            ? <tr><td style={{ textAlign: 'right' }}>IGST</td><td style={{ textAlign: 'right' }}>{formatINR(sale.igst)}</td></tr>
-            : <><tr><td style={{ textAlign: 'right' }}>CGST</td><td style={{ textAlign: 'right' }}>{formatINR(sale.cgst)}</td></tr>
-              <tr><td style={{ textAlign: 'right' }}>SGST</td><td style={{ textAlign: 'right' }}>{formatINR(sale.sgst)}</td></tr></>}
-          {sale.roundoff ? <tr><td style={{ textAlign: 'right' }}>Round off</td><td style={{ textAlign: 'right' }}>{formatINR(sale.roundoff)}</td></tr> : null}
-          <tr><td style={{ textAlign: 'right' }}><b>Total</b></td><td style={{ textAlign: 'right' }}><b>{formatINR(sale.total_invoice_amount)}</b></td></tr>
+            ? <tr><td colSpan={6} className="right">IGST</td><td className="right">{num(sale.igst)}</td></tr>
+            : <>
+                <tr><td colSpan={6} className="right">CGST</td><td className="right">{num(sale.cgst)}</td></tr>
+                <tr><td colSpan={6} className="right">SGST</td><td className="right">{num(sale.sgst)}</td></tr>
+              </>}
+          {sale.roundoff ? <tr><td colSpan={6} className="right">R/Off</td><td className="right">{num(sale.roundoff)}</td></tr> : null}
+          <tr className="bold"><td colSpan={3} className="right">TOTAL</td><td className="right">{sale.total_qty_kg}</td><td>Kgs</td><td></td><td className="right">{num(sale.total_invoice_amount)}</td></tr>
         </tbody>
       </table>
+
+      <table className="inv"><tbody>
+        <tr><td className="bold">Amount Chargeable (in words)</td><td className="right">E.&amp; O.E</td></tr>
+        <tr><td colSpan={2}>{rupeesInWords(sale.total_invoice_amount)}</td></tr>
+      </tbody></table>
+
+      <table className="inv tax">
+        <thead>
+          <tr>
+            <th rowSpan={2}>HSN/SAC</th><th rowSpan={2}>Taxable Value</th>
+            {interState ? <th colSpan={2}>Integrated Tax</th> : <><th colSpan={2}>Central Tax</th><th colSpan={2}>State Tax</th></>}
+            <th rowSpan={2}>Total Tax Amount</th>
+          </tr>
+          <tr>{interState ? <><th>Rate</th><th>Amount</th></> : <><th>Rate</th><th>Amount</th><th>Rate</th><th>Amount</th></>}</tr>
+        </thead>
+        <tbody>
+          {taxGroups.map((g, i) => {
+            const tax = r2(g.taxable * g.rate / 100), half = r2(g.taxable * g.rate / 200)
+            return (
+              <tr key={i}>
+                <td>{g.hsn}</td><td className="right">{num(g.taxable)}</td>
+                {interState
+                  ? <><td className="right">{g.rate}%</td><td className="right">{num(tax)}</td></>
+                  : <><td className="right">{g.rate / 2}%</td><td className="right">{num(half)}</td><td className="right">{g.rate / 2}%</td><td className="right">{num(half)}</td></>}
+                <td className="right">{num(tax)}</td>
+              </tr>
+            )
+          })}
+          <tr className="bold">
+            <td>Total</td><td className="right">{num(sale.amount)}</td>
+            {interState
+              ? <><td></td><td className="right">{num(sale.igst)}</td></>
+              : <><td></td><td className="right">{num(sale.cgst)}</td><td></td><td className="right">{num(sale.sgst)}</td></>}
+            <td className="right">{num(totalTax)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table className="inv"><tbody>
+        <tr><td className="bold">Tax Amount (in words)</td><td>{rupeesInWords(totalTax)}</td></tr>
+      </tbody></table>
+
+      <table className="inv"><tbody>
+        <tr>
+          <td className="decl half"><div className="bold">DECLARATION:</div><div>{DECLARATION}</div></td>
+          <td className="bank half">
+            <div>Cheque/ RTGS in name of &quot;{settings.seller_name}&quot;</div>
+            <div><b>Bank Name:</b> {settings.bank_name}</div>
+            <div><b>Branch:</b> {settings.bank_branch}</div>
+            <div><b>A/C No.:</b> {settings.bank_account_no}</div>
+            <div><b>IFS Code:</b> {settings.bank_ifsc}</div>
+          </td>
+        </tr>
+        <tr><td className="sign">Customer&apos;s Seal &amp; Signature</td><td className="sign right">for {settings.seller_name}</td></tr>
+      </tbody></table>
     </div>
   )
+
+  return <>{copy('Original')}{copy('Duplicate')}</>
 }

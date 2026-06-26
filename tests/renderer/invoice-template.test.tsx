@@ -4,39 +4,40 @@ import { render, screen } from '@testing-library/react'
 import InvoiceTemplate from '../../src/renderer/invoice/InvoiceTemplate'
 import type { Sale, SaleAllocation, Settings } from '@shared/types'
 
-const settings = { seller_name: 'RP Plastics', seller_address: 'Surat', seller_gstin: '24AAA', seller_pan: 'AAA', seller_phone: '', home_state: 'Gujarat', invoice_prefix: 'RP', default_gst_rate: 18, data_folder: '', low_stock_threshold: 500, backups_to_keep: 10 } as Settings
-const sale = { id: 1, invoice_number: 'RP/008/2024-25', invoice_date: '2024-05-10', buyer_name: 'Beta', buyer_gstin: '24BBB', buyer_billing_json: '{"city":"Rajkot"}', buyer_shipping_json: '{}', amount: 84000, cgst: 7560, sgst: 7560, igst: 0, tcs: 0, roundoff: 0, total_invoice_amount: 99120, total_qty_kg: 1000, vehicle: 'By Van', eway_bill_no: null, eway_bill_date: null } as unknown as Sale
-const allocs = [{ id: 1, sale_id: 1, purchase_id: 1, hsn_code: '3902', gst_rate: 18, qty_drawn_kg: 1000, rate_per_kg: 84, line_amount: 84000 }] as SaleAllocation[]
+const settings = { seller_name: 'Shivam Traders', seller_address: 'Off Addr', seller_godown_address: 'Godown Addr',
+  seller_gstin: '19ACNPC1217E1Z0', seller_pan: 'ACNPC1217E', seller_phone: '', seller_city: 'Kolkata', seller_pincode: '700001',
+  home_state: 'West Bengal', seller_udyam: 'UDYAM-WB-10-0066963', seller_email: 'a@b.com',
+  bank_name: 'ICICI BANK LIMITED', bank_branch: 'NEW ALIPORE', bank_account_no: '031705500675', bank_ifsc: 'ICIC0000317',
+  invoice_prefix: 'ST', default_gst_rate: 18, data_folder: '', low_stock_threshold: 500, backups_to_keep: 10 } as Settings
+const sale = { id: 1, invoice_number: 'ST/006/2025-26', invoice_date: '2025-04-14', buyer_name: 'SAMTA IMPEX',
+  buyer_gstin: '19AAECM3696H1Z1', buyer_billing_json: '{"city":"Howrah","state":"West Bengal","pincode":"711405"}',
+  buyer_shipping_json: '{}', amount: 220340, cgst: 19830.6, sgst: 19830.6, igst: 0, tcs: 0, roundoff: -1.2,
+  total_invoice_amount: 260000, total_qty_kg: 2000, vehicle: 'WB23E9212', eway_bill_no: '821520090058', eway_bill_date: '2025-04-14' } as unknown as Sale
+const allocs = [{ id: 1, sale_id: 1, purchase_id: 1, hsn_code: '39023000', gst_rate: 18, qty_drawn_kg: 2000, rate_per_kg: 110.17, line_amount: 220340 }] as SaleAllocation[]
+const hsnDescriptions = { '39023000': 'Plastic Granules' }
 
 describe('InvoiceTemplate', () => {
-  it('renders seller, buyer, invoice number, and total', () => {
-    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} />)
-    expect(screen.getByText('RP Plastics')).toBeTruthy()
-    expect(screen.getByText(/RP\/008\/2024-25/)).toBeTruthy()
-    expect(screen.getByText(/Beta/)).toBeTruthy()
-    expect(screen.getByText(/99,120\.00/)).toBeTruthy()
+  it('renders seller, buyer, invoice number, total and amount-in-words', () => {
+    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(screen.getAllByText('Shivam Traders').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/ST\/006\/2025-26/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/SAMTA IMPEX/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Plastic Granules').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/2,60,000\.00/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Rupees Two lakh sixty thousand only').length).toBeGreaterThan(0)
   })
-
-  it('renders per-line HSN and taxable amount in HSN-wise summary (intra-state)', () => {
-    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} />)
-    expect(screen.getAllByText('3902').length).toBeGreaterThan(0)        // per-line HSN shown
-    expect(screen.getAllByText(/84,000\.00/).length).toBeGreaterThan(0)  // taxable
+  it('shows the bank block and both copies', () => {
+    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(screen.getAllByText(/ICIC0000317/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Original')).toBeTruthy()
+    expect(screen.getByText('Duplicate')).toBeTruthy()
   })
-
-  it('renders IGST for an inter-state sale and hides CGST/SGST', () => {
-    const interAllocs = [{ ...allocs[0], gst_rate: 18 }] as SaleAllocation[]
-    const interSale = { ...sale, cgst: 0, sgst: 0, igst: 15120, total_invoice_amount: 99120 } as unknown as Sale
-    const { container } = render(<InvoiceTemplate sale={interSale} allocations={interAllocs} settings={settings} />)
-    expect(screen.getAllByText('IGST').length).toBeGreaterThan(0)
-    // Check that CGST and SGST labels do not appear in the document
-    const cgstMatch = container.textContent?.includes('CGST')
-    const sgstMatch = container.textContent?.includes('SGST')
-    expect(cgstMatch).toBeFalsy()
-    expect(sgstMatch).toBeFalsy()
-  })
-
-  it('renders HSN from allocation', () => {
-    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} />)
-    expect(screen.getAllByText('3902').length).toBeGreaterThan(0)
+  it('uses CGST/SGST intra-state and IGST inter-state', () => {
+    const { container, rerender } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('CGST')
+    const inter = { ...sale, cgst: 0, sgst: 0, igst: 39661.2 } as unknown as Sale
+    rerender(<InvoiceTemplate sale={inter} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('IGST')
+    expect(container.textContent).not.toContain('CGST')
   })
 })
