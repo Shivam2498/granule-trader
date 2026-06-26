@@ -4,6 +4,8 @@ import type { Settings, HsnProduct } from '@shared/types'
 export const DEFAULT_SETTINGS: Settings = {
   seller_name: '', seller_address: '', seller_gstin: '', seller_pan: '', seller_phone: '',
   seller_city: '', seller_pincode: '', home_state: '',
+  seller_godown_address: '', seller_udyam: '', seller_email: '',
+  bank_name: '', bank_branch: '', bank_account_no: '', bank_ifsc: '',
   invoice_prefix: 'RP', default_gst_rate: 18, data_folder: '', low_stock_threshold: 500, backups_to_keep: 10
 }
 

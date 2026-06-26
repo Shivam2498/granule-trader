@@ -12,6 +12,15 @@ describe('settings', () => {
     expect(getSettings(db).home_state).toBe('Gujarat')
     expect(getSettings(db).invoice_prefix).toBe('RP')
   })
+
+  it('defaults the new invoice fields to empty and persists them', () => {
+    const s = getSettings(db)
+    for (const k of ['seller_godown_address','seller_udyam','seller_email','bank_name','bank_branch','bank_account_no','bank_ifsc'] as const)
+      expect(s[k]).toBe('')
+    saveSettings(db, { bank_ifsc: 'ICIC0000317', seller_udyam: 'UDYAM-WB-10-0066963' })
+    expect(getSettings(db).bank_ifsc).toBe('ICIC0000317')
+    expect(getSettings(db).seller_udyam).toBe('UDYAM-WB-10-0066963')
+  })
 })
 
 describe('hsn', () => {

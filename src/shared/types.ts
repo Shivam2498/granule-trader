@@ -119,6 +119,13 @@ export interface Settings {
   seller_city: string
   seller_pincode: string
   home_state: string
+  seller_godown_address: string
+  seller_udyam: string
+  seller_email: string
+  bank_name: string
+  bank_branch: string
+  bank_account_no: string
+  bank_ifsc: string
   invoice_prefix: string
   default_gst_rate: number
   data_folder: string
