@@ -14,6 +14,16 @@
 .invoice .right { text-align: right; }
 .invoice table.items th { background: #f0f0f0; }
 .invoice table.items tr.firstline td { height: 130px; vertical-align: top; }
+
+/* Alignment polish */
+.invoice table.items > thead th, .invoice table.tax > thead th { text-align: center; }
+.invoice table.kv td:nth-child(1), .invoice table.kv td:nth-child(3) { white-space: nowrap; width: 1%; }
+.invoice table.items td:nth-child(1), .invoice table.items th:nth-child(1) { width: 44px; text-align: center; }   /* Sl No. */
+.invoice table.items td:nth-child(3), .invoice table.items th:nth-child(3) { width: 92px; }                       /* HSN/SAC */
+.invoice table.items td:nth-child(4), .invoice table.items th:nth-child(4) { width: 64px; }                       /* Qty */
+.invoice table.items td:nth-child(5), .invoice table.items th:nth-child(5) { width: 48px; }                       /* Unit */
+.invoice table.items td:nth-child(6), .invoice table.items th:nth-child(6) { width: 96px; }                       /* Rate/Unit */
+.invoice table.items td:nth-child(7), .invoice table.items th:nth-child(7) { width: 124px; }                      /* Amount */
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }

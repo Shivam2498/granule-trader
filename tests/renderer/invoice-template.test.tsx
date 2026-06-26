@@ -32,6 +32,27 @@ describe('InvoiceTemplate', () => {
     expect(screen.getByText('Original')).toBeTruthy()
     expect(screen.getByText('Duplicate')).toBeTruthy()
   })
+  it('always shows both Buyer and Consignee, identical when shipping equals billing', () => {
+    render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(screen.getAllByText('Buyer (if other than consignee)').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Consignee').length).toBeGreaterThan(0)
+    // Buyer name appears in both columns of each of the two copies (4 total).
+    expect(screen.getAllByText(/SAMTA IMPEX/).length).toBe(4)
+  })
+
+  it('shows the distinct consignee address when shipping differs', () => {
+    const shipSale = { ...sale, buyer_shipping_json: '{"address":"Plot 9","city":"Durgapur","state":"West Bengal","pincode":"713201"}' } as unknown as Sale
+    render(<InvoiceTemplate sale={shipSale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(screen.getAllByText(/Durgapur/).length).toBeGreaterThan(0)
+  })
+
+  it('hides the UDYAM row when it is empty, shows it when set', () => {
+    const { container, rerender } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_udyam: '' }} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).not.toContain('UDYAM')
+    rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_udyam: 'UDYAM-WB-10-0066963' }} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('UDYAM-WB-10-0066963')
+  })
+
   it('uses CGST/SGST intra-state and IGST inter-state', () => {
     const { container, rerender } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
     expect(container.textContent).toContain('CGST')

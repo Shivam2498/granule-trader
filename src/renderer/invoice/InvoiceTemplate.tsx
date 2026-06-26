@@ -13,6 +13,19 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const num = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const addrLine = (a: Addr) => [a.address, a.city, a.pincode].filter(Boolean).join(', ')
 
+function partyLines(name: string, addr: Addr, gstin: string, pan: string) {
+  return (
+    <>
+      <div className="bold">{name}</div>
+      <div>{addrLine(addr)}</div>
+      <div><b>GSTIN/UIN:</b> {gstin}</div>
+      <div><b>PAN/IT No.:</b> {pan}</div>
+      <div><b>State Name:</b> {addr.state ?? ''}</div>
+      <div><b>Place of Supply:</b> {addr.state ?? ''}</div>
+    </>
+  )
+}
+
 export interface InvoiceTemplateProps {
   sale: Sale; allocations: SaleAllocation[]; settings: Settings; hsnDescriptions: Record<string, string>
 }
@@ -38,7 +51,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
   const totalTax = r2(sale.cgst + sale.sgst + sale.igst)
   const billing = parseAddr(sale.buyer_billing_json)
   const shipping = parseAddr(sale.buyer_shipping_json)
-  const ship = (shipping.address || shipping.city || shipping.state || shipping.pincode) ? shipping : billing
+  const hasShipping = !!(shipping.address || shipping.city || shipping.state || shipping.pincode)
+  const ship = hasShipping ? shipping : billing
   const buyerPan = panFromGstin(sale.buyer_gstin)
 
   const copy = (marker: string) => (
@@ -55,7 +69,7 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
             <div>{settings.home_state}</div>
             <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
             <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
-            <div><b>UDYAM No.:</b> {settings.seller_udyam}</div>
+            {settings.seller_udyam ? <div><b>UDYAM No.:</b> {settings.seller_udyam}</div> : null}
             <div><b>Email:</b> {settings.seller_email}</div>
           </td>
           <td className="meta">
@@ -76,22 +90,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
       <table className="inv"><tbody>
         <tr><td className="bold half">Buyer (if other than consignee)</td><td className="bold half">Consignee</td></tr>
         <tr>
-          <td className="party">
-            <div className="bold">{sale.buyer_name}</div>
-            <div>{addrLine(billing)}</div>
-            <div><b>GSTIN/UIN:</b> {sale.buyer_gstin}</div>
-            <div><b>PAN/IT No.:</b> {buyerPan}</div>
-            <div><b>State Name:</b> {billing.state ?? ''}</div>
-            <div><b>Place of Supply:</b> {billing.state ?? ''}</div>
-          </td>
-          <td className="party">
-            <div className="bold">{sale.buyer_name}</div>
-            <div>{addrLine(ship)}</div>
-            <div><b>GSTIN/UIN:</b> {sale.buyer_gstin}</div>
-            <div><b>PAN/IT No.:</b> {buyerPan}</div>
-            <div><b>State Name:</b> {ship.state ?? ''}</div>
-            <div><b>Place of Supply:</b> {ship.state ?? ''}</div>
-          </td>
+          <td className="party">{partyLines(sale.buyer_name, billing, sale.buyer_gstin, buyerPan)}</td>
+          <td className="party">{partyLines(sale.buyer_name, ship, sale.buyer_gstin, buyerPan)}</td>
         </tr>
       </tbody></table>
 
