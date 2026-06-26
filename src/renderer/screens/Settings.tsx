@@ -19,7 +19,14 @@ export default function Settings() {
       seller_gstin: vGstin,
       seller_phone: vPhone,
       home_state: isNotEmpty('Choose the home state.'),
-      seller_pincode: (v) => !v ? null : vPincode(v)
+      seller_pincode: (v) => !v ? null : vPincode(v),
+      seller_godown_address: isNotEmpty('Enter the godown address.'),
+      seller_udyam: isNotEmpty('Enter the UDYAM number.'),
+      seller_email: isNotEmpty('Enter the email.'),
+      bank_name: isNotEmpty('Enter the bank name.'),
+      bank_branch: isNotEmpty('Enter the bank branch.'),
+      bank_account_no: isNotEmpty('Enter the A/C number.'),
+      bank_ifsc: isNotEmpty('Enter the IFSC.'),
     }
   })
   const [loaded, setLoaded] = useState(false)
@@ -87,6 +94,15 @@ export default function Settings() {
           </Input.Wrapper>
         </SimpleGrid>
         <TextInput label="Data folder" disabled value={form.values.data_folder} mb="md" />
+        <Textarea label="Godown address" autosize minRows={2} {...form.getInputProps('seller_godown_address')} mb="md" />
+        <SimpleGrid cols={3} mb="md">
+          <TextInput label="UDYAM No." {...form.getInputProps('seller_udyam')} />
+          <TextInput label="Email" {...form.getInputProps('seller_email')} />
+          <TextInput label="Bank name" {...form.getInputProps('bank_name')} />
+          <TextInput label="Bank branch" {...form.getInputProps('bank_branch')} />
+          <TextInput label="Bank A/C No." {...form.getInputProps('bank_account_no')} />
+          <TextInput label="IFSC" {...form.getInputProps('bank_ifsc')} />
+        </SimpleGrid>
         <Group>
           <Button onClick={() => form.onSubmit(save)()}>Save settings</Button>
           <Button variant="default" onClick={backup}>Backup now</Button>

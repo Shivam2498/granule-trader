@@ -15,7 +15,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
 
   const form = useForm({
     mode: 'controlled',
-    initialValues: { folder: '', name: '', prefix: '', gstin: '', pan: '', mobile: '', homeState: '', address: '', city: '', pincode: '' },
+    initialValues: { folder: '', name: '', prefix: '', gstin: '', pan: '', mobile: '', homeState: '', address: '', city: '', pincode: '', seller_godown_address: '', seller_udyam: '', seller_email: '', bank_name: '', bank_branch: '', bank_account_no: '', bank_ifsc: '' },
     validate: {
       folder: (v) => v ? null : 'Choose a data folder.',
       name: isNotEmpty('Enter the business name.'),
@@ -23,7 +23,14 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
       mobile: vPhone,
       gstin: vGstin,
       homeState: isNotEmpty('Choose the home state.'),
-      pincode: (v) => !v ? null : vPincode(v)
+      pincode: (v) => !v ? null : vPincode(v),
+      seller_godown_address: isNotEmpty('Enter the godown address.'),
+      seller_udyam: isNotEmpty('Enter the UDYAM number.'),
+      seller_email: isNotEmpty('Enter the email.'),
+      bank_name: isNotEmpty('Enter the bank name.'),
+      bank_branch: isNotEmpty('Enter the bank branch.'),
+      bank_account_no: isNotEmpty('Enter the A/C number.'),
+      bank_ifsc: isNotEmpty('Enter the IFSC.'),
     }
   })
 
@@ -47,7 +54,10 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
         seller_name: v.name.trim(), seller_gstin: v.gstin.trim().toUpperCase(), seller_pan: v.pan.trim().toUpperCase(),
         seller_phone: v.mobile.trim(), seller_address: v.address.trim(),
         seller_city: v.city.trim(), seller_pincode: v.pincode.trim(), home_state: v.homeState,
-        invoice_prefix: v.prefix.trim().toUpperCase()
+        invoice_prefix: v.prefix.trim().toUpperCase(),
+        seller_godown_address: v.seller_godown_address.trim(), seller_udyam: v.seller_udyam.trim(),
+        seller_email: v.seller_email.trim(), bank_name: v.bank_name.trim(), bank_branch: v.bank_branch.trim(),
+        bank_account_no: v.bank_account_no.trim(), bank_ifsc: v.bank_ifsc.trim().toUpperCase(),
       })
       onDone()
     } catch (e: any) { setError(e.message ?? String(e)) }
@@ -140,6 +150,13 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
           <Input.Wrapper label="Home state (for tax)" withAsterisk error={form.errors.homeState}>
             <StateSelect value={form.values.homeState} onChange={v => form.setFieldValue('homeState', v)} />
           </Input.Wrapper>
+          <TextInput label="Godown address" withAsterisk style={{ gridColumn: 'span 2' }} {...form.getInputProps('seller_godown_address')} />
+          <TextInput label="UDYAM No." withAsterisk {...form.getInputProps('seller_udyam')} />
+          <TextInput label="Email" withAsterisk {...form.getInputProps('seller_email')} />
+          <TextInput label="Bank name" withAsterisk {...form.getInputProps('bank_name')} />
+          <TextInput label="Bank branch" withAsterisk {...form.getInputProps('bank_branch')} />
+          <TextInput label="Bank A/C No." withAsterisk {...form.getInputProps('bank_account_no')} />
+          <TextInput label="IFSC" withAsterisk {...form.getInputProps('bank_ifsc')} />
         </SimpleGrid>
 
         <Group justify="flex-end" mt="md">
