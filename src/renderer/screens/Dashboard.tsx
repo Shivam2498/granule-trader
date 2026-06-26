@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Group, Button, Paper, Title, Text, List, Alert } from '@mantine/core'
+import { Group, Button, Alert, Text, SimpleGrid } from '@mantine/core'
 import type { Sale, Purchase, LedgerRow, Settings } from '@shared/types'
 import KpiCard from '../components/KpiCard'
 import PageHeader from '../components/PageHeader'
+import ActionCenter from '../components/dashboard/ActionCenter'
+import TrendChart from '../components/dashboard/TrendChart'
+import StockDonut from '../components/dashboard/StockDonut'
+import AgingChart from '../components/dashboard/AgingChart'
+import InventoryAgingTable from '../components/dashboard/InventoryAgingTable'
 import { formatINR, today } from '../lib/format'
+import {
+  monthlyTrend, receivables, payables, gstSnapshot, monthDelta,
+  stockByProduct, inventoryAging, lowStock, reservedPendingFill
+} from '../lib/dashboard'
 import { useFY } from '../fy'
 
 export default function Dashboard() {
@@ -23,39 +32,51 @@ export default function Dashboard() {
     } catch (e: any) { setError('Could not load dashboard: ' + (e.message ?? e)) }
   })() }, [fy])
 
-  const created = sales.filter(s => s.status === 'created')
-  const salesTotal = created.reduce((a, s) => a + s.total_invoice_amount, 0)
-  const stockOnHand = ledger.reduce((a, r) => a + r.balance_kg, 0)
-  const pendingSales = created.filter(s => s.payment_status === 'pending')
-  const pendingPurchases = purchases.filter(p => p.payment_status === 'pending')
-  const low = settings?.low_stock_threshold ?? 0
-  const lowLots = ledger.filter(r => r.balance_kg < low)
+  const now = today()
+  const trend = monthlyTrend(sales, purchases)
+  const rec = receivables(sales, now)
+  const pay = payables(purchases, now)
+  const gst = gstSnapshot(sales, purchases)
+  const delta = monthDelta(sales, now)
+  const stock = stockByProduct(ledger, purchases)
+  const aging = inventoryAging(ledger, purchases, now)
+  const lowLots = lowStock(ledger, settings?.low_stock_threshold ?? 0)
+  const reserved = reservedPendingFill(sales)
+
+  const salesFy = sales.filter(s => s.status === 'created').reduce((a, s) => a + s.total_invoice_amount, 0)
+  const stockKg = ledger.reduce((a, r) => a + r.balance_kg, 0)
+  const stockValue = stock.reduce((a, s) => a + s.value, 0)
+  const deltaText = delta.pct === null ? null
+    : <Text span c={delta.pct >= 0 ? 'teal' : 'red'}>{delta.pct >= 0 ? '▲' : '▼'} {Math.abs(delta.pct).toFixed(0)}% vs last month</Text>
 
   return (
     <div>
       <PageHeader title={`Welcome${settings?.seller_name ? `, ${settings.seller_name}` : ''}`} />
       {error && <Alert color="red" mb="md">{error}</Alert>}
-      <Text c="dimmed" mb="md">{today()}</Text>
+      <Text c="dimmed" mb="md">{now}</Text>
       <Group mb="lg">
         <Button size="lg" onClick={() => nav('/sales/new')}>New sale</Button>
         <Button size="lg" variant="default" onClick={() => nav('/purchases/new')}>New purchase</Button>
       </Group>
+
       <Group align="stretch" mb="lg">
-        <KpiCard label={`Sales · ${fy}`} value={formatINR(salesTotal)} />
-        <KpiCard label="Stock on hand" value={`${stockOnHand} kg`} />
-        <KpiCard label="Payments pending (sales)" value={String(pendingSales.length)} />
-        <KpiCard label="Payments pending (purchases)" value={String(pendingPurchases.length)} />
+        <KpiCard label={`Sales · ${fy}`} value={formatINR(salesFy)} sub={deltaText} onClick={() => nav('/sales')} />
+        <KpiCard label="Receivables outstanding" value={formatINR(rec.total)} sub={`${rec.overdue.length} pending`} />
+        <KpiCard label="Stock on hand" value={`${stockKg} kg`} sub={formatINR(stockValue)} onClick={() => nav('/stock')} />
+        <KpiCard label={`Net GST payable · ${fy}`} value={formatINR(gst.net)} sub={`out ${formatINR(gst.output)} − in ${formatINR(gst.input)}`} />
       </Group>
-      <Paper withBorder p="lg" radius="md" mb="md">
-        <Title order={2} mb="sm">Low stock</Title>
-        {lowLots.length === 0 ? <Text>Nothing below {low} kg.</Text> :
-          <List>{lowLots.map(r => <List.Item key={r.purchase_id}>{r.our_code} ({r.hsn_code}) — {r.balance_kg} kg</List.Item>)}</List>}
-      </Paper>
-      <Paper withBorder p="lg" radius="md">
-        <Title order={2} mb="sm">Pending sales payments</Title>
-        {pendingSales.length === 0 ? <Text>All settled.</Text> :
-          <List>{pendingSales.map(s => <List.Item key={s.id}>{s.invoice_number} — {s.buyer_name} — {formatINR(s.total_invoice_amount)}</List.Item>)}</List>}
-      </Paper>
+
+      <ActionCenter dueP={pay.due} overdue={rec.overdue} reserved={reserved} lowLots={lowLots} />
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} mb="md">
+        <TrendChart data={trend} />
+        <StockDonut data={stock} />
+      </SimpleGrid>
+      <SimpleGrid cols={{ base: 1 }} mb="md">
+        <AgingChart receivables={rec.buckets} payables={pay.buckets} />
+      </SimpleGrid>
+
+      <InventoryAgingTable buckets={aging} />
     </div>
   )
 }
