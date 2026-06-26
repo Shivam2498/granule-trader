@@ -8,8 +8,9 @@ describe('toCsv', () => {
       { header: 'Name', value: (r: { n: string; v: number }) => r.n },
       { header: 'Val', value: (r: { n: string; v: number }) => r.v },
     ]
-    const out = toCsv([{ n: 'Plain', v: 1 }, { n: 'Has, comma', v: 2 }, { n: 'Quote"x', v: 3 }], cols)
-    expect(out).toBe('Name,Val\nPlain,1\n"Has, comma",2\n"Quote""x",3')
+    const out = toCsv([{ n: 'Plain', v: 1 }, { n: 'Has, comma', v: 2 }, { n: 'Quote"x', v: 3 }, { n: 'line1\nline2', v: 4 }], cols)
+    expect(out).toBe('Name,Val\nPlain,1\n"Has, comma",2\n"Quote""x",3\n"line1\nline2",4')
+    expect(out).toContain('"line1\nline2"')
   })
   it('returns just the header row for no data', () => {
     expect(toCsv([], [{ header: 'A', value: () => '' }])).toBe('A')
@@ -34,5 +35,12 @@ describe('purchaseColumns', () => {
       igst: 0, tcs: 0, total_invoice_amount: 590, payment_status: 'done', payment_date: '2026-06-12' } as Purchase
     const row = purchaseColumns.map(c => c.value(p))
     expect(row).toEqual(['P1', 'S1', '2026-06-10', 'Supp', 'Gujarat', '3901', 10, 50, 500, 45, 45, 0, 0, 590, 'done', '2026-06-12'])
+  })
+  it('emits empty string for a null invoice date', () => {
+    const p = { our_code: 'P1', supplier_invoice_number: 'S1', invoice_date: null as any, party: 'Supp',
+      party_state: 'Gujarat', hsn_code: '3901', qty_kg: 10, rate_per_kg: 50, amount: 500, cgst: 45, sgst: 45,
+      igst: 0, tcs: 0, total_invoice_amount: 590, payment_status: 'done', payment_date: '2026-06-12' } as Purchase
+    const dateIdx = purchaseColumns.findIndex(c => c.header === 'Date')
+    expect(purchaseColumns[dateIdx].value(p)).toBe('')
   })
 })
