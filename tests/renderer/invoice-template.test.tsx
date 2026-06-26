@@ -55,6 +55,15 @@ describe('InvoiceTemplate', () => {
     expect(container.textContent).toContain('UDYAM-WB-10-0066963')
   })
 
+  it('hides the Godown line when blank or same as office, shows it when different', () => {
+    const diff = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Off Addr', seller_godown_address: 'Godown Addr' }} hsnDescriptions={hsnDescriptions} />)
+    expect(diff.container.textContent).toContain('Godown:')
+    diff.rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Same Addr', seller_godown_address: 'Same Addr' }} hsnDescriptions={hsnDescriptions} />)
+    expect(diff.container.textContent).not.toContain('Godown:')
+    diff.rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Off Addr', seller_godown_address: '' }} hsnDescriptions={hsnDescriptions} />)
+    expect(diff.container.textContent).not.toContain('Godown:')
+  })
+
   it('uses CGST/SGST intra-state and IGST inter-state', () => {
     const { container, rerender } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
     expect(container.textContent).toContain('CGST')

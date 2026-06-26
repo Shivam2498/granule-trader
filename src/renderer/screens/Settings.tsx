@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table } from '@mantine/core'
+import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table, Checkbox } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Settings as S, HsnProduct } from '@shared/types'
@@ -11,16 +11,16 @@ import PincodeField from '../components/PincodeField'
 import ListTable from '../components/ListTable'
 
 export default function Settings() {
-  const form = useForm<S>({
+  const form = useForm<S & { godown_same: boolean }>({
     mode: 'controlled',
-    initialValues: {} as S,
+    initialValues: {} as S & { godown_same: boolean },
     validate: {
       seller_name: isNotEmpty('Enter the business name.'),
       seller_gstin: vGstin,
       seller_phone: vPhone,
       home_state: isNotEmpty('Choose the home state.'),
       seller_pincode: (v) => !v ? null : vPincode(v),
-      seller_godown_address: isNotEmpty('Enter the godown address.'),
+      seller_godown_address: (v, values) => values.godown_same ? null : (v?.trim() ? null : 'Enter the godown address.'),
       seller_email: isNotEmpty('Enter the email.'),
       bank_name: isNotEmpty('Enter the bank name.'),
       bank_branch: isNotEmpty('Enter the bank branch.'),
@@ -34,13 +34,19 @@ export default function Settings() {
 
   async function reload() {
     const settings = await window.api.getSettings()
-    form.setValues(settings); setLoaded(true)
+    const godown = (settings.seller_godown_address ?? '').trim()
+    form.setValues({ ...settings, godown_same: !godown || godown === (settings.seller_address ?? '').trim() })
+    setLoaded(true)
     setHsn(await window.api.listHsn())
   }
   useEffect(() => { reload() }, [])
   if (!loaded) return <h1>Settings</h1>
 
-  async function save(values: S) { await window.api.saveSettings(values); notifications.show({ message: 'Saved.', color: 'green' }) }
+  async function save(values: S & { godown_same: boolean }) {
+    const { godown_same, ...rest } = values
+    await window.api.saveSettings({ ...rest, seller_godown_address: godown_same ? '' : rest.seller_godown_address.trim() })
+    notifications.show({ message: 'Saved.', color: 'green' })
+  }
   async function backup() { const p = await window.api.backupNow(); notifications.show({ message: `Backup written: ${p}`, color: 'green' }) }
   async function addHsn() {
     if (!newHsn.hsn_code.trim()) return
@@ -93,7 +99,9 @@ export default function Settings() {
           </Input.Wrapper>
         </SimpleGrid>
         <TextInput label="Data folder" disabled value={form.values.data_folder} mb="md" />
-        <Textarea label="Godown address" autosize minRows={2} {...form.getInputProps('seller_godown_address')} mb="md" />
+        <Checkbox label="Godown address is the same as office" mb="sm" {...form.getInputProps('godown_same', { type: 'checkbox' })} />
+        {!form.values.godown_same &&
+          <Textarea label="Godown address" autosize minRows={2} {...form.getInputProps('seller_godown_address')} mb="md" />}
         <SimpleGrid cols={3} mb="md">
           <TextInput label="UDYAM No. (optional)" {...form.getInputProps('seller_udyam')} />
           <TextInput label="Email" {...form.getInputProps('seller_email')} />

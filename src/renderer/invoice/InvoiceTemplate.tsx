@@ -65,7 +65,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
           <td className="seller">
             <div className="bold big">{settings.seller_name}</div>
             <div><b>Off:</b> {settings.seller_address}</div>
-            <div><b>Godown:</b> {settings.seller_godown_address}</div>
+            {settings.seller_godown_address.trim() && settings.seller_godown_address.trim() !== settings.seller_address.trim()
+              ? <div><b>Godown:</b> {settings.seller_godown_address}</div> : null}
             <div>{settings.home_state}</div>
             <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
             <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
