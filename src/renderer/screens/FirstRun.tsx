@@ -25,7 +25,6 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
       homeState: isNotEmpty('Choose the home state.'),
       pincode: (v) => !v ? null : vPincode(v),
       seller_godown_address: isNotEmpty('Enter the godown address.'),
-      seller_udyam: isNotEmpty('Enter the UDYAM number.'),
       seller_email: isNotEmpty('Enter the email.'),
       bank_name: isNotEmpty('Enter the bank name.'),
       bank_branch: isNotEmpty('Enter the bank branch.'),
@@ -151,7 +150,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
             <StateSelect value={form.values.homeState} onChange={v => form.setFieldValue('homeState', v)} />
           </Input.Wrapper>
           <TextInput label="Godown address" withAsterisk style={{ gridColumn: 'span 2' }} {...form.getInputProps('seller_godown_address')} />
-          <TextInput label="UDYAM No." withAsterisk {...form.getInputProps('seller_udyam')} />
+          <TextInput label="UDYAM No. (optional)" {...form.getInputProps('seller_udyam')} />
           <TextInput label="Email" withAsterisk {...form.getInputProps('seller_email')} />
           <TextInput label="Bank name" withAsterisk {...form.getInputProps('bank_name')} />
           <TextInput label="Bank branch" withAsterisk {...form.getInputProps('bank_branch')} />

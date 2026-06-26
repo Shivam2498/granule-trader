@@ -69,7 +69,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
             <div>{settings.home_state}</div>
             <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
             <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
-            {settings.seller_udyam ? <div><b>UDYAM No.:</b> {settings.seller_udyam}</div> : null}
+            {settings.seller_udyam.trim() && settings.seller_udyam.trim() !== '-'
+              ? <div><b>UDYAM No.:</b> {settings.seller_udyam}</div> : null}
             <div><b>Email:</b> {settings.seller_email}</div>
           </td>
           <td className="meta">

@@ -7,7 +7,7 @@ import FirstRun from '../../src/renderer/screens/FirstRun'
 describe('FirstRun new business fields', () => {
   it('renders the new required invoice fields', () => {
     renderWithMantine(<FirstRun onDone={() => {}} />)
-    for (const label of ['Godown address', 'UDYAM No.', 'Email', 'Bank name', 'Bank branch', 'Bank A/C No.', 'IFSC'])
+    for (const label of ['Godown address', 'UDYAM No. (optional)', 'Email', 'Bank name', 'Bank branch', 'Bank A/C No.', 'IFSC'])
       expect(screen.getByText(label)).toBeTruthy()
   })
 })

@@ -46,8 +46,10 @@ describe('InvoiceTemplate', () => {
     expect(screen.getAllByText(/Durgapur/).length).toBeGreaterThan(0)
   })
 
-  it('hides the UDYAM row when it is empty, shows it when set', () => {
+  it('hides the UDYAM row when empty or "-", shows it when set', () => {
     const { container, rerender } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_udyam: '' }} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).not.toContain('UDYAM')
+    rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_udyam: '-' }} hsnDescriptions={hsnDescriptions} />)
     expect(container.textContent).not.toContain('UDYAM')
     rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_udyam: 'UDYAM-WB-10-0066963' }} hsnDescriptions={hsnDescriptions} />)
     expect(container.textContent).toContain('UDYAM-WB-10-0066963')

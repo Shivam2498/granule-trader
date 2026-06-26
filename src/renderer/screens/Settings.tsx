@@ -21,7 +21,6 @@ export default function Settings() {
       home_state: isNotEmpty('Choose the home state.'),
       seller_pincode: (v) => !v ? null : vPincode(v),
       seller_godown_address: isNotEmpty('Enter the godown address.'),
-      seller_udyam: isNotEmpty('Enter the UDYAM number.'),
       seller_email: isNotEmpty('Enter the email.'),
       bank_name: isNotEmpty('Enter the bank name.'),
       bank_branch: isNotEmpty('Enter the bank branch.'),
@@ -96,7 +95,7 @@ export default function Settings() {
         <TextInput label="Data folder" disabled value={form.values.data_folder} mb="md" />
         <Textarea label="Godown address" autosize minRows={2} {...form.getInputProps('seller_godown_address')} mb="md" />
         <SimpleGrid cols={3} mb="md">
-          <TextInput label="UDYAM No." {...form.getInputProps('seller_udyam')} />
+          <TextInput label="UDYAM No. (optional)" {...form.getInputProps('seller_udyam')} />
           <TextInput label="Email" {...form.getInputProps('seller_email')} />
           <TextInput label="Bank name" {...form.getInputProps('bank_name')} />
           <TextInput label="Bank branch" {...form.getInputProps('bank_branch')} />
