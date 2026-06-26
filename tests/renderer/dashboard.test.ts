@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { daysBetween, parseState, monthlyTrend, receivables, payables, gstSnapshot, monthDelta } from '../../src/renderer/lib/dashboard'
-import type { Sale, Purchase } from '../../src/shared/types'
+import { daysBetween, parseState, monthlyTrend, receivables, payables, gstSnapshot, monthDelta, stockByProduct, inventoryAging, lowStock, reservedPendingFill } from '../../src/renderer/lib/dashboard'
+import type { Sale, Purchase, LedgerRow } from '../../src/shared/types'
 
 // Minimal builders — only the fields the functions read.
 function sale(p: Partial<Sale>): Sale {
@@ -129,5 +129,54 @@ describe('monthDelta', () => {
       sale({ invoice_date: '2025-12-10', total_invoice_amount: 100 }),  // previous → Dec 2025
     ]
     expect(monthDelta(sales, '2026-01-15')).toEqual({ current: 150, previous: 100, pct: 50 })
+  })
+})
+
+function ledger(p: Partial<LedgerRow>): LedgerRow {
+  return { purchase_id: 1, our_code: 'P1', hsn_code: '3901', party: 'Supp', invoice_date: '2026-06-10', qty_kg: 0, consumed_kg: 0, balance_kg: 0, ...p } as LedgerRow
+}
+
+describe('stockByProduct', () => {
+  it('groups balance by HSN and values it via the purchase rate', () => {
+    const rows = [
+      ledger({ purchase_id: 1, hsn_code: '3901', balance_kg: 100 }),
+      ledger({ purchase_id: 2, hsn_code: '3901', balance_kg: 50 }),
+      ledger({ purchase_id: 3, hsn_code: '3902', balance_kg: 10 }),
+      ledger({ purchase_id: 4, hsn_code: '3902', balance_kg: 0 }),   // skipped (no balance)
+    ]
+    const purchases = [purchase({ id: 1, rate_per_kg: 2 }), purchase({ id: 2, rate_per_kg: 4 }), purchase({ id: 3, rate_per_kg: 5 })]
+    const slices = stockByProduct(rows, purchases)
+    expect(slices).toEqual([
+      { hsn: '3901', kg: 150, value: 100 * 2 + 50 * 4 },   // 400, sorted first by value
+      { hsn: '3902', kg: 10, value: 50 },
+    ])
+  })
+})
+
+describe('inventoryAging', () => {
+  it('buckets remaining lots by age with rupee value', () => {
+    const rows = [
+      ledger({ purchase_id: 1, invoice_date: '2026-06-10', balance_kg: 10 }),  // 3 days → 0-30
+      ledger({ purchase_id: 2, invoice_date: '2026-03-01', balance_kg: 20 }),  // >90 → 90+
+    ]
+    const purchases = [purchase({ id: 1, rate_per_kg: 2 }), purchase({ id: 2, rate_per_kg: 3 })]
+    const buckets = inventoryAging(rows, purchases, '2026-06-13')
+    expect(buckets.map(b => b.bucket)).toEqual(['0-30', '31-60', '61-90', '90+'])
+    expect(buckets[0]).toEqual({ bucket: '0-30', kg: 10, value: 20 })
+    expect(buckets[3]).toEqual({ bucket: '90+', kg: 20, value: 60 })
+  })
+})
+
+describe('lowStock', () => {
+  it('returns lots below the threshold', () => {
+    const rows = [ledger({ our_code: 'A', balance_kg: 100 }), ledger({ our_code: 'B', balance_kg: 600 })]
+    expect(lowStock(rows, 500).map(r => r.our_code)).toEqual(['A'])
+  })
+})
+
+describe('reservedPendingFill', () => {
+  it('returns only reserved sales', () => {
+    const sales = [sale({ id: 1, status: 'created' }), sale({ id: 2, status: 'reserved', invoice_date: null })]
+    expect(reservedPendingFill(sales).map(s => s.id)).toEqual([2])
   })
 })

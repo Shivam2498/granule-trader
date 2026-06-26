@@ -1,8 +1,10 @@
-import type { Sale, Purchase } from '@shared/types'
+import type { Sale, Purchase, LedgerRow } from '@shared/types'
 import { monthLabel } from './group'
 
 export interface MonthPoint { key: string; label: string; salesAmt: number; salesKg: number; purchAmt: number; purchKg: number }
 export interface AgingBuckets { b0_30: number; b31_60: number; b60plus: number }
+export interface StockSlice { hsn: string; kg: number; value: number }
+export interface AgeBucket { bucket: '0-30' | '31-60' | '61-90' | '90+'; kg: number; value: number }
 
 // Whole days from a YYYY-MM-DD date to today (today − date); negative if date is in the future.
 export function daysBetween(date: string, today: string): number {
@@ -76,4 +78,46 @@ export function monthDelta(sales: Sale[], today: string) {
   const sum = (mk: string) => created.filter(s => s.invoice_date!.slice(0, 7) === mk).reduce((a, s) => a + s.total_invoice_amount, 0)
   const current = sum(cur), previous = sum(prev)
   return { current, previous, pct: previous === 0 ? null : ((current - previous) / previous) * 100 }
+}
+
+function purchaseMap(purchases: Purchase[]): Map<number, Purchase> {
+  return new Map(purchases.map(p => [p.id, p]))
+}
+
+export function stockByProduct(ledger: LedgerRow[], purchases: Purchase[]): StockSlice[] {
+  const pm = purchaseMap(purchases)
+  const by = new Map<string, StockSlice>()
+  for (const r of ledger) {
+    if (r.balance_kg <= 0) continue
+    const rate = pm.get(r.purchase_id)?.rate_per_kg ?? 0
+    const e = by.get(r.hsn_code) ?? { hsn: r.hsn_code, kg: 0, value: 0 }
+    e.kg += r.balance_kg; e.value += r.balance_kg * rate; by.set(r.hsn_code, e)
+  }
+  return [...by.values()].sort((a, b) => b.value - a.value)
+}
+
+export function inventoryAging(ledger: LedgerRow[], purchases: Purchase[], today: string): AgeBucket[] {
+  const pm = purchaseMap(purchases)
+  const b: Record<AgeBucket['bucket'], AgeBucket> = {
+    '0-30': { bucket: '0-30', kg: 0, value: 0 },
+    '31-60': { bucket: '31-60', kg: 0, value: 0 },
+    '61-90': { bucket: '61-90', kg: 0, value: 0 },
+    '90+': { bucket: '90+', kg: 0, value: 0 },
+  }
+  for (const r of ledger) {
+    if (r.balance_kg <= 0) continue
+    const days = daysBetween(r.invoice_date, today)
+    const rate = pm.get(r.purchase_id)?.rate_per_kg ?? 0
+    const k: AgeBucket['bucket'] = days <= 30 ? '0-30' : days <= 60 ? '31-60' : days <= 90 ? '61-90' : '90+'
+    b[k].kg += r.balance_kg; b[k].value += r.balance_kg * rate
+  }
+  return [b['0-30'], b['31-60'], b['61-90'], b['90+']]
+}
+
+export function lowStock(ledger: LedgerRow[], threshold: number): LedgerRow[] {
+  return ledger.filter(r => r.balance_kg < threshold)
+}
+
+export function reservedPendingFill(sales: Sale[]): Sale[] {
+  return sales.filter(s => s.status === 'reserved')
 }
