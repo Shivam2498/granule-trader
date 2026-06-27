@@ -46,6 +46,7 @@ export default function CustomerForm() {
     window.api.listCustomers().then(all => {
       const c = all.find(x => x.id === editId)
       if (c) { const { id: _i, ...rest } = c; form.setValues(rest) }
+      else { setError('Record not found.'); nav('/customers') }
     }).catch(e => setError(e.message ?? String(e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId])
@@ -79,15 +80,15 @@ export default function CustomerForm() {
           onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))} />
       </FormSection>
       <FormSection title="Billing address">
-        <Input.Wrapper label="Pincode" error={form.errors.billing_pincode}>
+        <Input.Wrapper label="Pincode" withAsterisk error={form.errors.billing_pincode}>
           <PincodeField value={form.values.billing_pincode} onChange={v => form.setFieldValue('billing_pincode', v)}
             onResolved={r => { form.setFieldValue('billing_city', r.city); form.setFieldValue('billing_state', r.state) }} />
         </Input.Wrapper>
-        <TextInput label="City" {...form.getInputProps('billing_city')} />
-        <Input.Wrapper label="State" error={form.errors.billing_state}>
+        <TextInput label="City" withAsterisk {...form.getInputProps('billing_city')} />
+        <Input.Wrapper label="State" withAsterisk error={form.errors.billing_state}>
           <StateSelect value={form.values.billing_state} onChange={v => form.setFieldValue('billing_state', v)} />
         </Input.Wrapper>
-        <Textarea label="Address" autosize minRows={2} {...form.getInputProps('billing_address')} />
+        <Textarea label="Address" withAsterisk autosize minRows={2} {...form.getInputProps('billing_address')} />
       </FormSection>
       <Checkbox label="Shipping address is the same as billing" {...form.getInputProps('shipping_same', { type: 'checkbox' })} />
       {!form.values.shipping_same && (

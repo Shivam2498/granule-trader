@@ -10,6 +10,7 @@ export interface LotDraw {
 
 /** The whole sale form's gateable state. `lots` is every visible lot; helpers filter to the ticked ones. */
 export interface SaleFormState {
+  invoiceNumber: string
   hasBuyer: boolean
   vehicle: string
   lots: LotDraw[]
@@ -26,6 +27,7 @@ export function lotDrawError(d: LotDraw): string {
 
 /** Whole-form gate: a single plain-English reason Save is off, or '' when the form may be saved. */
 export function saleFormError(s: SaleFormState): string {
+  if (!s.invoiceNumber.trim()) return 'Enter an invoice number.'
   if (!s.hasBuyer) return 'Please choose a buyer.'
   if (!s.vehicle.trim()) return 'Enter the vehicle number.'
   // "ticked" = the checkbox is on. A ticked-but-empty lot is not "no lot chosen";

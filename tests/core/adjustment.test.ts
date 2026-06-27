@@ -18,6 +18,14 @@ describe('createStockAdjustment', () => {
     expect(() => createStockAdjustment(db, { purchase_id: p.id, qty_kg: 150, reason: 'x', date: '2024-05-05' })).toThrow(/only has 100/)
     expect(getPurchase(db, p.id)!.qty_remaining_kg).toBe(100)
   })
+  it('rejects zero or negative quantity', () => {
+    const p = createPurchase(db, { ...pbase, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 100 })
+    expect(() => createStockAdjustment(db, { purchase_id: p.id, qty_kg: 0, reason: 'x', date: '2024-05-05' }))
+      .toThrow(/must be greater than zero/)
+    expect(() => createStockAdjustment(db, { purchase_id: p.id, qty_kg: -10, reason: 'x', date: '2024-05-05' }))
+      .toThrow(/must be greater than zero/)
+    expect(getPurchase(db, p.id)!.qty_remaining_kg).toBe(100)
+  })
 })
 
 describe('stockLedger', () => {

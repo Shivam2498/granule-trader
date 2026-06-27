@@ -71,7 +71,7 @@ export default function NewSale() {
     const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
     return { include: d.include, qty: d.qty, rate: d.rate, available: l.available_kg }
   })
-  const formError = saleFormError({ hasBuyer: !!buyer, vehicle, lots: lotDraws })
+  const formError = saleFormError({ invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws })
 
   function setLine(pid: number, patch: Partial<Draw>) {
     setDraw(d => {
@@ -82,7 +82,7 @@ export default function NewSale() {
 
   async function save(thenInvoice: boolean) {
     setError('')
-    const fe = saleFormError({ hasBuyer: !!buyer, vehicle, lots: lotDraws })
+    const fe = saleFormError({ invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws })
     if (fe) { setError(fe); return }
     if (!buyer) return
     const payload = {

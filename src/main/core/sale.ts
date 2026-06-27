@@ -46,6 +46,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
     const have = lot?.available_kg ?? 0
     if (round2(line.qty_drawn_kg) > have)
       throw new Error(`Lot ${lot?.our_code ?? line.purchase_id} only has ${have} kg available on ${input.invoice_date}.`)
+    if (lot) lot.available_kg = round2(have - round2(line.qty_drawn_kg))
   }
 
   const tax = computeSaleTax({
@@ -69,6 +70,8 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
 
   let saleId: number
   if (existingReservedId != null) {
+    const existing = db.prepare('SELECT status FROM sales WHERE id = ?').get(existingReservedId) as { status: string } | undefined
+    if (!existing || existing.status !== 'reserved') throw new Error('Can only fill a reserved invoice.')
     db.prepare(`UPDATE sales SET invoice_number=@invoice_number, prefix=@prefix, seq=@seq, fy_label=@fy_label,
       status=@status, invoice_date=@invoice_date, eway_bill_no=@eway_bill_no, eway_bill_date=@eway_bill_date,
       vehicle=@vehicle, buyer_customer_id=@buyer_customer_id, buyer_name=@buyer_name, buyer_gstin=@buyer_gstin,

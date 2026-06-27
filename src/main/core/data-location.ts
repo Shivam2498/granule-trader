@@ -11,7 +11,17 @@ export function resolveDataFolder(bootstrapFolder: string): string {
   const boot = openDatabase(dbPathFor(bootstrapFolder))
   try {
     const ptr = getSettings(boot).data_folder
-    return ptr && ptr !== bootstrapFolder ? ptr : bootstrapFolder
+    if (ptr && ptr !== bootstrapFolder) {
+      try {
+        const check = openDatabase(dbPathFor(ptr))
+        closeDatabase(check)
+        return ptr
+      } catch (e) {
+        console.warn('resolveDataFolder: chosen data folder is unavailable, falling back to bootstrap:', e)
+        return bootstrapFolder
+      }
+    }
+    return bootstrapFolder
   } finally { closeDatabase(boot) }
 }
 

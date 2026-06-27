@@ -115,7 +115,7 @@ export function inventoryAging(ledger: LedgerRow[], purchases: Purchase[], today
 }
 
 export function lowStock(ledger: LedgerRow[], threshold: number): LedgerRow[] {
-  return ledger.filter(r => r.balance_kg < threshold)
+  return ledger.filter(r => r.balance_kg > 0 && r.balance_kg < threshold)
 }
 
 export function reservedPendingFill(sales: Sale[]): Sale[] {

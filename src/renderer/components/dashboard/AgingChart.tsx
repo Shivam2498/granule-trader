@@ -6,7 +6,7 @@ export default function AgingChart({ receivables, payables }: { receivables: Agi
   const data = [
     { bucket: '0–30 days', Receivables: receivables.b0_30, Payables: payables.b0_30 },
     { bucket: '31–60 days', Receivables: receivables.b31_60, Payables: payables.b31_60 },
-    { bucket: '60+ days', Receivables: receivables.b60plus, Payables: payables.b60plus },
+    { bucket: '61+ days', Receivables: receivables.b60plus, Payables: payables.b60plus },
   ]
   return (
     <Paper withBorder p="lg" radius="md">

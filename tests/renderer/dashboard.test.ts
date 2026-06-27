@@ -208,6 +208,14 @@ describe('lowStock', () => {
     const rows = [ledger({ our_code: 'A', balance_kg: 100 }), ledger({ our_code: 'B', balance_kg: 600 })]
     expect(lowStock(rows, 500).map(r => r.our_code)).toEqual(['A'])
   })
+  it('excludes fully-consumed lots (balance 0) from the low-stock list', () => {
+    const rows = [
+      ledger({ our_code: 'A', balance_kg: 0 }),   // depleted — must NOT appear
+      ledger({ our_code: 'B', balance_kg: 100 }),  // below threshold — appears
+      ledger({ our_code: 'C', balance_kg: 600 }),  // above threshold — skipped
+    ]
+    expect(lowStock(rows, 500).map(r => r.our_code)).toEqual(['B'])
+  })
 })
 
 describe('reservedPendingFill', () => {

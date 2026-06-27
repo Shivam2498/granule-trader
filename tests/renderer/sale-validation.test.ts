@@ -26,8 +26,11 @@ describe('lotDrawError', () => {
 })
 
 describe('saleFormError', () => {
-  const okForm = () => ({ hasBuyer: true, vehicle: 'GJ-05-AB-1234', lots: [lot({ qty: 50, rate: 8 })] })
+  const okForm = () => ({ invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234', lots: [lot({ qty: 50, rate: 8 })] })
 
+  it('requires an invoice number', () => {
+    expect(saleFormError({ ...okForm(), invoiceNumber: '   ' })).toBe('Enter an invoice number.')
+  })
   it('requires a buyer first', () => {
     expect(saleFormError({ ...okForm(), hasBuyer: false })).toBe('Please choose a buyer.')
   })

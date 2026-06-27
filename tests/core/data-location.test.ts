@@ -22,6 +22,16 @@ describe('data-location pointer', () => {
     expect(resolveDataFolder(bootstrap)).toBe(bootstrap)
   })
 
+  it('falls back to bootstrap when the pointer folder has been deleted', () => {
+    // Set up a pointer to a directory, then delete it to simulate unmount/removal
+    rememberDataFolder(bootstrap, chosen)
+    rmSync(chosen, { recursive: true, force: true })
+    // resolveDataFolder must not throw — it should fall back silently
+    expect(resolveDataFolder(bootstrap)).toBe(bootstrap)
+    // Recreate so afterEach cleanup doesn't fail on a missing dir
+    chosen = mkdtempSync(join(tmpdir(), 'gt-data-'))
+  })
+
   it('persists the chosen folder so a later boot resolves to it (regression: onboarding every launch)', () => {
     // Onboarding: choose a folder, then save business details into the active (chosen) DB.
     rememberDataFolder(bootstrap, chosen)

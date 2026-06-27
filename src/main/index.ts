@@ -11,6 +11,7 @@ import { registerIpc } from './ipc'
 let db: Database.Database
 let dbPath: string
 let dataFolder: string
+let lockAcquiredByUs = false
 
 function openIn(folder: string): void {
   if (db) closeDatabase(db)
@@ -37,6 +38,7 @@ function bootstrapData(): void {
       // Lock belongs to THIS machine — a previous run crashed or was killed without
       // releasing it. The app is not actually open here, so reclaim it silently.
       releaseLock(dataFolder); acquireLock(dataFolder, hostname())
+      lockAcquiredByUs = true
     } else {
       // Spec §4: a DIFFERENT machine holds the lock — warn; allow "Open anyway" only if
       // the user is sure it's closed there (opening on two machines at once can corrupt the file).
@@ -50,7 +52,10 @@ function bootstrapData(): void {
       })
       if (choice === 0) { app.quit(); return }
       releaseLock(dataFolder); acquireLock(dataFolder, hostname())   // Open anyway: replace the lock
+      lockAcquiredByUs = true
     }
+  } else {
+    lockAcquiredByUs = true
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   try { createBackup(dbPath, join(dataFolder, 'backups'), getSettings(db).backups_to_keep, stamp) } catch (e) { console.warn('backup failed', e) }
@@ -73,5 +78,5 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 
-app.on('before-quit', () => { try { releaseLock(dataFolder); if (db) closeDatabase(db) } catch {} })
+app.on('before-quit', () => { try { if (lockAcquiredByUs) releaseLock(dataFolder); if (db) closeDatabase(db) } catch {} })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

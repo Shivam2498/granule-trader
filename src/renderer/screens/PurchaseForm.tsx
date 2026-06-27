@@ -21,6 +21,7 @@ export default function PurchaseForm() {
   const [hsn, setHsn] = useState<HsnProduct[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [error, setError] = useState('')
+  const [codeEdited, setCodeEdited] = useState(false)
 
   const form = useForm({
     mode: 'controlled',
@@ -52,13 +53,14 @@ export default function PurchaseForm() {
           rate_per_kg: p.rate_per_kg > 0 ? p.rate_per_kg : (p.qty_kg > 0 ? round2(p.amount / p.qty_kg) : 0),
           roundoff: p.roundoff, tcs: p.tcs, payment_status: p.payment_status, payment_date: p.payment_date ?? ''
         })
+        else { setError('Record not found.'); nav('/purchases') }
       }
     } catch (e: any) { setError(e.message ?? String(e)) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   })() }, [editId])
 
-  // auto-suggest code only when creating (never overwrite an edited purchase's code)
-  useEffect(() => { if (!editId) window.api.nextPurchaseCode(form.values.invoice_date).then(c => form.setFieldValue('our_code', c)) }, [form.values.invoice_date, editId])
+  // auto-suggest code only when creating (never overwrite an edited purchase's code or a manually edited code)
+  useEffect(() => { if (!editId && !codeEdited) window.api.nextPurchaseCode(form.values.invoice_date).then(c => form.setFieldValue('our_code', c)) }, [form.values.invoice_date, editId, codeEdited])
 
   if (!settings) return <FormPage title="Purchase" onBack={() => nav('/purchases')} footer={null}><p>Loading…</p></FormPage>
 
@@ -95,12 +97,13 @@ export default function PurchaseForm() {
     <FormPage title={editId ? 'Edit purchase' : 'Add purchase'} onBack={() => nav('/purchases')} error={error}
       footer={<><Button variant="default" onClick={() => nav('/purchases')}>Cancel</Button><Button onClick={() => form.onSubmit(handleSave)()}>{editId ? 'Update purchase' : 'Save purchase'}</Button></>}>
       <FormSection title="Invoice">
-        <TextInput label="Our code" {...form.getInputProps('our_code')} />
+        <TextInput label="Our code" withAsterisk {...form.getInputProps('our_code')}
+          onChange={e => { setCodeEdited(true); form.setFieldValue('our_code', e.currentTarget.value) }} />
         <TextInput label="Supplier invoice no." {...form.getInputProps('supplier_invoice_number')} />
         <Input.Wrapper label="Invoice date" error={form.errors.invoice_date}>
           <DateField value={form.values.invoice_date} onChange={d => form.setFieldValue('invoice_date', d)} />
         </Input.Wrapper>
-        <Select label="HSN" data={hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))} value={form.values.hsn_code || null} onChange={v => form.setFieldValue('hsn_code', v ?? '')} error={form.errors.hsn_code} />
+        <Select label="HSN" withAsterisk data={hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))} value={form.values.hsn_code || null} onChange={v => form.setFieldValue('hsn_code', v ?? '')} error={form.errors.hsn_code} />
       </FormSection>
       <FormSection title="Supplier">
         <Select

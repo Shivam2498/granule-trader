@@ -9,6 +9,7 @@ export function listFinancialYears(db: Database.Database): string[] {
 }
 
 export function financialYear(date: string): { startYear: number; endYear: number; code: string; label: string } {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(date)) throw new Error('Invalid date: ' + date)
   const [yStr, mStr] = date.split('-')
   const year = Number(yStr)
   const month = Number(mStr)

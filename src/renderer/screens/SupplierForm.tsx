@@ -41,6 +41,7 @@ export default function SupplierForm() {
     window.api.listSuppliers().then(all => {
       const s = all.find(x => x.id === editId)
       if (s) { const { id: _i, ...rest } = s; form.setValues(rest) }
+      else { setError('Record not found.'); nav('/suppliers') }
     }).catch(e => setError(e.message ?? String(e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId])
@@ -74,15 +75,15 @@ export default function SupplierForm() {
           onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))} />
       </FormSection>
       <FormSection title="Address">
-        <Input.Wrapper label="Pincode" error={form.errors.pincode}>
+        <Input.Wrapper label="Pincode" withAsterisk error={form.errors.pincode}>
           <PincodeField value={form.values.pincode} onChange={v => form.setFieldValue('pincode', v)}
             onResolved={r => { form.setFieldValue('city', r.city); form.setFieldValue('state', r.state) }} />
         </Input.Wrapper>
-        <TextInput label="City" {...form.getInputProps('city')} />
-        <Input.Wrapper label="State" error={form.errors.state}>
+        <TextInput label="City" withAsterisk {...form.getInputProps('city')} />
+        <Input.Wrapper label="State" withAsterisk error={form.errors.state}>
           <StateSelect value={form.values.state} onChange={v => form.setFieldValue('state', v)} />
         </Input.Wrapper>
-        <Textarea label="Address" autosize minRows={2} {...form.getInputProps('address')} />
+        <Textarea label="Address" withAsterisk autosize minRows={2} {...form.getInputProps('address')} />
       </FormSection>
     </FormPage>
   )

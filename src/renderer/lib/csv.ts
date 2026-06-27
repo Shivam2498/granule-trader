@@ -6,7 +6,9 @@ export interface CsvColumn<T> { header: string; value: (row: T) => string | numb
 export function toCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
   const esc = (v: string | number): string => {
     const s = String(v)
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    // formula-injection guard: neutralise leading = + - @ (or tab/CR) so spreadsheets don't execute
+    if (/^[=+\-@\t\r]/.test(s)) return '"\''+s.replace(/"/g,'""')+'"'
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   }
   const head = columns.map(c => esc(c.header)).join(',')
   const body = rows.map(r => columns.map(c => esc(c.value(r))).join(',')).join('\n')
@@ -45,6 +47,7 @@ export const purchaseColumns: CsvColumn<Purchase>[] = [
   { header: 'SGST', value: p => p.sgst },
   { header: 'IGST', value: p => p.igst },
   { header: 'TCS', value: p => p.tcs },
+  { header: 'Round-off', value: p => p.roundoff },
   { header: 'Total', value: p => p.total_invoice_amount },
   { header: 'Payment status', value: p => p.payment_status },
   { header: 'Payment date', value: p => p.payment_date ?? '' },

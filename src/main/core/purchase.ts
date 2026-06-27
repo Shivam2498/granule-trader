@@ -118,6 +118,9 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
 export function deletePurchase(db: Database.Database, id: number): void {
   const used = db.prepare('SELECT COUNT(*) AS c FROM sale_allocations WHERE purchase_id = ?').get(id) as { c: number }
   if (used.c > 0) throw new Error('This lot is used in one or more sales. Please delete those sales first.')
-  db.prepare('DELETE FROM stock_adjustments WHERE purchase_id = ?').run(id)
-  db.prepare('DELETE FROM purchases WHERE id = ?').run(id)
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM stock_adjustments WHERE purchase_id = ?').run(id)
+    db.prepare('DELETE FROM purchases WHERE id = ?').run(id)
+  })
+  tx()
 }

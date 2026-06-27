@@ -81,6 +81,24 @@ describe('createSale', () => {
     expect(allocs[0].hsn_code).toBe('3902')
     expect(allocs[0].gst_rate).toBe(18)
   })
+
+  it('rejects duplicate purchase_id lines that together exceed available stock', () => {
+    const a = lot('0001/2425', '2024-05-01', 500)
+    // Two lines on the same lot, 400kg each — together they exceed 500kg
+    expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      lines: [line(a.id, 400, 80), line(a.id, 400, 80)] })).toThrow(/only has/)
+    // Remaining must be unchanged (transaction rolled back)
+    expect((db.prepare('SELECT qty_remaining_kg FROM purchases WHERE id = ?').get(a.id) as any).qty_remaining_kg).toBe(500)
+    expect(listSales(db)).toHaveLength(0)
+  })
+
+  it('fillReservedSale throws when the target sale is not reserved', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const created = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      lines: [line(a.id, 100, 80)] })
+    expect(() => fillReservedSale(db, created.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      lines: [line(a.id, 50, 80)] })).toThrow(/Can only fill a reserved invoice/)
+  })
 })
 
 describe('listSales FY filter', () => {

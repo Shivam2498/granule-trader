@@ -26,5 +26,7 @@ export function listSuppliers(db: Database.Database, search?: string): Supplier[
 }
 
 export function deleteSupplier(db: Database.Database, id: number): void {
+  const count = db.prepare('SELECT COUNT(*) AS c FROM purchases WHERE supplier_id = ?').get(id) as { c: number }
+  if (count.c > 0) throw new Error('This supplier has purchases and cannot be deleted.')
   db.prepare('DELETE FROM suppliers WHERE id = ?').run(id)
 }

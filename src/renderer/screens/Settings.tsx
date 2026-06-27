@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table, Checkbox } from '@mantine/core'
+import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table, Checkbox, Center, Loader } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Settings as S, HsnProduct } from '@shared/types'
@@ -40,7 +40,7 @@ export default function Settings() {
     setHsn(await window.api.listHsn())
   }
   useEffect(() => { reload() }, [])
-  if (!loaded) return <h1>Settings</h1>
+  if (!loaded) return <Center h="60vh"><Loader /></Center>
 
   async function save(values: S & { godown_same: boolean }) {
     const { godown_same, ...rest } = values
@@ -60,8 +60,8 @@ export default function Settings() {
       <Paper withBorder p="lg" radius="md" mb="md">
         <Title order={2} mb="sm">Business</Title>
         <SimpleGrid cols={3} mb="md">
-          <TextInput label="Business name" {...form.getInputProps('seller_name')} />
-          <TextInput label="GSTIN" {...form.getInputProps('seller_gstin')}
+          <TextInput label="Business name" withAsterisk {...form.getInputProps('seller_name')} />
+          <TextInput label="GSTIN" withAsterisk {...form.getInputProps('seller_gstin')}
             onChange={e => {
               const v = e.currentTarget.value.toUpperCase()
               form.setFieldValue('seller_gstin', v)
@@ -78,11 +78,11 @@ export default function Settings() {
         </Group>
         <Textarea label="Address" autosize minRows={2} {...form.getInputProps('seller_address')} mb="md" />
         <SimpleGrid cols={3} mb="md">
-          <TextInput label="Mobile"
+          <TextInput label="Mobile" withAsterisk
             value={form.values.seller_phone}
             onChange={e => form.setFieldValue('seller_phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))}
             error={form.errors.seller_phone} />
-          <Input.Wrapper label="Home state (tax)" error={form.errors.home_state}>
+          <Input.Wrapper label="Home state (tax)" withAsterisk error={form.errors.home_state}>
             <StateSelect value={form.values.home_state} onChange={v => form.setFieldValue('home_state', v)} />
           </Input.Wrapper>
           <TextInput label="Invoice prefix" {...form.getInputProps('invoice_prefix')} />
@@ -104,11 +104,11 @@ export default function Settings() {
           <Textarea label="Godown address" autosize minRows={2} {...form.getInputProps('seller_godown_address')} mb="md" />}
         <SimpleGrid cols={3} mb="md">
           <TextInput label="UDYAM No. (optional)" {...form.getInputProps('seller_udyam')} />
-          <TextInput label="Email" {...form.getInputProps('seller_email')} />
-          <TextInput label="Bank name" {...form.getInputProps('bank_name')} />
-          <TextInput label="Bank branch" {...form.getInputProps('bank_branch')} />
-          <TextInput label="Bank A/C No." {...form.getInputProps('bank_account_no')} />
-          <TextInput label="IFSC" {...form.getInputProps('bank_ifsc')} />
+          <TextInput label="Email" withAsterisk {...form.getInputProps('seller_email')} />
+          <TextInput label="Bank name" withAsterisk {...form.getInputProps('bank_name')} />
+          <TextInput label="Bank branch" withAsterisk {...form.getInputProps('bank_branch')} />
+          <TextInput label="Bank A/C No." withAsterisk {...form.getInputProps('bank_account_no')} />
+          <TextInput label="IFSC" withAsterisk {...form.getInputProps('bank_ifsc')} />
         </SimpleGrid>
         <Group>
           <Button onClick={() => form.onSubmit(save)()}>Save settings</Button>

@@ -23,7 +23,7 @@ function intToWords(n: number): string {
   const lakh = Math.floor(rem / 100000); rem %= 100000
   const thousand = Math.floor(rem / 1000); rem %= 1000
   const parts: string[] = []
-  if (crore) parts.push(twoDigits(crore) + ' crore')
+  if (crore) parts.push(intToWords(crore) + ' crore')
   if (lakh) parts.push(twoDigits(lakh) + ' lakh')
   if (thousand) parts.push(twoDigits(thousand) + ' thousand')
   if (rem) parts.push(threeDigits(rem))
@@ -33,7 +33,7 @@ function intToWords(n: number): string {
 // "Rupees <words> [and <words> paise] only" with only the first letter capitalised.
 export function rupeesInWords(amount: number): string {
   const rupees = Math.floor(amount + 1e-9)
-  const paise = Math.round((amount - rupees) * 100)
+  const paise = Math.round((amount - rupees) * 100 + 1e-7)
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   let words = 'Rupees ' + cap(intToWords(rupees))
   if (paise) words += ' and ' + intToWords(paise) + ' paise'

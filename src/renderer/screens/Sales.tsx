@@ -34,7 +34,7 @@ export default function Sales() {
     <div>
       <PageHeader title={`Sales · ${fy}`} action={
         <Group>
-          <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list, `Sales-FY-${fy}.csv`)}>Export FY</Button>
+          <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list.filter(s => s.status === 'created'), `Sales-FY-${fy}.csv`)}>Export FY</Button>
           <Button onClick={() => nav('/sales/new')}>+ New sale</Button>
         </Group>
       } />

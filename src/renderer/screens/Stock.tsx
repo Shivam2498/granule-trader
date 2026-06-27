@@ -14,7 +14,14 @@ export default function Stock() {
     try { setSettings(await window.api.getSettings()); setRows(await window.api.stockLedger()) } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [])
   const low = settings?.low_stock_threshold ?? 0
-  let lastHsn = ''; let running = 0
+  const processedRows = (() => {
+    let lastHsn = ''; let running = 0
+    return rows.map(r => {
+      if (r.hsn_code !== lastHsn) { lastHsn = r.hsn_code; running = 0 }
+      running += r.balance_kg
+      return { ...r, running }
+    })
+  })()
   return (
     <div>
       <PageHeader title="Stock" action={<Group gap="sm">
@@ -25,14 +32,12 @@ export default function Stock() {
       <Text c="dimmed" mb="md">Current stock on hand — all years (stock carries forward across financial years).</Text>
       <Paper withBorder p="lg" radius="md">
         <ListTable head={<><Table.Th>HSN</Table.Th><Table.Th>Lot</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th ta="right">In</Table.Th><Table.Th ta="right">Consumed</Table.Th><Table.Th ta="right">Balance</Table.Th><Table.Th ta="right">Running</Table.Th></>}>
-          {rows.map(r => {
-            if (r.hsn_code !== lastHsn) { lastHsn = r.hsn_code; running = 0 }
-            running += r.balance_kg
+          {processedRows.map(r => {
             const isLow = r.balance_kg < low
             return (
               <Table.Tr key={r.purchase_id} bg={isLow ? 'orange.0' : undefined}>
                 <Table.Td>{r.hsn_code}</Table.Td><Table.Td>{r.our_code}</Table.Td><Table.Td>{r.invoice_date}</Table.Td><Table.Td>{r.party}</Table.Td>
-                <Table.Td ta="right">{r.qty_kg}</Table.Td><Table.Td ta="right">{r.consumed_kg}</Table.Td><Table.Td ta="right">{r.balance_kg}{isLow ? ' ⚠' : ''}</Table.Td><Table.Td ta="right">{running}</Table.Td>
+                <Table.Td ta="right">{r.qty_kg}</Table.Td><Table.Td ta="right">{r.consumed_kg}</Table.Td><Table.Td ta="right">{r.balance_kg}{isLow ? ' ⚠' : ''}</Table.Td><Table.Td ta="right">{r.running}</Table.Td>
               </Table.Tr>)
           })}
           {rows.length === 0 && <Table.Tr><Table.Td colSpan={8} c="dimmed">No stock on hand.</Table.Td></Table.Tr>}

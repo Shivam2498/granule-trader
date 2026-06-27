@@ -10,7 +10,7 @@ export default function Suppliers() {
   const [list, setList] = useState<Supplier[]>([])
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listSuppliers(search || undefined)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  async function reload() { try { setError(''); setList(await window.api.listSuppliers(search || undefined)) } catch (e: any) { setError(e.message ?? String(e)) } }
   useEffect(() => { reload() }, [search])
   async function remove(id: number) {
     if (!confirm('Delete this supplier?')) return

@@ -36,6 +36,8 @@ export function listCustomers(db: Database.Database, search?: string): Customer[
 }
 
 export function deleteCustomer(db: Database.Database, id: number): void {
+  const count = db.prepare('SELECT COUNT(*) AS c FROM sales WHERE buyer_customer_id = ?').get(id) as { c: number }
+  if (count.c > 0) throw new Error('This customer has sales and cannot be deleted.')
   db.prepare('DELETE FROM customers WHERE id = ?').run(id)
 }
 

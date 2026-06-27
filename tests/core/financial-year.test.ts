@@ -16,6 +16,11 @@ describe('financialYear', () => {
   it('December belongs to the current FY start', () => {
     expect(financialYear('2024-12-15').label).toBe('2024-25')
   })
+  it('throws on a malformed date string', () => {
+    expect(() => financialYear('not-a-date')).toThrow(/Invalid date/)
+    expect(() => financialYear('')).toThrow(/Invalid date/)
+    expect(() => financialYear('2024/05/01')).toThrow(/Invalid date/)
+  })
 })
 
 describe('listFinancialYears', () => {

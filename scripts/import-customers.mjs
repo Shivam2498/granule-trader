@@ -29,11 +29,18 @@ const insert = db.prepare(`INSERT INTO customers
   VALUES (@name,@gstin,@pan,@phone,@billing_address,@billing_city,@billing_state,@billing_pincode,
    @shipping_same,@shipping_address,@shipping_city,@shipping_state,@shipping_pincode)`)
 const run = db.transaction((rows) => { for (const r of rows) insert.run({ ...r, shipping_same: r.shipping_same ? 1 : 0 }) })
-run(toImport)
-db.close()
-
-console.log(`✓ Imported ${toImport.length} customer(s) into ${dbPath}`)
-if (skipped.length) {
-  console.log(`\nSkipped ${skipped.length} row(s):`)
-  for (const s of skipped) console.log(`  line ${s.line}: ${s.name || '(no name)'} — ${s.reason}`)
+let closed = false
+try {
+  run(toImport)
+  console.log(`✓ Imported ${toImport.length} customer(s) into ${dbPath}`)
+  if (skipped.length) {
+    console.log(`\nSkipped ${skipped.length} row(s):`)
+    for (const s of skipped) console.log(`  line ${s.line}: ${s.name || '(no name)'} — ${s.reason}`)
+  }
+} catch (e) {
+  console.error('Import failed:', e.message)
+  db.close(); closed = true
+  process.exit(1)
+} finally {
+  if (!closed) try { db.close() } catch {}
 }

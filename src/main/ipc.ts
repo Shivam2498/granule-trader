@@ -45,7 +45,7 @@ export function registerIpc(ctx: IpcContext): void {
   h('exportCsv', async (suggestedName: string, content: string) => {
     const r = await dialog.showSaveDialog({ defaultPath: suggestedName, filters: [{ name: 'CSV', extensions: ['csv'] }] })
     if (r.canceled || !r.filePath) return { saved: false }
-    writeFileSync(r.filePath, content, 'utf8')
+    writeFileSync(r.filePath, '﻿' + content, 'utf8')
     return { saved: true, path: r.filePath }
   })
 
