@@ -20,6 +20,7 @@ export default function Dashboard() {
   const nav = useNavigate()
   const { fy } = useFY()
   const [sales, setSales] = useState<Sale[]>([])
+  const [allSales, setAllSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [allPurchases, setAllPurchases] = useState<Purchase[]>([])
   const [ledger, setLedger] = useState<LedgerRow[]>([])
@@ -29,15 +30,15 @@ export default function Dashboard() {
   useEffect(() => { (async () => {
     try {
       setSales(await window.api.listSales(fy)); setPurchases(await window.api.listPurchases(fy))
-      setAllPurchases(await window.api.listPurchases())
+      setAllSales(await window.api.listSales()); setAllPurchases(await window.api.listPurchases())
       setLedger(await window.api.stockLedger()); setSettings(await window.api.getSettings())
     } catch (e: any) { setError('Could not load dashboard: ' + (e.message ?? e)) }
   })() }, [fy])
 
   const now = today()
   const trend = monthlyTrend(sales, purchases)
-  const rec = receivables(sales, now)
-  const pay = payables(purchases, now)
+  const rec = receivables(allSales, now)
+  const pay = payables(allPurchases, now)
   const gst = gstSnapshot(sales, purchases)
   const delta = monthDelta(sales, now)
   const stock = stockByProduct(ledger, allPurchases)

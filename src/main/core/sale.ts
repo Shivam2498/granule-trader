@@ -12,7 +12,7 @@ export interface NewSaleLine {
 export interface NewSale {
   invoice_number: string; invoice_date: string
   buyer_customer_id: number | null; buyer_name: string; buyer_gstin: string
-  buyer_billing: object; buyer_shipping: object; place_of_supply_state: string
+  buyer_billing: object; buyer_shipping: object; place_of_supply_state?: string
   homeState: string
   lines: NewSaleLine[]; roundoff?: number
   eway_bill_no?: string; eway_bill_date?: string; vehicle?: string
@@ -51,7 +51,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
 
   const tax = computeSaleTax({
     lines: input.lines.map(l => ({ qty_drawn_kg: l.qty_drawn_kg, rate_per_kg: l.rate_per_kg, gst_rate: l.gst_rate, hsn_code: l.hsn_code })),
-    placeOfSupplyState: input.place_of_supply_state, homeState: input.homeState, roundoff: input.roundoff
+    placeOfSupplyState: input.place_of_supply_state ?? '', homeState: input.homeState, roundoff: input.roundoff
   })
 
   const maxBelow = db.prepare('SELECT MAX(seq) AS m FROM sales WHERE fy_label = ? AND seq < ?').get(fyLabel, seq) as { m: number | null }
@@ -63,6 +63,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
     eway_bill_date: input.eway_bill_date ?? null, vehicle: input.vehicle ?? null,
     buyer_customer_id: input.buyer_customer_id, buyer_name: input.buyer_name, buyer_gstin: input.buyer_gstin,
     buyer_billing_json: JSON.stringify(input.buyer_billing), buyer_shipping_json: JSON.stringify(input.buyer_shipping),
+    place_of_supply_state: input.place_of_supply_state ?? '',
     amount: tax.taxable, cgst: tax.cgst, sgst: tax.sgst, igst: tax.igst,
     tcs: 0, roundoff: tax.roundoff, total_invoice_amount: tax.total, total_qty_kg: tax.totalQty,
     payment_status: input.payment_status ?? 'pending', payment_date: input.payment_date ?? null
@@ -76,6 +77,7 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
       status=@status, invoice_date=@invoice_date, eway_bill_no=@eway_bill_no, eway_bill_date=@eway_bill_date,
       vehicle=@vehicle, buyer_customer_id=@buyer_customer_id, buyer_name=@buyer_name, buyer_gstin=@buyer_gstin,
       buyer_billing_json=@buyer_billing_json, buyer_shipping_json=@buyer_shipping_json,
+      place_of_supply_state=@place_of_supply_state,
       amount=@amount, cgst=@cgst, sgst=@sgst, igst=@igst, tcs=@tcs, roundoff=@roundoff,
       total_invoice_amount=@total_invoice_amount, total_qty_kg=@total_qty_kg, payment_status=@payment_status,
       payment_date=@payment_date WHERE id=@id`).run({ ...fields, id: existingReservedId })
@@ -84,11 +86,11 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   } else {
     const info = db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date,
       eway_bill_no, eway_bill_date, vehicle, buyer_customer_id, buyer_name, buyer_gstin, buyer_billing_json,
-      buyer_shipping_json, amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount,
+      buyer_shipping_json, place_of_supply_state, amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount,
       total_qty_kg, payment_status, payment_date)
       VALUES (@invoice_number, @prefix, @seq, @fy_label, @status, @invoice_date, @eway_bill_no, @eway_bill_date,
       @vehicle, @buyer_customer_id, @buyer_name, @buyer_gstin, @buyer_billing_json, @buyer_shipping_json,
-      @amount, @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount, @total_qty_kg,
+      @place_of_supply_state, @amount, @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount, @total_qty_kg,
       @payment_status, @payment_date)`).run(fields)
     saleId = Number(info.lastInsertRowid)
   }

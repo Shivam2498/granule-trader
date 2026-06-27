@@ -86,6 +86,7 @@ export interface Sale {
   buyer_gstin: string
   buyer_billing_json: string     // snapshot JSON of address block
   buyer_shipping_json: string
+  place_of_supply_state: string
   amount: number
   cgst: number
   sgst: number

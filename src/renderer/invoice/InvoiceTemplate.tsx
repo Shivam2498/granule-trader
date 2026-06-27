@@ -15,7 +15,7 @@ const addrLine = (a: Addr) => [a.address, a.city, a.pincode].filter(Boolean).joi
 // Uniform uppercase for printed text (names, addresses, state, descriptions).
 const uc = (s: string) => (s ?? '').toUpperCase()
 
-function partyLines(name: string, addr: Addr, gstin: string, pan: string) {
+function partyLines(name: string, addr: Addr, gstin: string, pan: string, placeOfSupply: string) {
   return (
     <>
       <div className="bold">{uc(name)}</div>
@@ -23,7 +23,7 @@ function partyLines(name: string, addr: Addr, gstin: string, pan: string) {
       <div><b>GSTIN/UIN:</b> {gstin}</div>
       <div><b>PAN/IT No.:</b> {pan}</div>
       <div><b>State Name:</b> {uc(addr.state ?? '')}</div>
-      <div><b>Place of Supply:</b> {uc(addr.state ?? '')}</div>
+      <div><b>Place of Supply:</b> {uc(placeOfSupply)}</div>
     </>
   )
 }
@@ -33,7 +33,7 @@ export interface InvoiceTemplateProps {
 }
 
 export default function InvoiceTemplate({ sale, allocations, settings, hsnDescriptions }: InvoiceTemplateProps) {
-  const interState = sale.igst > 0
+  const interState = sale.igst > 0 || (!!sale.place_of_supply_state && sale.place_of_supply_state !== settings.home_state)
 
   const lineMap = new Map<string, { hsn: string; rate: number; qty: number; amount: number }>()
   for (const a of allocations) {
@@ -56,6 +56,7 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
   const hasShipping = !!(shipping.address || shipping.city || shipping.state || shipping.pincode)
   const ship = hasShipping ? shipping : billing
   const buyerPan = panFromGstin(sale.buyer_gstin)
+  const resolvedPlaceOfSupply = sale.place_of_supply_state || billing.state || ''
 
   const copy = (marker: string) => (
     <div className="invoice" key={marker}>
@@ -94,8 +95,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
       <table className="inv"><tbody>
         <tr><td className="bold half">Buyer (if other than consignee)</td><td className="bold half">Consignee</td></tr>
         <tr>
-          <td className="party">{partyLines(sale.buyer_name, billing, sale.buyer_gstin, buyerPan)}</td>
-          <td className="party">{partyLines(sale.buyer_name, ship, sale.buyer_gstin, buyerPan)}</td>
+          <td className="party">{partyLines(sale.buyer_name, billing, sale.buyer_gstin, buyerPan, resolvedPlaceOfSupply)}</td>
+          <td className="party">{partyLines(sale.buyer_name, ship, sale.buyer_gstin, buyerPan, resolvedPlaceOfSupply)}</td>
         </tr>
       </tbody></table>
 

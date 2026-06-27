@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS sales (
   buyer_gstin TEXT NOT NULL DEFAULT '',
   buyer_billing_json TEXT NOT NULL DEFAULT '{}',
   buyer_shipping_json TEXT NOT NULL DEFAULT '{}',
+  place_of_supply_state TEXT NOT NULL DEFAULT '',
   amount REAL NOT NULL DEFAULT 0,
   cgst REAL NOT NULL DEFAULT 0,
   sgst REAL NOT NULL DEFAULT 0,
@@ -135,13 +136,11 @@ function hasColumn(db: Database.Database, table: string, col: string): boolean {
 }
 
 function migrate(db: Database.Database): void {
+  // Additive column adds — always idempotent
   if (!hasColumn(db, 'sale_allocations', 'hsn_code'))
     db.exec(`ALTER TABLE sale_allocations ADD COLUMN hsn_code TEXT NOT NULL DEFAULT ''`)
   if (!hasColumn(db, 'sale_allocations', 'gst_rate'))
     db.exec(`ALTER TABLE sale_allocations ADD COLUMN gst_rate REAL NOT NULL DEFAULT 0`)
-  // Backfill pre-existing allocations from their purchase's HSN + that HSN's rate (fallback 18)
-  db.exec(`UPDATE sale_allocations SET hsn_code = COALESCE((SELECT p.hsn_code FROM purchases p WHERE p.id = sale_allocations.purchase_id), '') WHERE hsn_code = ''`)
-  db.exec(`UPDATE sale_allocations SET gst_rate = COALESCE((SELECT h.gst_rate FROM hsn_products h JOIN purchases p ON p.hsn_code = h.hsn_code WHERE p.id = sale_allocations.purchase_id), 18) WHERE gst_rate = 0`)
   for (const [col, ddl] of [
     ['rate_per_kg', `ALTER TABLE purchases ADD COLUMN rate_per_kg REAL NOT NULL DEFAULT 0`],
     ['party_city', `ALTER TABLE purchases ADD COLUMN party_city TEXT NOT NULL DEFAULT ''`],
@@ -151,6 +150,18 @@ function migrate(db: Database.Database): void {
   ] as const) {
     if (!hasColumn(db, 'purchases', col)) db.exec(ddl)
   }
-  // Backfill a rate for legacy purchases that have an amount but no rate
-  db.exec(`UPDATE purchases SET rate_per_kg = round(amount / qty_kg, 2) WHERE rate_per_kg = 0 AND qty_kg > 0 AND amount > 0`)
+  if (!hasColumn(db, 'sales', 'place_of_supply_state'))
+    db.exec(`ALTER TABLE sales ADD COLUMN place_of_supply_state TEXT NOT NULL DEFAULT ''`)
+
+  // Data-mutating backfills — run only once (schema_version gate)
+  const vRow = db.prepare(`SELECT value FROM settings WHERE key = 'schema_version'`).get() as { value: string } | undefined
+  const version = vRow ? parseInt(vRow.value, 10) : 0
+  if (version < 1) {
+    // Backfill pre-existing allocations from their purchase's HSN + that HSN's rate (fallback 18)
+    db.exec(`UPDATE sale_allocations SET hsn_code = COALESCE((SELECT p.hsn_code FROM purchases p WHERE p.id = sale_allocations.purchase_id), '') WHERE hsn_code = ''`)
+    db.exec(`UPDATE sale_allocations SET gst_rate = COALESCE((SELECT h.gst_rate FROM hsn_products h JOIN purchases p ON p.hsn_code = h.hsn_code WHERE p.id = sale_allocations.purchase_id), 18) WHERE gst_rate = 0`)
+    // Backfill a rate for legacy purchases that have an amount but no rate
+    db.exec(`UPDATE purchases SET rate_per_kg = round(amount / qty_kg, 2) WHERE rate_per_kg = 0 AND qty_kg > 0 AND amount > 0`)
+    db.exec(`INSERT INTO settings(key,value) VALUES('schema_version','1') ON CONFLICT(key) DO UPDATE SET value='1'`)
+  }
 }

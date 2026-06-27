@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, writeFileSync, readFileSync } from 'fs'
+import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, readFileSync, openSync, closeSync, writeSync } from 'fs'
 import { join, basename, extname } from 'path'
 
 const LOCK = '.granule.lock'
@@ -15,11 +15,43 @@ export function createBackup(dbPath: string, backupDir: string, keepCount: numbe
   return dest
 }
 
-export function acquireLock(dir: string, holder: string): { ok: boolean; existingHolder?: string } {
+/** Returns true if the given process is alive (or belongs to another user). */
+export function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e: any) {
+    return e.code === 'EPERM'
+  }
+}
+
+/**
+ * Atomically acquires a per-folder lock file using O_CREAT|O_EXCL semantics.
+ * The lock file contains `${holder}\n${process.pid}`.
+ * Returns { ok: true } on success, or { ok: false, existingHolder, existingPid } if
+ * the file already exists (EEXIST).
+ */
+export function acquireLock(dir: string, holder: string): { ok: boolean; existingHolder?: string; existingPid?: number | null } {
   const path = join(dir, LOCK)
-  if (existsSync(path)) return { ok: false, existingHolder: readFileSync(path, 'utf8') }
-  writeFileSync(path, holder)
-  return { ok: true }
+  try {
+    const fd = openSync(path, 'wx')
+    writeSync(fd, `${holder}\n${process.pid}`)
+    closeSync(fd)
+    return { ok: true }
+  } catch (e: any) {
+    if (e.code === 'EEXIST') {
+      try {
+        const content = readFileSync(path, 'utf8').trim()
+        const [host, pidStr] = content.split('\n')
+        const parsed = pidStr ? parseInt(pidStr, 10) : NaN
+        const existingPid = Number.isNaN(parsed) ? null : parsed
+        return { ok: false, existingHolder: host ?? '', existingPid }
+      } catch {
+        return { ok: false, existingHolder: '', existingPid: null }
+      }
+    }
+    throw e
+  }
 }
 
 export function releaseLock(dir: string): void {

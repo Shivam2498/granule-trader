@@ -11,7 +11,7 @@ const settings = { seller_name: 'Shivam Traders', seller_address: 'Off Addr', se
   invoice_prefix: 'ST', default_gst_rate: 18, data_folder: '', low_stock_threshold: 500, backups_to_keep: 10 } as Settings
 const sale = { id: 1, invoice_number: 'ST/006/2025-26', invoice_date: '2025-04-14', buyer_name: 'SAMTA IMPEX',
   buyer_gstin: '19AAECM3696H1Z1', buyer_billing_json: '{"city":"Howrah","state":"West Bengal","pincode":"711405"}',
-  buyer_shipping_json: '{}', amount: 220340, cgst: 19830.6, sgst: 19830.6, igst: 0, tcs: 0, roundoff: -1.2,
+  buyer_shipping_json: '{}', place_of_supply_state: 'West Bengal', amount: 220340, cgst: 19830.6, sgst: 19830.6, igst: 0, tcs: 0, roundoff: -1.2,
   total_invoice_amount: 260000, total_qty_kg: 2000, vehicle: 'WB23E9212', eway_bill_no: '821520090058', eway_bill_date: '2025-04-14' } as unknown as Sale
 const allocs = [{ id: 1, sale_id: 1, purchase_id: 1, hsn_code: '39023000', gst_rate: 18, qty_drawn_kg: 2000, rate_per_kg: 110.17, line_amount: 220340 }] as SaleAllocation[]
 const hsnDescriptions = { '39023000': 'Plastic Granules' }
@@ -81,6 +81,27 @@ describe('InvoiceTemplate', () => {
     expect(container.textContent).toContain('CGST')
     const inter = { ...sale, cgst: 0, sgst: 0, igst: 39661.2 } as unknown as Sale
     rerender(<InvoiceTemplate sale={inter} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('IGST')
+    expect(container.textContent).not.toContain('CGST')
+  })
+
+  it('shows sale.place_of_supply_state as Place of Supply on both party blocks', () => {
+    const { container } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    // Each copy has two party columns (Buyer + Consignee), so >=2 occurrences of "Place of Supply: WEST BENGAL"
+    const matches = (container.textContent ?? '').match(/Place of Supply: WEST BENGAL/g)
+    expect(matches).not.toBeNull()
+    expect(matches!.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('falls back to billing state when place_of_supply_state is empty', () => {
+    const noPos = { ...sale, place_of_supply_state: '' } as unknown as Sale
+    const { container } = render(<InvoiceTemplate sale={noPos} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('Place of Supply: WEST BENGAL')
+  })
+
+  it('shows IGST when place_of_supply_state differs from home_state even with 0 igst', () => {
+    const interNoTax = { ...sale, cgst: 0, sgst: 0, igst: 0, place_of_supply_state: 'Gujarat' } as unknown as Sale
+    const { container } = render(<InvoiceTemplate sale={interNoTax} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
     expect(container.textContent).toContain('IGST')
     expect(container.textContent).not.toContain('CGST')
   })

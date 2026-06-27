@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
-import { createSale, fillReservedSale, listSales, deleteSale, getAllocations } from '../../src/main/core/sale'
+import { createSale, fillReservedSale, listSales, deleteSale, getAllocations, getSale } from '../../src/main/core/sale'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -98,6 +98,23 @@ describe('createSale', () => {
       lines: [line(a.id, 100, 80)] })
     expect(() => fillReservedSale(db, created.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
       lines: [line(a.id, 50, 80)] })).toThrow(/Can only fill a reserved invoice/)
+  })
+
+  it('persists place_of_supply_state and getSale returns it', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const sale = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      place_of_supply_state: 'Maharashtra', lines: [line(a.id, 100, 80)] })
+    const fetched = getSale(db, sale.id)
+    expect(fetched.place_of_supply_state).toBe('Maharashtra')
+  })
+
+  it('defaults place_of_supply_state to empty string when omitted', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const { place_of_supply_state: _pos, ...sbaseNoPos } = sbase
+    const sale = createSale(db, { ...sbaseNoPos, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      lines: [line(a.id, 100, 80)] })
+    const fetched = getSale(db, sale.id)
+    expect(fetched.place_of_supply_state).toBe('')
   })
 })
 
