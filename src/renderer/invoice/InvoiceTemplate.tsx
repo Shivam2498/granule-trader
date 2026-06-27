@@ -12,16 +12,18 @@ function parseAddr(json: string): Addr { try { return (JSON.parse(json) || {}) a
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const num = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const addrLine = (a: Addr) => [a.address, a.city, a.pincode].filter(Boolean).join(', ')
+// Uniform uppercase for printed text (names, addresses, state, descriptions).
+const uc = (s: string) => (s ?? '').toUpperCase()
 
 function partyLines(name: string, addr: Addr, gstin: string, pan: string) {
   return (
     <>
-      <div className="bold">{name}</div>
-      <div>{addrLine(addr)}</div>
+      <div className="bold">{uc(name)}</div>
+      <div>{uc(addrLine(addr))}</div>
       <div><b>GSTIN/UIN:</b> {gstin}</div>
       <div><b>PAN/IT No.:</b> {pan}</div>
-      <div><b>State Name:</b> {addr.state ?? ''}</div>
-      <div><b>Place of Supply:</b> {addr.state ?? ''}</div>
+      <div><b>State Name:</b> {uc(addr.state ?? '')}</div>
+      <div><b>Place of Supply:</b> {uc(addr.state ?? '')}</div>
     </>
   )
 }
@@ -63,11 +65,11 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
       <table className="inv"><tbody>
         <tr>
           <td className="seller">
-            <div className="bold big">{settings.seller_name}</div>
-            <div><b>Off:</b> {settings.seller_address}</div>
+            <div className="bold big">{uc(settings.seller_name)}</div>
+            <div><b>Off:</b> {uc(settings.seller_address)}</div>
             {settings.seller_godown_address.trim() && settings.seller_godown_address.trim() !== settings.seller_address.trim()
-              ? <div><b>Godown:</b> {settings.seller_godown_address}</div> : null}
-            <div>{settings.home_state}</div>
+              ? <div><b>Godown:</b> {uc(settings.seller_godown_address)}</div> : null}
+            <div>{uc(settings.home_state)}</div>
             <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
             <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
             {settings.seller_udyam.trim() && settings.seller_udyam.trim() !== '-'
@@ -104,7 +106,7 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
         <tbody>
           {lines.map((l, i) => (
             <tr key={i} className={i === 0 ? 'firstline' : undefined}>
-              <td>{i + 1}</td><td>{hsnDescriptions[l.hsn] ?? ''}</td><td>{l.hsn}</td>
+              <td>{i + 1}</td><td>{uc(hsnDescriptions[l.hsn] ?? '')}</td><td>{l.hsn}</td>
               <td className="right">{l.qty}</td><td>Kgs</td><td className="right">₹ {num(l.rate)}</td><td className="right">{num(l.amount)}</td>
             </tr>
           ))}
@@ -164,14 +166,14 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
         <tr>
           <td className="decl half"><div className="bold">DECLARATION:</div><div>{DECLARATION}</div></td>
           <td className="bank half">
-            <div>Cheque/ RTGS in name of &quot;{settings.seller_name}&quot;</div>
-            <div><b>Bank Name:</b> {settings.bank_name}</div>
-            <div><b>Branch:</b> {settings.bank_branch}</div>
+            <div>Cheque/ RTGS in name of &quot;{uc(settings.seller_name)}&quot;</div>
+            <div><b>Bank Name:</b> {uc(settings.bank_name)}</div>
+            <div><b>Branch:</b> {uc(settings.bank_branch)}</div>
             <div><b>A/C No.:</b> {settings.bank_account_no}</div>
             <div><b>IFS Code:</b> {settings.bank_ifsc}</div>
           </td>
         </tr>
-        <tr><td className="sign">Customer&apos;s Seal &amp; Signature</td><td className="sign right">for {settings.seller_name}</td></tr>
+        <tr><td className="sign">Customer&apos;s Seal &amp; Signature</td><td className="sign right">for {uc(settings.seller_name)}</td></tr>
       </tbody></table>
     </div>
   )

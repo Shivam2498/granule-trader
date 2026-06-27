@@ -19,10 +19,10 @@ const hsnDescriptions = { '39023000': 'Plastic Granules' }
 describe('InvoiceTemplate', () => {
   it('renders seller, buyer, invoice number, total and amount-in-words', () => {
     render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
-    expect(screen.getAllByText('Shivam Traders').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('SHIVAM TRADERS').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/ST\/006\/2025-26/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/SAMTA IMPEX/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Plastic Granules').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('PLASTIC GRANULES').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/2,60,000\.00/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Rupees Two lakh sixty thousand only').length).toBeGreaterThan(0)
   })
@@ -43,7 +43,7 @@ describe('InvoiceTemplate', () => {
   it('shows the distinct consignee address when shipping differs', () => {
     const shipSale = { ...sale, buyer_shipping_json: '{"address":"Plot 9","city":"Durgapur","state":"West Bengal","pincode":"713201"}' } as unknown as Sale
     render(<InvoiceTemplate sale={shipSale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
-    expect(screen.getAllByText(/Durgapur/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/DURGAPUR/).length).toBeGreaterThan(0)
   })
 
   it('hides the UDYAM row when empty or "-", shows it when set', () => {
@@ -62,6 +62,18 @@ describe('InvoiceTemplate', () => {
     expect(diff.container.textContent).not.toContain('Godown:')
     diff.rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Off Addr', seller_godown_address: '' }} hsnDescriptions={hsnDescriptions} />)
     expect(diff.container.textContent).not.toContain('Godown:')
+  })
+
+  it('prints names/addresses in uniform uppercase regardless of stored casing', () => {
+    const mixed = { ...sale, buyer_name: 'a r belt works', buyer_billing_json: '{"address":"12 mg road","city":"kolkata","state":"West Bengal","pincode":"700016"}' } as unknown as Sale
+    const mixedSettings = { ...settings, seller_name: 'ramaxton plastocrafts', seller_email: 'Mix@Ed.com' } as Settings
+    const { container } = render(<InvoiceTemplate sale={mixed} allocations={allocs} settings={mixedSettings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).toContain('A R BELT WORKS')
+    expect(container.textContent).toContain('12 MG ROAD')
+    expect(container.textContent).toContain('RAMAXTON PLASTOCRAFTS')
+    expect(container.textContent).not.toContain('a r belt works')
+    // email is NOT uppercased
+    expect(container.textContent).toContain('Mix@Ed.com')
   })
 
   it('uses CGST/SGST intra-state and IGST inter-state', () => {
