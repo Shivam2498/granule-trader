@@ -87,6 +87,21 @@ describe('purchase supplier link', () => {
   })
 })
 
+describe('duplicate purchase code', () => {
+  it('rejects a second purchase with the same code in the same FY', () => {
+    createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01' })
+    expect(() => createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-06-01' }))
+      .toThrow(/already exists/)
+  })
+  it('updatePurchase rejects colliding with another code but allows keeping its own', () => {
+    const a = createPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01' })
+    const b = createPurchase(db, { ...base, our_code: '0002/2425', invoice_date: '2024-05-02' })
+    expect(() => updatePurchase(db, b.id, { ...base, our_code: '0001/2425', invoice_date: '2024-05-02', qty_kg: 1000 }))
+      .toThrow(/already exists/)
+    expect(() => updatePurchase(db, a.id, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', qty_kg: 1000 })).not.toThrow()
+  })
+})
+
 describe('listPurchases FY filter', () => {
   it('filters by fy_label and returns all when omitted', () => {
     createPurchase(db, { ...base, our_code: nextPurchaseCode(db, '2024-05-01'), invoice_date: '2024-05-01' })

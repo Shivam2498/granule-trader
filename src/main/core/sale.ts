@@ -36,6 +36,12 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   if (!parsed) throw new Error(`Please enter the invoice number in the format RP/008/2024-25.`)
   const { prefix, seq, fyLabel } = parsed
 
+  // Friendly duplicate-invoice guard (the DB also enforces UNIQUE(fy_label, seq),
+  // but we surface a readable message instead of the raw SqliteError).
+  const dupe = db.prepare('SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND id IS NOT ?')
+    .get(fyLabel, seq, existingReservedId ?? null)
+  if (dupe) throw new Error(`Invoice number ${input.invoice_number} already exists.`)
+
   const order = validateInvoiceOrder(db, { fyLabel, seq, invoiceDate: input.invoice_date, excludeSaleId: existingReservedId ?? undefined })
   if (!order.ok) throw new Error(order.message)
 

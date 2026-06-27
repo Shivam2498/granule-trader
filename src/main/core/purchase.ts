@@ -41,6 +41,8 @@ function ensureHsn(db: Database.Database, hsn: string, rate: number): void {
 
 export function createPurchase(db: Database.Database, input: NewPurchase): Purchase {
   const fy = financialYear(input.invoice_date)
+  if (db.prepare('SELECT id FROM purchases WHERE fy_label = ? AND code_seq = ?').get(fy.label, parsePurchaseSeq(input.our_code)))
+    throw new Error(`Purchase code ${input.our_code} already exists.`)
   const tax = computeTax({
     amount: derivedAmount(input), gstRate: input.gst_rate,
     placeOfSupplyState: input.party_state, homeState: input.homeState,
@@ -89,6 +91,8 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
   if (round2(input.qty_kg) < consumed)
     throw new Error(`You've already sold ${consumed} kg from this lot, so the quantity can't be less than that.`)
   const fy = financialYear(input.invoice_date)
+  if (db.prepare('SELECT id FROM purchases WHERE fy_label = ? AND code_seq = ? AND id <> ?').get(fy.label, parsePurchaseSeq(input.our_code), id))
+    throw new Error(`Purchase code ${input.our_code} already exists.`)
   const tax = computeTax({
     amount: derivedAmount(input), gstRate: input.gst_rate,
     placeOfSupplyState: input.party_state, homeState: input.homeState,

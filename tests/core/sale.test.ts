@@ -31,6 +31,13 @@ describe('createSale', () => {
     expect(getPurchase(db, b.id)!.qty_remaining_kg).toBe(600)
   })
 
+  it('rejects a second sale with a duplicate invoice number (friendly message)', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10', lines: [line(a.id, 100, 80)] })
+    expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-11', lines: [line(a.id, 100, 80)] }))
+      .toThrow(/already exists/)
+  })
+
   it('rejects an over-draw and rolls back everything', () => {
     const a = lot('0001/2425', '2024-05-01', 500)
     expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
