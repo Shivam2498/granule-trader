@@ -19,7 +19,7 @@
     "dist:win": "electron-builder --win --publish never"
   },
   "build": {
-    "appId": "com.shivamtraders.granuletrader",
+    "appId": "com.ramaxtonplastocrafts.granuletrader",
     "productName": "Granule Trader",
     "directories": { "output": "release" },
     "files": ["out/**/*", "package.json"],
