@@ -15,7 +15,21 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "rebuild:electron": "electron-rebuild -w better-sqlite3",
     "rebuild:node": "npm rebuild better-sqlite3",
-    "postinstall": "npm run rebuild:electron"
+    "postinstall": "npm run rebuild:electron",
+    "dist:win": "electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "com.shivamtraders.granuletrader",
+    "productName": "Granule Trader",
+    "directories": { "output": "release" },
+    "files": ["out/**/*", "package.json"],
+    "asarUnpack": ["**/node_modules/better-sqlite3/**"],
+    "win": { "target": ["nsis"] },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
@@ -25,6 +39,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
     "jsdom": "^24.1.0",
     "postcss": "^8.5.15",

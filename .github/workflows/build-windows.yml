@@ -1,0 +1,35 @@
+name: Build Windows installer
+
+# Run manually from the Actions tab ("Run workflow"), or automatically when a
+# version tag like v0.1.0 is pushed.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Installs deps; postinstall rebuilds better-sqlite3 for Electron on Windows.
+      - run: npm ci
+
+      # electron-vite build -> out/  (main, preload, renderer)
+      - run: npm run build
+
+      # electron-builder -> release/*.exe (NSIS installer, unsigned)
+      - run: npm run dist:win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: granule-trader-windows-installer
+          path: release/*.exe
+          if-no-files-found: error
