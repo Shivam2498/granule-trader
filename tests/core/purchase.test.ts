@@ -30,6 +30,24 @@ describe('createPurchase', () => {
     expect(p.sgst).toBe(4500)
     expect(p.total_invoice_amount).toBe(59000)
   })
+
+  it('reflects a manual IGST override in the stored total', () => {
+    // Inter-state, amount 1000 @ 18% -> auto IGST 180, total 1180.
+    // Override IGST to 200 -> total must be 1200, not 1180.
+    const p = createPurchase(db, {
+      ...base, our_code: '0001/2425', invoice_date: '2024-05-01',
+      qty_kg: 100, amount: 1000, party_state: 'Maharashtra', igst_manual: 200
+    })
+    expect(p.igst).toBe(200)
+    expect(p.total_invoice_amount).toBe(1200)
+  })
+
+  it('stores a per-purchase description', () => {
+    const p = createPurchase(db, { ...base, our_code: '0007/2425', invoice_date: '2024-05-01', description: 'Black M/B' })
+    expect(p.description).toBe('Black M/B')
+    const updated = updatePurchase(db, p.id, { ...base, our_code: '0007/2425', invoice_date: '2024-05-01', description: 'White M/B' })
+    expect(updated.description).toBe('White M/B')
+  })
 })
 
 describe('deletePurchase', () => {

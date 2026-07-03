@@ -12,6 +12,7 @@ export interface Purchase {
   party_pincode: string
   party_address: string
   hsn_code: string
+  description: string
   qty_kg: number
   qty_remaining_kg: number
   rate_per_kg: number
