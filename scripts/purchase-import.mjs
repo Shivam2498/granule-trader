@@ -46,3 +46,110 @@ export function fyCodeFromCode(code) {
   const m = String(code ?? '').trim().match(/\/(\d{4})(?:\D|$)/)
   return m ? m[1] : ''
 }
+
+const norm = (h) => h.trim().toLowerCase().replace(/\.$/, '')
+
+const HEADER_MAP = {
+  'our code': 'code',
+  'invoice number': 'supplier_invoice_number',
+  'invoice date': 'invoice_date',
+  'party': 'party',
+  'description': 'description',
+  'hsn code': 'hsn_code', 'hsn': 'hsn_code',
+  'qty': 'qty',
+  'amount': 'amount',
+  'cgst': 'cgst', 'sgst': 'sgst', 'igst': 'igst', 'tcs': 'tcs',
+  'total': 'total',
+  'r/off': 'roundoff', 'round off': 'roundoff', 'roundoff': 'roundoff',
+  'total invoice amount': 'total_invoice_amount',
+}
+
+// rows (incl. header) -> { header, toImport, skipped, warnings }
+export function mapPurchaseRows(rows) {
+  const toImport = [], skipped = [], warnings = []
+  if (rows.length === 0) return { header: [], toImport, skipped, warnings }
+
+  let headerIdx = rows.findIndex(r => r.map(norm).some(h => HEADER_MAP[h] !== undefined))
+  if (headerIdx === -1) headerIdx = 0
+  const header = rows[headerIdx]
+  const col = {}
+  header.map(norm).forEach((h, i) => { const f = HEADER_MAP[h]; if (f && col[f] === undefined) col[f] = i })
+  const get = (r, key) => col[key] !== undefined ? (r[col[key]] ?? '').trim() : ''
+
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i]
+    const line = i + 1
+    const code = get(r, 'code'), party = get(r, 'party'), hsn = get(r, 'hsn_code')
+    const reasons = []
+
+    const iso = parseDateMDY(get(r, 'invoice_date'))
+    if (!iso) reasons.push(`unparseable date "${get(r, 'invoice_date')}"`)
+    const qty = cleanNumber(get(r, 'qty'))
+    if (!(qty > 0)) reasons.push('Qty must be > 0')
+    if (!code) reasons.push('missing Our Code')
+    if (!party) reasons.push('missing Party')
+    if (!hsn) reasons.push('missing HSN Code')
+    if (iso) {
+      const codeFy = fyCodeFromCode(code)
+      const dateFy = fyFromDate(iso).code
+      if (codeFy && codeFy !== dateFy) reasons.push(`code year ${codeFy} ≠ date year ${dateFy}`)
+    }
+
+    if (reasons.length) { skipped.push({ line, code, party, reason: reasons.join('; '), raw: r }); continue }
+
+    const amount = cleanNumber(get(r, 'amount'))
+    const cgst = cleanNumber(get(r, 'cgst')), sgst = cleanNumber(get(r, 'sgst'))
+    const igst = cleanNumber(get(r, 'igst')), tcs = cleanNumber(get(r, 'tcs'))
+    const roundoff = cleanNumber(get(r, 'roundoff'))
+    const total_invoice_amount = cleanNumber(get(r, 'total_invoice_amount'))
+
+    const expected = round2(amount + cgst + sgst + igst + tcs + roundoff)
+    if (Math.abs(expected - total_invoice_amount) > 1)
+      warnings.push({ line, code, reason: `tax cross-check off: computed ${expected} vs sheet ${total_invoice_amount}` })
+
+    const gst_rate = amount > 0 ? Math.round(((cgst + sgst + igst) / amount) * 100) : 18
+    toImport.push({
+      line, our_code: code, supplier_invoice_number: get(r, 'supplier_invoice_number'),
+      invoice_date: iso, party, description: get(r, 'description'), hsn_code: hsn, gst_rate,
+      qty_kg: round2(qty), rate_per_kg: round2(amount / qty), amount: round2(amount),
+      cgst: round2(cgst), sgst: round2(sgst), igst: round2(igst), tcs: round2(tcs),
+      roundoff: round2(roundoff), total_invoice_amount: round2(total_invoice_amount),
+      fy_label: fyFromDate(iso).label, code_seq: seqFromCode(code),
+    })
+  }
+  return { header, toImport, skipped, warnings }
+}
+
+function csvEscape(v) {
+  const s = String(v ?? '')
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+
+export function buildSkippedCsv(header, skipped) {
+  const head = [...header, 'Skip Reason'].map(csvEscape).join(',')
+  if (!skipped.length) return head
+  const body = skipped.map(s => [...(s.raw ?? []), s.reason].map(csvEscape).join(',')).join('\n')
+  return head + '\n' + body
+}
+
+export function buildLogReport({ mode, csvPath, counts, skipped, warnings, suppliersToCreate }) {
+  const lines = []
+  lines.push(`Purchase import report — mode: ${mode}`)
+  lines.push(`Source: ${csvPath}`)
+  lines.push('')
+  lines.push(`Rows read:        ${counts.read}`)
+  lines.push(`Will insert:      ${counts.toInsert}`)
+  lines.push(`Skip (duplicate): ${counts.duplicate}`)
+  lines.push(`Skip (invalid):   ${counts.skipped}`)
+  lines.push('')
+  lines.push(`Suppliers to create: ${suppliersToCreate.length ? suppliersToCreate.join(', ') : '(none)'}`)
+  lines.push('')
+  lines.push('Skipped rows:')
+  for (const s of skipped) lines.push(`  line ${s.line} · ${s.code || '(no code)'} · ${s.party || '(no party)'} · ${s.reason}`)
+  if (!skipped.length) lines.push('  (none)')
+  lines.push('')
+  lines.push('Warnings (imported anyway):')
+  for (const w of warnings) lines.push(`  line ${w.line} · ${w.code} · ${w.reason}`)
+  if (!warnings.length) lines.push('  (none)')
+  return lines.join('\n')
+}
