@@ -18,7 +18,9 @@ describe('purchases.description column', () => {
     // Minimal legacy purchases table without `description`.
     db.exec(`CREATE TABLE purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT, our_code TEXT NOT NULL, invoice_date TEXT NOT NULL,
-      qty_kg REAL NOT NULL, qty_remaining_kg REAL NOT NULL, fy_label TEXT NOT NULL, code_seq INTEGER NOT NULL
+      party TEXT NOT NULL DEFAULT '', hsn_code TEXT NOT NULL DEFAULT '',
+      qty_kg REAL NOT NULL, qty_remaining_kg REAL NOT NULL, amount REAL NOT NULL DEFAULT 0,
+      fy_label TEXT NOT NULL, code_seq INTEGER NOT NULL
     )`)
     expect(hasCol(db, 'purchases', 'description')).toBe(false)
     initSchema(db)

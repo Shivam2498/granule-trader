@@ -148,8 +148,6 @@ function migrate(db: Database.Database): void {
     ['party_pincode', `ALTER TABLE purchases ADD COLUMN party_pincode TEXT NOT NULL DEFAULT ''`],
     ['party_address', `ALTER TABLE purchases ADD COLUMN party_address TEXT NOT NULL DEFAULT ''`],
     ['supplier_id', `ALTER TABLE purchases ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)`],
-    ['hsn_code', `ALTER TABLE purchases ADD COLUMN hsn_code TEXT NOT NULL DEFAULT ''`],
-    ['amount', `ALTER TABLE purchases ADD COLUMN amount REAL NOT NULL DEFAULT 0`],
     ['description', `ALTER TABLE purchases ADD COLUMN description TEXT NOT NULL DEFAULT ''`]
   ] as const) {
     if (!hasColumn(db, 'purchases', col)) db.exec(ddl)
