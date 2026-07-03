@@ -23,6 +23,15 @@ describe('toCsv', () => {
     expect(out).toBe("Val\n\"'=HYPERLINK(\"\"x\"\")\"")
     expect(out).toContain("'=HYPERLINK")
   })
+  it('does not corrupt negative numbers (they are values, not formulas)', () => {
+    const cols = [{ header: 'Round-off', value: (r: { v: number }) => r.v }]
+    // A negative numeric value must export as a plain number, NOT a quoted apostrophe-prefixed text cell.
+    expect(toCsv([{ v: -1.2 }], cols)).toBe('Round-off\n-1.2')
+  })
+  it('still guards a string that starts with a minus sign', () => {
+    const cols = [{ header: 'V', value: (r: { v: string }) => r.v }]
+    expect(toCsv([{ v: '-1+2' }], cols)).toBe("V\n\"'-1+2\"")
+  })
   it('returns just the header row for no data', () => {
     expect(toCsv([], [{ header: 'A', value: () => '' }])).toBe('A')
   })

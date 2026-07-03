@@ -12,6 +12,7 @@ import PincodeField from '../components/PincodeField'
 export default function FirstRun({ onDone }: { onDone: () => void }) {
   const [prefixEdited, setPrefixEdited] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const form = useForm({
     mode: 'controlled',
@@ -47,7 +48,9 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
   }
 
   async function start(v: typeof form.values) {
+    if (saving) return
     setError('')
+    setSaving(true)
     try {
       await window.api.saveSettings({
         seller_name: v.name.trim(), seller_gstin: v.gstin.trim().toUpperCase(), seller_pan: v.pan.trim().toUpperCase(),
@@ -59,7 +62,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
         bank_account_no: v.bank_account_no.trim(), bank_ifsc: v.bank_ifsc.trim().toUpperCase(),
       })
       onDone()
-    } catch (e: any) { setError(e.message ?? String(e)) }
+    } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
 
   return (
@@ -161,7 +164,7 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
         </SimpleGrid>
 
         <Group justify="flex-end" mt="md">
-          <Button onClick={() => form.onSubmit(start)()}>Start using Granule Trader</Button>
+          <Button loading={saving} onClick={() => form.onSubmit(start)()}>Start using Granule Trader</Button>
         </Group>
       </Paper>
     </Container>

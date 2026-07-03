@@ -6,8 +6,10 @@ export interface CsvColumn<T> { header: string; value: (row: T) => string | numb
 export function toCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
   const esc = (v: string | number): string => {
     const s = String(v)
-    // formula-injection guard: neutralise leading = + - @ (or tab/CR) so spreadsheets don't execute
-    if (/^[=+\-@\t\r]/.test(s)) return '"\''+s.replace(/"/g,'""')+'"'
+    // formula-injection guard: neutralise leading = + - @ (or tab/CR) so spreadsheets don't execute.
+    // Only applies to text values — a numeric value (e.g. a negative round-off) is never a formula,
+    // and prefixing it with an apostrophe would corrupt it into text that no longer sums.
+    if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) return '"\''+s.replace(/"/g,'""')+'"'
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   }
   const head = columns.map(c => esc(c.header)).join(',')

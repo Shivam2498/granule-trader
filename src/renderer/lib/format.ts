@@ -1,5 +1,7 @@
 export function formatINR(n: number): string {
-  return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (!Number.isFinite(n)) n = 0
+  const sign = n < 0 ? '-' : ''
+  return sign + '₹' + Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 export function today(): string {
   const d = new Date()

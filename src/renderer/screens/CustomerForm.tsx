@@ -22,6 +22,7 @@ export default function CustomerForm() {
   const { id } = useParams()
   const editId = id ? Number(id) : null
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const form = useForm<Omit<Customer, 'id'>>({
     mode: 'controlled',
@@ -52,20 +53,22 @@ export default function CustomerForm() {
   }, [editId])
 
   async function handleSave(values: Omit<Customer, 'id'>) {
+    if (saving) return
     setError('')
+    setSaving(true)
     try {
       const payload = { ...values, gstin: values.gstin.toUpperCase(), pan: values.pan.toUpperCase() }
       if (editId) await window.api.updateCustomer(editId, payload); else await window.api.createCustomer(payload)
       notifications.show({ message: 'Customer saved', color: 'green' })
       nav('/customers')
-    } catch (e: any) { setError(e.message ?? String(e)) }
+    } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
 
   return (
     <FormPage title={editId ? 'Edit customer' : 'Add customer'} onBack={() => nav('/customers')} error={error}
       footer={<>
         <Button variant="default" onClick={() => nav('/customers')}>Cancel</Button>
-        <Button onClick={() => form.onSubmit(handleSave)()}>Save customer</Button>
+        <Button loading={saving} onClick={() => form.onSubmit(handleSave)()}>Save customer</Button>
       </>}>
       <FormSection title="Business details">
         <TextInput label="Name" withAsterisk {...form.getInputProps('name')} />

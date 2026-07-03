@@ -44,13 +44,32 @@ export default function Settings() {
 
   async function save(values: S & { godown_same: boolean }) {
     const { godown_same, ...rest } = values
-    await window.api.saveSettings({ ...rest, seller_godown_address: godown_same ? '' : rest.seller_godown_address.trim() })
-    notifications.show({ message: 'Saved.', color: 'green' })
+    try {
+      await window.api.saveSettings({ ...rest, seller_godown_address: godown_same ? '' : rest.seller_godown_address.trim() })
+      notifications.show({ message: 'Saved.', color: 'green' })
+    } catch (e) {
+      notifications.show({ message: `Couldn't save settings: ${(e as Error).message}`, color: 'red' })
+    }
   }
-  async function backup() { const p = await window.api.backupNow(); notifications.show({ message: `Backup written: ${p}`, color: 'green' }) }
+  async function backup() {
+    try {
+      const p = await window.api.backupNow()
+      notifications.show({ message: `Backup written: ${p}`, color: 'green' })
+    } catch (e) {
+      notifications.show({ message: `Backup failed: ${(e as Error).message}`, color: 'red' })
+    }
+  }
   async function addHsn() {
     if (!newHsn.hsn_code.trim()) return
-    await window.api.upsertHsn(newHsn); setNewHsn({ hsn_code: '', description: '', gst_rate: 18 }); reload()
+    try {
+      await window.api.upsertHsn(newHsn)
+      setNewHsn({ hsn_code: '', description: '', gst_rate: 18 })
+      // Only refresh the HSN list — calling reload() here would reset the business form
+      // and silently discard any unsaved edits the user has in progress.
+      setHsn(await window.api.listHsn())
+    } catch (e) {
+      notifications.show({ message: `Couldn't add product: ${(e as Error).message}`, color: 'red' })
+    }
   }
 
   return (

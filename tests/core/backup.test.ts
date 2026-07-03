@@ -17,6 +17,19 @@ describe('createBackup', () => {
     const files = readdirSync(backupDir).sort()
     expect(files).toEqual(['data.002.db', 'data.003.db'])
   })
+
+  it('never deletes the backup it just made when keepCount is 0 or non-numeric', () => {
+    const dbPath = join(dir, 'data.db')
+    writeFileSync(dbPath, 'x')
+    const backupDir = join(dir, 'backups')
+    const zeroDest = createBackup(dbPath, backupDir, 0, '001')
+    expect(existsSync(zeroDest)).toBe(true)
+    const nanDest = createBackup(dbPath, backupDir, NaN as unknown as number, '002')
+    expect(existsSync(nanDest)).toBe(true)
+    // keepCount=1 keeps only the newest
+    createBackup(dbPath, backupDir, 1, '003')
+    expect(readdirSync(backupDir).sort()).toEqual(['data.003.db'])
+  })
 })
 
 describe('lock', () => {

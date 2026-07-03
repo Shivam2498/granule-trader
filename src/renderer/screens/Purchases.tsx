@@ -14,8 +14,9 @@ export default function Purchases() {
   const nav = useNavigate()
   const { fy } = useFY()
   const [list, setList] = useState<Purchase[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listPurchases(fy)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  async function reload() { try { setList(await window.api.listPurchases(fy)) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) } }
   useEffect(() => { reload() }, [fy])
   async function remove(id: number) {
     setError('')
@@ -65,7 +66,7 @@ export default function Purchases() {
                 </Table.Tr>))}
             </Fragment>
           ))}
-          {list.length === 0 && <Table.Tr><Table.Td colSpan={9} c="dimmed">No purchases yet.</Table.Td></Table.Tr>}
+          {loaded && list.length === 0 && <Table.Tr><Table.Td colSpan={9} c="dimmed">No purchases yet.</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
     </div>

@@ -10,7 +10,10 @@ export function createBackup(dbPath: string, backupDir: string, keepCount: numbe
   copyFileSync(dbPath, dest)
   const prefix = `${name}.`
   const backups = readdirSync(backupDir).filter(f => f.startsWith(prefix) && f.endsWith('.db')).sort()
-  for (const old of backups.slice(0, Math.max(0, backups.length - keepCount)))
+  // Clamp to at least 1 so a misconfigured/non-numeric setting can never delete the backup
+  // we just made (keepCount = 0 would wipe everything; NaN would disable pruning entirely).
+  const keep = Number.isFinite(keepCount) && keepCount > 0 ? Math.floor(keepCount) : 1
+  for (const old of backups.slice(0, Math.max(0, backups.length - keep)))
     unlinkSync(join(backupDir, old))
   return dest
 }

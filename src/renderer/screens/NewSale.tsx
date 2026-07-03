@@ -29,6 +29,8 @@ export default function NewSale() {
   const [error, setError] = useState('')
 
   const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [invoiceEdited, setInvoiceEdited] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState(today())
   const [buyerId, setBuyerId] = useState<number | null>(null)
   const [showOptional, setShowOptional] = useState(false)
@@ -49,7 +51,8 @@ export default function NewSale() {
   })() }, [fillId])
 
   useEffect(() => { window.api.listAvailableLots(invoiceDate, fillId ?? undefined).then(setLots).catch(e => setError(e.message ?? String(e))) }, [invoiceDate, fillId])
-  useEffect(() => { if (!fillId && settings) window.api.nextInvoiceNumber(invoiceDate, settings.invoice_prefix).then(setInvoiceNumber) }, [invoiceDate, settings, fillId])
+  // Auto-suggest the next invoice number, but never clobber a number the user typed themselves.
+  useEffect(() => { if (!fillId && settings && !invoiceEdited) window.api.nextInvoiceNumber(invoiceDate, settings.invoice_prefix).then(setInvoiceNumber) }, [invoiceDate, settings, fillId, invoiceEdited])
 
   const buyer = customers.find(c => c.id === buyerId) ?? null
   const placeOfSupply = buyer ? placeOfSupplyState(buyer) : ''
@@ -81,10 +84,12 @@ export default function NewSale() {
   }
 
   async function save(thenInvoice: boolean) {
+    if (saving) return
     setError('')
     const fe = saleFormError({ invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws })
     if (fe) { setError(fe); return }
     if (!buyer) return
+    setSaving(true)
     const payload = {
       invoice_number: invoiceNumber, invoice_date: invoiceDate,
       buyer_customer_id: buyer.id, buyer_name: buyer.name, buyer_gstin: buyer.gstin,
@@ -99,7 +104,7 @@ export default function NewSale() {
     try {
       const sale = fillId ? await window.api.fillReservedSale(fillId, payload) : await window.api.createSale(payload)
       nav(thenInvoice ? `/invoice/${sale.id}` : '/sales')
-    } catch (e: any) { setError(e.message ?? String(e)) }
+    } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
 
   if (!settings) return <Center h="60vh"><Loader /></Center>
@@ -110,7 +115,7 @@ export default function NewSale() {
 
       <Paper withBorder p="lg" radius="md" mb="md">
         <Group grow align="flex-start" mb="sm">
-          <TextInput label="Invoice number" value={invoiceNumber} onChange={e => setInvoiceNumber(e.currentTarget.value)} />
+          <TextInput label="Invoice number" value={invoiceNumber} onChange={e => { setInvoiceEdited(true); setInvoiceNumber(e.currentTarget.value) }} />
           <Input.Wrapper label="Invoice date">
             <DateField value={invoiceDate} onChange={setInvoiceDate} />
           </Input.Wrapper>
@@ -240,8 +245,8 @@ export default function NewSale() {
         <Group justify="flex-end" align="center" mt="md">
           {formError && <Text size="sm" c="dimmed" mr="auto">{formError}</Text>}
           <Button variant="default" onClick={() => nav('/sales')}>Cancel</Button>
-          <Button disabled={!!formError} onClick={() => save(false)}>Save</Button>
-          <Button disabled={!!formError} onClick={() => save(true)}>Save &amp; preview PDF</Button>
+          <Button disabled={!!formError || saving} loading={saving} onClick={() => save(false)}>Save</Button>
+          <Button disabled={!!formError || saving} loading={saving} onClick={() => save(true)}>Save &amp; preview PDF</Button>
         </Group>
       </Paper>
     </div>

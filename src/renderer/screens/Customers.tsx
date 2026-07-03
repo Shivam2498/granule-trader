@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Paper, TextInput, Button, Alert, Group, Table } from '@mantine/core'
 import type { Customer } from '@shared/types'
@@ -8,9 +8,19 @@ import ListTable from '../components/ListTable'
 export default function Customers() {
   const nav = useNavigate()
   const [list, setList] = useState<Customer[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
-  async function reload() { try { setError(''); setList(await window.api.listCustomers(search || undefined)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  // Guard against out-of-order search responses: only the newest request may update the list.
+  const reqId = useRef(0)
+  async function reload() {
+    const myId = ++reqId.current
+    setError('')
+    try {
+      const res = await window.api.listCustomers(search || undefined)
+      if (myId === reqId.current) { setList(res); setLoaded(true) }
+    } catch (e: any) { if (myId === reqId.current) { setError(e.message ?? String(e)); setLoaded(true) } }
+  }
   useEffect(() => { reload() }, [search])
   async function remove(id: number) {
     if (!confirm('Delete this customer?')) return
@@ -33,7 +43,7 @@ export default function Customers() {
                 </Group>
               </Table.Td>
             </Table.Tr>))}
-          {list.length === 0 && <Table.Tr><Table.Td colSpan={5} c="dimmed">No customers yet.</Table.Td></Table.Tr>}
+          {loaded && list.length === 0 && <Table.Tr><Table.Td colSpan={5} c="dimmed">{search ? 'No matching customers.' : 'No customers yet.'}</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
     </div>

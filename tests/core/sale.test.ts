@@ -107,6 +107,35 @@ describe('createSale', () => {
       lines: [line(a.id, 50, 80)] })).toThrow(/Can only fill a reserved invoice/)
   })
 
+  it('rejects a back-dated reserved fill that would oversell the lot (never goes negative)', () => {
+    const a = lot('0001/2425', '2024-05-01', 100)
+    // seq 3 dated later draws the whole lot; reserves seq 1 and 2
+    createSale(db, { ...sbase, invoice_number: 'RP/003/2024-25', invoice_date: '2024-05-20',
+      lines: [line(a.id, 100, 80)] })
+    const reserved1 = db.prepare("SELECT id FROM sales WHERE fy_label='2024-25' AND seq=1 AND status='reserved'").get() as { id: number }
+    // Back-date seq 1 before seq 3 and try to draw another 100kg — the date-scoped
+    // view sees 0 sold, but the lot physically has 0 left. Must be rejected.
+    expect(() => fillReservedSale(db, reserved1.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-05',
+      lines: [line(a.id, 100, 90)] })).toThrow(/left in stock/)
+    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(0)
+  })
+
+  it('rejects an invoice number whose FY does not match the invoice date', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    // Dated in FY 2025-26 but numbered under 2024-25
+    expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2025-05-01',
+      lines: [line(a.id, 100, 80)] })).toThrow(/financial year 2025-26/)
+    expect(listSales(db)).toHaveLength(0)
+  })
+
+  it('rejects a line with zero or negative quantity', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
+      lines: [line(a.id, -50, 80)] })).toThrow(/greater than zero/)
+    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(1000)
+    expect(listSales(db)).toHaveLength(0)
+  })
+
   it('persists place_of_supply_state and getSale returns it', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     const sale = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',

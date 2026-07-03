@@ -22,6 +22,7 @@ export default function PurchaseForm() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [error, setError] = useState('')
   const [codeEdited, setCodeEdited] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const form = useForm({
     mode: 'controlled',
@@ -77,7 +78,9 @@ export default function PurchaseForm() {
   ]
 
   async function handleSave(v: typeof form.values) {
+    if (saving) return
     setError('')
+    setSaving(true)
     try {
       const payload = {
         our_code: v.our_code, supplier_invoice_number: v.supplier_invoice_number, invoice_date: v.invoice_date,
@@ -90,12 +93,12 @@ export default function PurchaseForm() {
       }
       if (editId) await window.api.updatePurchase(editId, payload); else await window.api.createPurchase(payload)
       nav('/purchases')
-    } catch (e: any) { setError(e.message ?? String(e)) }
+    } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
 
   return (
     <FormPage title={editId ? 'Edit purchase' : 'Add purchase'} onBack={() => nav('/purchases')} error={error}
-      footer={<><Button variant="default" onClick={() => nav('/purchases')}>Cancel</Button><Button onClick={() => form.onSubmit(handleSave)()}>{editId ? 'Update purchase' : 'Save purchase'}</Button></>}>
+      footer={<><Button variant="default" onClick={() => nav('/purchases')}>Cancel</Button><Button loading={saving} onClick={() => form.onSubmit(handleSave)()}>{editId ? 'Update purchase' : 'Save purchase'}</Button></>}>
       <FormSection title="Invoice">
         <TextInput label="Our code" withAsterisk {...form.getInputProps('our_code')}
           onChange={e => { setCodeEdited(true); form.setFieldValue('our_code', e.currentTarget.value) }} />

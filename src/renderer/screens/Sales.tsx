@@ -14,9 +14,11 @@ export default function Sales() {
   const nav = useNavigate()
   const { fy } = useFY()
   const [list, setList] = useState<Sale[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listSales(fy)) } catch (e: any) { setError(e.message ?? String(e)) } }
+  async function reload() { try { setList(await window.api.listSales(fy)) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) } }
   useEffect(() => { reload() }, [fy])
+  const createdCount = list.filter(s => s.status === 'created').length
   async function remove(id: number) {
     setError('')
     if (!confirm('Delete this sale? Stock will be restored.')) return
@@ -34,7 +36,7 @@ export default function Sales() {
     <div>
       <PageHeader title={`Sales · ${fy}`} action={
         <Group>
-          <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list.filter(s => s.status === 'created'), `Sales-FY-${fy}.csv`)}>Export FY</Button>
+          <Button variant="default" disabled={createdCount === 0} onClick={() => exportCsv(list.filter(s => s.status === 'created'), `Sales-FY-${fy}.csv`)}>Export FY</Button>
           <Button onClick={() => nav('/sales/new')}>+ New sale</Button>
         </Group>
       } />
@@ -72,7 +74,7 @@ export default function Sales() {
               ))}
             </Fragment>
           ))}
-          {list.length === 0 && <Table.Tr><Table.Td colSpan={7} c="dimmed">No sales yet.</Table.Td></Table.Tr>}
+          {loaded && list.length === 0 && <Table.Tr><Table.Td colSpan={7} c="dimmed">No sales yet.</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
     </div>

@@ -15,6 +15,7 @@ export default function StockAdjust() {
   const [lots, setLots] = useState<LedgerRow[]>([])
   const [recent, setRecent] = useState<AdjustmentRow[]>([])
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [adj, setAdj] = useState({ purchase_id: null as number | null, qty_kg: 0, reason: REASONS[0], date: today() })
 
   async function reload() {
@@ -24,12 +25,15 @@ export default function StockAdjust() {
   useEffect(() => { reload() }, [])
 
   async function save() {
+    if (saving) return
     setError('')
     if (!adj.purchase_id || adj.qty_kg <= 0) { setError('Please choose a lot and enter a quantity greater than 0.'); return }
+    setSaving(true)
     try {
       await window.api.createStockAdjustment({ purchase_id: adj.purchase_id, qty_kg: adj.qty_kg, reason: adj.reason, date: adj.date })
-      setAdj({ purchase_id: null, qty_kg: 0, reason: REASONS[0], date: today() }); reload()
+      setAdj({ purchase_id: null, qty_kg: 0, reason: REASONS[0], date: today() }); await reload()
     } catch (e: any) { setError(e.message ?? String(e)) }
+    finally { setSaving(false) }
   }
   async function undo(id: number) {
     if (!confirm('Undo this adjustment? The quantity will be added back to the lot.')) return
@@ -76,7 +80,7 @@ export default function StockAdjust() {
           onChange={v => setAdj({ ...adj, reason: v ?? REASONS[0] })}
           mb="md"
         />
-        <Button onClick={save}>Record adjustment</Button>
+        <Button loading={saving} onClick={save}>Record adjustment</Button>
       </Paper>
 
       <Paper withBorder p="lg" radius="md" mb="md">

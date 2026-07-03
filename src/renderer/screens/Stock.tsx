@@ -9,9 +9,10 @@ export default function Stock() {
   const nav = useNavigate()
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => { (async () => {
-    try { setSettings(await window.api.getSettings()); setRows(await window.api.stockLedger()) } catch (e: any) { setError(e.message ?? String(e)) }
+    try { setSettings(await window.api.getSettings()); setRows(await window.api.stockLedger()) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) }
   })() }, [])
   const low = settings?.low_stock_threshold ?? 0
   const processedRows = (() => {
@@ -40,7 +41,7 @@ export default function Stock() {
                 <Table.Td ta="right">{r.qty_kg}</Table.Td><Table.Td ta="right">{r.consumed_kg}</Table.Td><Table.Td ta="right">{r.balance_kg}{isLow ? ' ⚠' : ''}</Table.Td><Table.Td ta="right">{r.running}</Table.Td>
               </Table.Tr>)
           })}
-          {rows.length === 0 && <Table.Tr><Table.Td colSpan={8} c="dimmed">No stock on hand.</Table.Td></Table.Tr>}
+          {loaded && rows.length === 0 && <Table.Tr><Table.Td colSpan={8} c="dimmed">No stock on hand.</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
     </div>

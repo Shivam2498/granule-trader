@@ -20,6 +20,7 @@ export default function SupplierForm() {
   const { id } = useParams()
   const editId = id ? Number(id) : null
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const form = useForm<Omit<Supplier, 'id'>>({
     mode: 'controlled',
@@ -47,20 +48,22 @@ export default function SupplierForm() {
   }, [editId])
 
   async function handleSave(values: Omit<Supplier, 'id'>) {
+    if (saving) return
     setError('')
+    setSaving(true)
     try {
       const payload = { ...values, gstin: values.gstin.toUpperCase(), pan: values.pan.toUpperCase() }
       if (editId) await window.api.updateSupplier(editId, payload); else await window.api.createSupplier(payload)
       notifications.show({ message: 'Supplier saved', color: 'green' })
       nav('/suppliers')
-    } catch (e: any) { setError(e.message ?? String(e)) }
+    } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
 
   return (
     <FormPage title={editId ? 'Edit supplier' : 'Add supplier'} onBack={() => nav('/suppliers')} error={error}
       footer={<>
         <Button variant="default" onClick={() => nav('/suppliers')}>Cancel</Button>
-        <Button onClick={() => form.onSubmit(handleSave)()}>Save supplier</Button>
+        <Button loading={saving} onClick={() => form.onSubmit(handleSave)()}>Save supplier</Button>
       </>}>
       <FormSection title="Business details">
         <TextInput label="Name" withAsterisk {...form.getInputProps('name')} />

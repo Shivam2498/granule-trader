@@ -3,6 +3,7 @@ import type { Sale, SaleAllocation } from '@shared/types'
 import { computeSaleTax } from '@shared/tax'
 import { round2 } from '@shared/money'
 import { parseInvoiceNumber } from './invoice-number'
+import { financialYear } from './financial-year'
 import { reserveGaps, validateInvoiceOrder } from './invoice-validation'
 import { listAvailableLots } from './available-lots'
 
@@ -36,6 +37,12 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   if (!parsed) throw new Error(`Please enter the invoice number in the format RP/008/2024-25.`)
   const { prefix, seq, fyLabel } = parsed
 
+  // The invoice number's financial year must match the year its date falls in,
+  // otherwise the sale is filed under the wrong FY and its seq ordering breaks.
+  const dateFy = financialYear(input.invoice_date).label
+  if (dateFy !== fyLabel)
+    throw new Error(`Invoice ${input.invoice_number} is dated ${input.invoice_date}, which is in financial year ${dateFy}, not ${fyLabel}. Use an invoice number ending in ${dateFy}.`)
+
   // Friendly duplicate-invoice guard (the DB also enforces UNIQUE(fy_label, seq),
   // but we surface a readable message instead of the raw SqliteError).
   const dupe = db.prepare('SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND id IS NOT ?')
@@ -47,12 +54,27 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
 
   const avail = new Map(listAvailableLots(db, input.invoice_date, { excludeSaleId: existingReservedId ?? undefined })
     .map(l => [l.purchase_id, l]))
+  const requestedByLot = new Map<number, number>()
   for (const line of input.lines) {
+    if (round2(line.qty_drawn_kg) <= 0)
+      throw new Error(`Each line needs a quantity greater than zero.`)
     const lot = avail.get(line.purchase_id)
     const have = lot?.available_kg ?? 0
     if (round2(line.qty_drawn_kg) > have)
       throw new Error(`Lot ${lot?.our_code ?? line.purchase_id} only has ${have} kg available on ${input.invoice_date}.`)
     if (lot) lot.available_kg = round2(have - round2(line.qty_drawn_kg))
+    requestedByLot.set(line.purchase_id, round2((requestedByLot.get(line.purchase_id) ?? 0) + round2(line.qty_drawn_kg)))
+  }
+
+  // Physical-stock safety net: the date-scoped check above can be fooled by back-dating
+  // (a later-dated sale's draw is invisible to an earlier-dated one), so also verify the
+  // draw never pushes the lot's running remaining quantity below zero.
+  for (const [purchaseId, requested] of requestedByLot) {
+    const lot = db.prepare('SELECT our_code, qty_remaining_kg FROM purchases WHERE id = ?')
+      .get(purchaseId) as { our_code: string; qty_remaining_kg: number } | undefined
+    const remaining = round2(lot?.qty_remaining_kg ?? 0)
+    if (requested > remaining)
+      throw new Error(`Lot ${lot?.our_code ?? purchaseId} only has ${remaining} kg left in stock.`)
   }
 
   const tax = computeSaleTax({
