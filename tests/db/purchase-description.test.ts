@@ -15,7 +15,7 @@ describe('purchases.description column', () => {
 
   it('is added by migration to a legacy purchases table that lacks it', () => {
     const db = new Database(':memory:')
-    // Minimal legacy purchases table without `description`.
+    // Legacy purchases table (pre-description) with the columns the v<1 backfill references.
     db.exec(`CREATE TABLE purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT, our_code TEXT NOT NULL, invoice_date TEXT NOT NULL,
       party TEXT NOT NULL DEFAULT '', hsn_code TEXT NOT NULL DEFAULT '',

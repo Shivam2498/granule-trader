@@ -73,6 +73,23 @@ describe('mapPurchaseRows', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0].reason).toMatch(/cross-check/)
   })
+
+  it('skips a row with a non-numeric amount instead of importing NaN', () => {
+    const garbage = '084/2526,X,1/5/2026,ACME,Nat,3902,10,"51,000 approx",,,,,,,60000'
+    const { toImport, skipped } = mapPurchaseRows(parseCsv(`${HEADER}\n${garbage}\n`))
+    expect(toImport).toEqual([])
+    expect(skipped).toHaveLength(1)
+    expect(skipped[0].reason).toMatch(/not a number/)
+  })
+
+  it('skips a row missing Our Code, Party, and HSN with all three reasons', () => {
+    const blanks = ',X,1/5/2026,,Nat,,10,100,,,,,,,100'
+    const { toImport, skipped } = mapPurchaseRows(parseCsv(`${HEADER}\n${blanks}\n`))
+    expect(toImport).toEqual([])
+    expect(skipped[0].reason).toMatch(/Our Code/)
+    expect(skipped[0].reason).toMatch(/Party/)
+    expect(skipped[0].reason).toMatch(/HSN/)
+  })
 })
 
 describe('buildSkippedCsv', () => {

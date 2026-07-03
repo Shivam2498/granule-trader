@@ -56,6 +56,7 @@ function acquireLockInteractive(folder: string, cancelLabel: string): boolean {
 // The switch is atomic: we open the new database and take its lock BEFORE releasing
 // the old one, so a bad target folder leaves the app running on the current data.
 function setDataFolder(folder: string): void {
+  if (folder === dataFolder) return
   const newPath = dbPathFor(folder)
   let newDb: Database.Database
   try {

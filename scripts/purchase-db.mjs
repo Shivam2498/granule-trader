@@ -30,6 +30,8 @@ export function planImport(db, toImport) {
   return { toInsert, duplicates, suppliersToCreate: names }
 }
 
+// Idempotency relies on planImport() having just classified duplicates against the
+// current DB state (single-writer, app closed); there is no DB-level UNIQUE(fy_label, code_seq).
 // Writes everything in one transaction. Returns counts.
 export function commitImport(db, toInsert) {
   ensureDescriptionColumn(db)

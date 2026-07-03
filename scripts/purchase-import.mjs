@@ -59,7 +59,6 @@ const HEADER_MAP = {
   'qty': 'qty',
   'amount': 'amount',
   'cgst': 'cgst', 'sgst': 'sgst', 'igst': 'igst', 'tcs': 'tcs',
-  'total': 'total',
   'r/off': 'roundoff', 'round off': 'roundoff', 'roundoff': 'roundoff',
   'total invoice amount': 'total_invoice_amount',
 }
@@ -102,6 +101,11 @@ export function mapPurchaseRows(rows) {
     const igst = cleanNumber(get(r, 'igst')), tcs = cleanNumber(get(r, 'tcs'))
     const roundoff = cleanNumber(get(r, 'roundoff'))
     const total_invoice_amount = cleanNumber(get(r, 'total_invoice_amount'))
+
+    if (![amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount].every(Number.isFinite)) {
+      skipped.push({ line, code, party, reason: 'Amount/tax value is not a number', raw: r })
+      continue
+    }
 
     const expected = round2(amount + cgst + sgst + igst + tcs + roundoff)
     if (Math.abs(expected - total_invoice_amount) > 1)
