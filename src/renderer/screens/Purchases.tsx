@@ -41,11 +41,11 @@ export default function Purchases() {
       } />
       {error && <Alert color="red" mb="md">{error}</Alert>}
       <Paper withBorder p="lg" radius="md">
-        <ListTable head={<><Table.Th>Code</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th>HSN</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Remaining</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>
+        <ListTable head={<><Table.Th>Code</Table.Th><Table.Th>Date</Table.Th><Table.Th>Supplier</Table.Th><Table.Th>HSN</Table.Th><Table.Th>Item</Table.Th><Table.Th ta="right">Qty</Table.Th><Table.Th ta="right">Remaining</Table.Th><Table.Th ta="right">Total</Table.Th><Table.Th>Payment</Table.Th><Table.Th /></>}>
           {groupByMonth(list, p => p.invoice_date).map(g => (
             <Fragment key={g.key}>
               <Table.Tr>
-                <Table.Td colSpan={9} bg="var(--mantine-color-gray-1)" fw={700}>
+                <Table.Td colSpan={10} bg="var(--mantine-color-gray-1)" fw={700}>
                   <Group justify="space-between">
                     <span>{`${monthLabel(g.key)} — ${g.items.reduce((sum, p) => sum + p.qty_kg, 0)} kg · ${formatINR(g.items.reduce((sum, p) => sum + p.total_invoice_amount, 0))}`}</span>
                     <Button variant="subtle" size="compact-xs" onClick={() => exportCsv(g.items, `Purchases-${monthLabel(g.key).replace(' ', '-')}.csv`)}>⭳ CSV</Button>
@@ -54,7 +54,7 @@ export default function Purchases() {
               </Table.Tr>
               {g.items.map(p => (
                 <Table.Tr key={p.id}>
-                  <Table.Td>{p.our_code}</Table.Td><Table.Td>{p.invoice_date}</Table.Td><Table.Td>{p.party}</Table.Td><Table.Td>{p.hsn_code}</Table.Td>
+                  <Table.Td>{p.our_code}</Table.Td><Table.Td>{p.invoice_date}</Table.Td><Table.Td>{p.party}</Table.Td><Table.Td>{p.hsn_code}</Table.Td><Table.Td>{p.description}</Table.Td>
                   <Table.Td ta="right">{p.qty_kg}</Table.Td><Table.Td ta="right">{p.qty_remaining_kg}</Table.Td><Table.Td ta="right">{formatINR(p.total_invoice_amount)}</Table.Td>
                   <Table.Td><Badge color={p.payment_status === 'done' ? 'green' : 'orange'}>{p.payment_status}</Badge></Table.Td>
                   <Table.Td>
@@ -66,7 +66,7 @@ export default function Purchases() {
                 </Table.Tr>))}
             </Fragment>
           ))}
-          {loaded && list.length === 0 && <Table.Tr><Table.Td colSpan={9} c="dimmed">No purchases yet.</Table.Td></Table.Tr>}
+          {loaded && list.length === 0 && <Table.Tr><Table.Td colSpan={10} c="dimmed">No purchases yet.</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
     </div>

@@ -29,7 +29,7 @@ export default function PurchaseForm() {
     initialValues: {
       our_code: '', supplier_invoice_number: '', invoice_date: today(),
       supplier_id: null as number | null,
-      hsn_code: '', qty_kg: 0, rate_per_kg: 0, roundoff: 0, tcs: 0,
+      hsn_code: '', description: '', qty_kg: 0, rate_per_kg: 0, roundoff: 0, tcs: 0,
       payment_status: 'pending' as 'pending' | 'done', payment_date: '' as string
     },
     validate: {
@@ -50,7 +50,7 @@ export default function PurchaseForm() {
         if (p) form.setValues({
           our_code: p.our_code, supplier_invoice_number: p.supplier_invoice_number, invoice_date: p.invoice_date,
           supplier_id: p.supplier_id,
-          hsn_code: p.hsn_code, qty_kg: p.qty_kg,
+          hsn_code: p.hsn_code, description: p.description ?? '', qty_kg: p.qty_kg,
           rate_per_kg: p.rate_per_kg > 0 ? p.rate_per_kg : (p.qty_kg > 0 ? round2(p.amount / p.qty_kg) : 0),
           roundoff: p.roundoff, tcs: p.tcs, payment_status: p.payment_status, payment_date: p.payment_date ?? ''
         })
@@ -87,7 +87,7 @@ export default function PurchaseForm() {
         supplier_id: v.supplier_id,
         party: supplier?.name ?? '', party_state: supplier?.state ?? '',
         party_city: supplier?.city ?? '', party_pincode: supplier?.pincode ?? '', party_address: supplier?.address ?? '',
-        hsn_code: v.hsn_code, qty_kg: v.qty_kg, rate_per_kg: v.rate_per_kg,
+        hsn_code: v.hsn_code, description: v.description, qty_kg: v.qty_kg, rate_per_kg: v.rate_per_kg,
         gst_rate: gstRate, homeState: settings!.home_state, roundoff: v.roundoff, tcs: v.tcs,
         payment_status: v.payment_status, payment_date: v.payment_status === 'done' ? (v.payment_date || today()) : null
       }
@@ -107,6 +107,7 @@ export default function PurchaseForm() {
           <DateField value={form.values.invoice_date} onChange={d => form.setFieldValue('invoice_date', d)} />
         </Input.Wrapper>
         <Select label="HSN" withAsterisk data={hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))} value={form.values.hsn_code || null} onChange={v => form.setFieldValue('hsn_code', v ?? '')} error={form.errors.hsn_code} />
+        <TextInput label="Description / item" placeholder="e.g. Black M/B" {...form.getInputProps('description')} />
       </FormSection>
       <FormSection title="Supplier">
         <Select
