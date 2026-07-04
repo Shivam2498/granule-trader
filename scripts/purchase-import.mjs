@@ -6,19 +6,24 @@ export function round2(n) {
   return Math.sign(n) * Math.round((Math.abs(n) + Number.EPSILON) * 100) / 100
 }
 
-// "51,000.00" -> 51000 ; "" -> 0 ; "-1.2" -> -1.2 ; "abc" -> NaN
+// "51,000.00" -> 51000 ; "" -> 0 ; "-1.2" -> -1.2 ; "(1.24)" -> -1.24 ; "abc" -> NaN
 export function cleanNumber(s) {
-  const t = String(s ?? '').replace(/[,₹\s]/g, '').trim()
+  let t = String(s ?? '').replace(/[,₹\s]/g, '').trim()
   if (t === '') return 0
+  // Accounting-style negatives in parentheses: "(1,234.56)" -> -1234.56
+  let neg = false
+  if (/^\(.*\)$/.test(t)) { neg = true; t = t.slice(1, -1) }
   const n = Number(t)
-  return Number.isFinite(n) ? n : NaN
+  return Number.isFinite(n) ? (neg ? -n : n) : NaN
 }
 
 // "M/D/YYYY" -> "YYYY-MM-DD" (or null if unparseable / not a real calendar date)
 export function parseDateMDY(s) {
-  const m = String(s ?? '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  const m = String(s ?? '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/)
   if (!m) return null
-  const month = Number(m[1]), day = Number(m[2]), year = Number(m[3])
+  const month = Number(m[1]), day = Number(m[2])
+  // Accept 2-digit years from spreadsheet exports (e.g. Excel "M/D/YY"); YY -> 20YY.
+  const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
   const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   const d = new Date(iso + 'T00:00:00Z')
@@ -73,12 +78,21 @@ export function mapPurchaseRows(rows) {
   const header = rows[headerIdx]
   const col = {}
   header.map(norm).forEach((h, i) => { const f = HEADER_MAP[h]; if (f && col[f] === undefined) col[f] = i })
+  // The item/description column often has a blank header in exports. If it wasn't named but
+  // there is an unmapped column sitting just before HSN Code, treat that column as description.
+  if (col.description === undefined && col.hsn_code !== undefined) {
+    const before = col.hsn_code - 1
+    if (before >= 0 && !Object.values(col).includes(before)) col.description = before
+  }
   const get = (r, key) => col[key] !== undefined ? (r[col[key]] ?? '').trim() : ''
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i]
     const line = i + 1
-    const code = get(r, 'code'), party = get(r, 'party'), hsn = get(r, 'hsn_code')
+    // Some exports prefix the code cell with the literal word "Code" (e.g. "Code 082/2526");
+    // strip it but keep any letter suffix ("094A/2526" stays distinct from "094/2526").
+    const code = get(r, 'code').replace(/^\s*code\s+/i, '').trim()
+    const party = get(r, 'party'), hsn = get(r, 'hsn_code')
     const reasons = []
 
     const iso = parseDateMDY(get(r, 'invoice_date'))

@@ -14,12 +14,25 @@ const row = (over: Partial<any> = {}) => ({
 })
 
 describe('planImport', () => {
-  it('flags an existing (fy_label, code_seq) as a duplicate and lists new suppliers', () => {
+  it('flags an exact-duplicate line and lists new suppliers', () => {
     commitImport(db, [row()])
-    const plan = planImport(db, [row({ description: 'again' }), row({ our_code: '083/2526', code_seq: 83, party: 'NEWCO' })])
-    expect(plan.duplicates.map((d: any) => d.code_seq)).toEqual([82])
-    expect(plan.toInsert.map((d: any) => d.code_seq)).toEqual([83])
+    const plan = planImport(db, [row(), row({ our_code: '083/2526', code_seq: 83, party: 'NEWCO', description: 'Nat' })])
+    expect(plan.duplicates.map((d: any) => d.our_code)).toEqual(['082/2526'])
+    expect(plan.toInsert.map((d: any) => d.our_code)).toEqual(['083/2526'])
     expect(plan.suppliersToCreate).toEqual(['NEWCO'])
+  })
+
+  it('imports multiple lines that share a code number but differ by item or suffix', () => {
+    // One invoice with two products (Black/White M/B), plus a base + letter-suffixed lot —
+    // all four are distinct lots and must import (per-line dedup, not per-code).
+    const plan = planImport(db, [
+      row({ description: 'Black M/B' }),
+      row({ description: 'White M/B', amount: 30600 }),
+      row({ our_code: '094/2526', code_seq: 94, description: 'Nat' }),
+      row({ our_code: '094A/2526', code_seq: 94, description: 'Nat' }),
+    ])
+    expect(plan.toInsert).toHaveLength(4)
+    expect(plan.duplicates).toHaveLength(0)
   })
 })
 
@@ -39,7 +52,7 @@ describe('commitImport', () => {
     expect(db.prepare('SELECT COUNT(*) c FROM hsn_products WHERE hsn_code = ?').get('320419')).toMatchObject({ c: 1 })
   })
 
-  it('re-running with the same lot inserts nothing new (dedup by fy_label+code_seq)', () => {
+  it('re-running with the same lot inserts nothing new (per-line dedup)', () => {
     commitImport(db, [row()])
     const plan = planImport(db, [row()])
     expect(plan.toInsert).toHaveLength(0)

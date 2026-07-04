@@ -8,13 +8,19 @@ export function ensureDescriptionColumn(db) {
 }
 
 // Read-only classification: which rows are new, which are duplicates, which suppliers are new.
+// Dedup is per LINE, not per code: an invoice can have several product lines under one code
+// (e.g. "082/2526" Black M/B + White M/B) and letter-suffixed codes ("094A") are distinct
+// lots — all must import. The key is (our_code, hsn_code, description, qty_kg, amount), which
+// keeps distinct lines apart while still catching an exact re-import of the same CSV.
 export function planImport(db, toImport) {
-  const dupStmt = db.prepare('SELECT id FROM purchases WHERE fy_label = ? AND code_seq = ?')
+  const dupStmt = db.prepare(`SELECT id FROM purchases
+    WHERE our_code = ? AND hsn_code = ? AND description = ? AND qty_kg = ? AND amount = ?`)
   const supStmt = db.prepare('SELECT id FROM suppliers WHERE lower(trim(name)) = lower(trim(?))')
   const toInsert = [], duplicates = [], newSuppliers = new Set(), seenKeys = new Set()
+  const lineKey = (r) => [r.our_code, r.hsn_code, r.description, r.qty_kg, r.amount].join('')
   for (const r of toImport) {
-    const key = `${r.fy_label}#${r.code_seq}`
-    if (dupStmt.get(r.fy_label, r.code_seq) || seenKeys.has(key)) { duplicates.push(r); continue }
+    const key = lineKey(r)
+    if (dupStmt.get(r.our_code, r.hsn_code, r.description, r.qty_kg, r.amount) || seenKeys.has(key)) { duplicates.push(r); continue }
     seenKeys.add(key)
     toInsert.push(r)
     if (!supStmt.get(r.party) && !newSuppliers.has(r.party.trim().toLowerCase()))

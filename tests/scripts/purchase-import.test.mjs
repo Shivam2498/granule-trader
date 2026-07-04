@@ -7,6 +7,7 @@ describe('cleanNumber', () => {
   it('treats blank as zero', () => { expect(cleanNumber('')).toBe(0) })
   it('keeps negatives', () => { expect(cleanNumber('-1.2')).toBe(-1.2) })
   it('returns NaN for non-numeric', () => { expect(Number.isNaN(cleanNumber('abc'))).toBe(true) })
+  it('reads accounting parentheses as negative', () => { expect(cleanNumber('(1.24)')).toBe(-1.24); expect(cleanNumber('( 1,234.56 )')).toBe(-1234.56) })
 })
 
 describe('parseDateMDY', () => {
@@ -14,6 +15,7 @@ describe('parseDateMDY', () => {
   it('pads single digits', () => { expect(parseDateMDY('4/1/2025')).toBe('2025-04-01') })
   it('rejects an impossible date', () => { expect(parseDateMDY('2/30/2025')).toBe(null) })
   it('rejects garbage', () => { expect(parseDateMDY('not a date')).toBe(null) })
+  it('accepts a 2-digit year as 20YY', () => { expect(parseDateMDY('1/12/26')).toBe('2026-01-12') })
 })
 
 describe('fyFromDate', () => {
@@ -36,6 +38,21 @@ const HEADER = 'Our Code,Invoice Number,Invoice Date,Party,Description,HSN Code,
 const GOOD = '082/2526,SPL/25-26/3079,1/12/2026,SWASTIK,Black M/B,320419,300,"51,000.00","4,590.00","4,590.00",,,"9,180.00",,"60,180.00"'
 
 describe('mapPurchaseRows', () => {
+  it('handles a real export: "Code " prefix, blank-header item column, 2-digit year, suffix, () round-off', () => {
+    // Header has a BLANK column between Party and HSN Code (the item/description column).
+    const H = 'Our Code,Invoice Number,Invoice Date,Party,,HSN Code,Qty,Amount,CGST,SGST,IGST,TCS,Total,R/Off,Total Invoice Amount'
+    const R = 'Code 094A/2526,SPL/9,1/12/26,ACME,Black M/B,320419,300,"51,000.00","4,590.00","4,590.00",,,"9,180.00","(0.0)","60,180.00"'
+    const { toImport, skipped } = mapPurchaseRows(parseCsv(`${H}\n${R}\n`))
+    expect(skipped).toEqual([])
+    expect(toImport).toHaveLength(1)
+    expect(toImport[0]).toMatchObject({
+      our_code: '094A/2526',      // "Code " prefix stripped, suffix kept
+      description: 'Black M/B',    // blank-header column mapped as description
+      invoice_date: '2026-01-12',  // 2-digit year -> 20YY
+      hsn_code: '320419', code_seq: 94, fy_label: '2025-26',
+    })
+  })
+
   it('maps a valid row and trusts the sheet tax values', () => {
     const { toImport, skipped, warnings } = mapPurchaseRows(parseCsv(`${HEADER}\n${GOOD}\n`))
     expect(skipped).toEqual([])
