@@ -13,7 +13,13 @@
 .invoice .big { font-size: 13px; }
 .invoice .right { text-align: right; }
 .invoice table.items th { background: #f0f0f0; }
-.invoice table.items tr.firstline td { height: 130px; vertical-align: top; }
+/* The items area is an open box with vertical column dividers and no horizontal rules between
+   item rows. Its height is reserved (see items-layout.ts) so the tax/total rows always land at the
+   same place on the page; the trailing filler row absorbs whatever the item rows don't use, and
+   draws the box's bottom edge. The reservation used to be a 130px height on the FIRST item row,
+   which left a large gap under the first entry once a sale had more than one HSN line. */
+.invoice table.items tr.itemline td { vertical-align: top; border-top: none; border-bottom: none; }
+.invoice table.items tr.filler td { border-top: none; padding: 0; }
 
 /* Alignment polish */
 .invoice table.items > thead th, .invoice table.tax > thead th { text-align: center; }

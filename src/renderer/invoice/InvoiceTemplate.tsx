@@ -1,6 +1,7 @@
 import type { Sale, SaleAllocation, Settings } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
 import { rupeesInWords } from '../lib/words'
+import { fillerHeightPx } from './items-layout'
 import './invoice.css'
 
 const PAYMENT_TERMS = 'Immediate'
@@ -106,11 +107,18 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
         </tr></thead>
         <tbody>
           {lines.map((l, i) => (
-            <tr key={i} className={i === 0 ? 'firstline' : undefined}>
+            <tr key={i} className="itemline">
               <td>{i + 1}</td><td>{uc(hsnDescriptions[l.hsn] ?? '')}</td><td>{l.hsn}</td>
               <td className="right">{l.qty}</td><td>Kgs</td><td className="right">₹ {num(l.rate)}</td><td className="right">{num(l.amount)}</td>
             </tr>
           ))}
+          {/* Pads the item region out to its reserved height so the tax/total rows always land in
+              the same place, and closes the bottom of the box. Seven real cells, not a colSpan, so
+              the column dividers keep running through the padded area. Collapses to nothing once
+              the item lines fill the area. */}
+          <tr className="filler" style={{ height: fillerHeightPx(lines.length) }}>
+            {Array.from({ length: 7 }, (_, i) => <td key={i} />)}
+          </tr>
           {interState
             ? <tr><td colSpan={6} className="right">IGST</td><td className="right">{num(sale.igst)}</td></tr>
             : <>

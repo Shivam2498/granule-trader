@@ -16,6 +16,43 @@ const sale = { id: 1, invoice_number: 'ST/006/2025-26', invoice_date: '2025-04-1
 const allocs = [{ id: 1, sale_id: 1, purchase_id: 1, hsn_code: '39023000', gst_rate: 18, qty_drawn_kg: 2000, rate_per_kg: 110.17, line_amount: 220340 }] as SaleAllocation[]
 const hsnDescriptions = { '39023000': 'Plastic Granules' }
 
+describe('item area spacing', () => {
+  // The reserved item area used to be a fixed 130px height on the first item row, which left a
+  // large gap under the first entry on a multi-HSN invoice. It now lives on a trailing filler row.
+  const firstCopy = (c: HTMLElement) => c.querySelector('.invoice')!
+
+  it('gives no item row a hard-coded height, however many lines there are', () => {
+    const multi = [
+      allocs[0],
+      { id: 2, sale_id: 1, purchase_id: 2, hsn_code: '39021000', gst_rate: 18, qty_drawn_kg: 500, rate_per_kg: 90, line_amount: 45000 },
+      { id: 3, sale_id: 1, purchase_id: 3, hsn_code: '39012000', gst_rate: 18, qty_drawn_kg: 300, rate_per_kg: 80, line_amount: 24000 }
+    ] as SaleAllocation[]
+    const { container } = render(<InvoiceTemplate sale={sale} allocations={multi} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    const rows = firstCopy(container).querySelectorAll('table.items tr.itemline')
+    expect(rows).toHaveLength(3)
+    for (const r of rows) {
+      for (const td of r.querySelectorAll('td')) expect((td as HTMLElement).style.height).toBe('')
+    }
+  })
+
+  it('pads the area with a filler row that shrinks as lines are added', () => {
+    const one = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    const fillerOf = (c: HTMLElement) => firstCopy(c).querySelector('table.items tr.filler') as HTMLElement
+    const oneLine = parseInt(fillerOf(one.container).style.height, 10)
+    expect(oneLine).toBeGreaterThan(0)
+
+    const multi = [allocs[0], { id: 2, sale_id: 1, purchase_id: 2, hsn_code: '39021000', gst_rate: 18, qty_drawn_kg: 500, rate_per_kg: 90, line_amount: 45000 }] as SaleAllocation[]
+    one.rerender(<InvoiceTemplate sale={sale} allocations={multi} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(parseInt(fillerOf(one.container).style.height, 10)).toBeLessThan(oneLine)
+  })
+
+  it('keeps the column dividers running through the padded area', () => {
+    const { container } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    const filler = firstCopy(container).querySelector('table.items tr.filler')!
+    expect(filler.querySelectorAll('td')).toHaveLength(7)   // real cells, not one colSpan — else the vertical rules vanish
+  })
+})
+
 describe('InvoiceTemplate', () => {
   it('renders seller, buyer, invoice number, total and amount-in-words', () => {
     render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
