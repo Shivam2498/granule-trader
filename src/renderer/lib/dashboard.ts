@@ -80,24 +80,20 @@ export function monthDelta(sales: Sale[], today: string) {
   return { current, previous, pct: previous === 0 ? null : ((current - previous) / previous) * 100 }
 }
 
-function purchaseMap(purchases: Purchase[]): Map<number, Purchase> {
-  return new Map(purchases.map(p => [p.id, p]))
-}
-
-export function stockByProduct(ledger: LedgerRow[], purchases: Purchase[]): StockSlice[] {
-  const pm = purchaseMap(purchases)
+// Valuation reads the cost rate straight off the ledger row. It used to look the rate up on the
+// parent PURCHASE, which is wrong now that a purchase can hold several lines at different rates —
+// a lot from line 2 would have been valued at line 1's rate.
+export function stockByProduct(ledger: LedgerRow[]): StockSlice[] {
   const by = new Map<string, StockSlice>()
   for (const r of ledger) {
     if (r.balance_kg <= 0) continue
-    const rate = pm.get(r.purchase_id)?.rate_per_kg ?? 0
     const e = by.get(r.hsn_code) ?? { hsn: r.hsn_code, kg: 0, value: 0 }
-    e.kg += r.balance_kg; e.value += r.balance_kg * rate; by.set(r.hsn_code, e)
+    e.kg += r.balance_kg; e.value += r.balance_kg * r.rate_per_kg; by.set(r.hsn_code, e)
   }
   return [...by.values()].sort((a, b) => b.value - a.value)
 }
 
-export function inventoryAging(ledger: LedgerRow[], purchases: Purchase[], today: string): AgeBucket[] {
-  const pm = purchaseMap(purchases)
+export function inventoryAging(ledger: LedgerRow[], today: string): AgeBucket[] {
   const b: Record<AgeBucket['bucket'], AgeBucket> = {
     '0-30': { bucket: '0-30', kg: 0, value: 0 },
     '31-60': { bucket: '31-60', kg: 0, value: 0 },
@@ -107,16 +103,35 @@ export function inventoryAging(ledger: LedgerRow[], purchases: Purchase[], today
   for (const r of ledger) {
     if (r.balance_kg <= 0) continue
     const days = daysBetween(r.invoice_date, today)
-    const rate = pm.get(r.purchase_id)?.rate_per_kg ?? 0
     const k: AgeBucket['bucket'] = days <= 30 ? '0-30' : days <= 60 ? '31-60' : days <= 90 ? '61-90' : '90+'
-    b[k].kg += r.balance_kg; b[k].value += r.balance_kg * rate
+    b[k].kg += r.balance_kg; b[k].value += r.balance_kg * r.rate_per_kg
   }
   return [b['0-30'], b['31-60'], b['61-90'], b['90+']]
 }
 
-export function lowStock(ledger: LedgerRow[], threshold: number): LedgerRow[] {
-  return ledger.filter(r => r.balance_kg > 0 && r.balance_kg < threshold)
+export interface LowMaterial { hsn: string; kg: number }
+
+/**
+ * Materials running out — a re-order signal.
+ *
+ * This deliberately looks at the TOTAL remaining kg of each HSN, not at individual lots. Flagging a
+ * lot with 400 kg left as "low stock" says nothing useful when 90,000 kg of the same material sits
+ * in twenty other lots; it just floods the dashboard. What matters is whether the MATERIAL is
+ * running out.
+ */
+export function lowStock(ledger: LedgerRow[], threshold: number): LowMaterial[] {
+  const by = new Map<string, number>()
+  for (const r of ledger) {
+    if (r.balance_kg <= 0) continue
+    by.set(r.hsn_code, round2((by.get(r.hsn_code) ?? 0) + r.balance_kg))
+  }
+  return [...by.entries()]
+    .filter(([, kg]) => kg < threshold)
+    .map(([hsn, kg]) => ({ hsn, kg }))
+    .sort((a, b) => a.kg - b.kg)
 }
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export function reservedPendingFill(sales: Sale[]): Sale[] {
   return sales.filter(s => s.status === 'reserved')

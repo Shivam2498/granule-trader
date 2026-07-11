@@ -4,6 +4,9 @@ import { Paper, Button, Alert, Group, Table, Text } from '@mantine/core'
 import type { LedgerRow, Settings } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
+import InventoryAgingTable from '../components/dashboard/InventoryAgingTable'
+import { inventoryAging } from '../lib/dashboard'
+import { today } from '../lib/format'
 
 export default function Stock() {
   const nav = useNavigate()
@@ -12,7 +15,10 @@ export default function Stock() {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => { (async () => {
-    try { setSettings(await window.api.getSettings()); setRows(await window.api.stockLedger()) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) }
+    try {
+      setSettings(await window.api.getSettings())
+      setRows(await window.api.stockLedger())
+    } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) }
   })() }, [])
   const low = settings?.low_stock_threshold ?? 0
   const processedRows = (() => {
@@ -44,6 +50,12 @@ export default function Stock() {
           {loaded && rows.length === 0 && <Table.Tr><Table.Td colSpan={8} c="dimmed">No stock on hand.</Table.Td></Table.Tr>}
         </ListTable>
       </Paper>
+
+      {rows.length > 0 && (
+        <div style={{ marginTop: 'var(--mantine-spacing-md)' }}>
+          <InventoryAgingTable buckets={inventoryAging(rows, today())} />
+        </div>
+      )}
     </div>
   )
 }

@@ -137,31 +137,31 @@ function ledger(p: Partial<LedgerRow>): LedgerRow {
 }
 
 describe('stockByProduct', () => {
-  it('groups balance by HSN and values it via the purchase rate', () => {
+  it("groups balance by HSN and values it at each lot's own cost rate", () => {
     const rows = [
-      ledger({ purchase_id: 1, hsn_code: '3901', balance_kg: 100 }),
-      ledger({ purchase_id: 2, hsn_code: '3901', balance_kg: 50 }),
-      ledger({ purchase_id: 3, hsn_code: '3902', balance_kg: 10 }),
-      ledger({ purchase_id: 4, hsn_code: '3902', balance_kg: 0 }),   // skipped (no balance)
+      ledger({ purchase_id: 1, hsn_code: '3901', balance_kg: 100, rate_per_kg: 2 }),
+      ledger({ purchase_id: 2, hsn_code: '3901', balance_kg: 50, rate_per_kg: 4 }),
+      ledger({ purchase_id: 3, hsn_code: '3902', balance_kg: 10, rate_per_kg: 5 }),
+      ledger({ purchase_id: 4, hsn_code: '3902', balance_kg: 0, rate_per_kg: 5 }),   // skipped (no balance)
     ]
-    const purchases = [purchase({ id: 1, rate_per_kg: 2 }), purchase({ id: 2, rate_per_kg: 4 }), purchase({ id: 3, rate_per_kg: 5 })]
-    const slices = stockByProduct(rows, purchases)
+    const slices = stockByProduct(rows)
     expect(slices).toEqual([
       { hsn: '3901', kg: 150, value: 100 * 2 + 50 * 4 },   // 400, sorted first by value
       { hsn: '3902', kg: 10, value: 50 },
     ])
   })
 
-  it('counts kg but values at 0 when the lot has no matching purchase', () => {
+  it("values each line of a multi-line purchase at its own rate", () => {
+    // Two lines of ONE purchase, bought at different rates. Valuing both at the parent purchase's
+    // rate (as this used to) would price line 2 wrong.
     const rows = [
-      ledger({ purchase_id: 1, hsn_code: '3901', balance_kg: 100 }),
-      ledger({ purchase_id: 99, hsn_code: '3903', balance_kg: 5 }),  // no matching purchase → rate falls back to 0
+      ledger({ purchase_item_id: 1, purchase_id: 1, hsn_code: '3901', balance_kg: 100, rate_per_kg: 2 }),
+      ledger({ purchase_item_id: 2, purchase_id: 1, hsn_code: '3903', balance_kg: 5, rate_per_kg: 50 })
     ]
-    const purchases = [purchase({ id: 1, rate_per_kg: 2 })]
-    const slices = stockByProduct(rows, purchases)
+    const slices = stockByProduct(rows)
     expect(slices).toEqual([
+      { hsn: '3903', kg: 5, value: 250 },     // sorted by value, so the pricier line leads
       { hsn: '3901', kg: 100, value: 200 },
-      { hsn: '3903', kg: 5, value: 0 },
     ])
   })
 })
@@ -169,11 +169,10 @@ describe('stockByProduct', () => {
 describe('inventoryAging', () => {
   it('buckets remaining lots by age with rupee value', () => {
     const rows = [
-      ledger({ purchase_id: 1, invoice_date: '2026-06-10', balance_kg: 10 }),  // 3 days → 0-30
-      ledger({ purchase_id: 2, invoice_date: '2026-03-01', balance_kg: 20 }),  // >90 → 90+
+      ledger({ purchase_id: 1, invoice_date: '2026-06-10', balance_kg: 10, rate_per_kg: 2 }),  // 3 days → 0-30
+      ledger({ purchase_id: 2, invoice_date: '2026-03-01', balance_kg: 20, rate_per_kg: 3 }),  // >90 → 90+
     ]
-    const purchases = [purchase({ id: 1, rate_per_kg: 2 }), purchase({ id: 2, rate_per_kg: 3 })]
-    const buckets = inventoryAging(rows, purchases, '2026-06-13')
+    const buckets = inventoryAging(rows, '2026-06-13')
     expect(buckets.map(b => b.bucket)).toEqual(['0-30', '31-60', '61-90', '90+'])
     expect(buckets[0]).toEqual({ bucket: '0-30', kg: 10, value: 20 })
     expect(buckets[3]).toEqual({ bucket: '90+', kg: 20, value: 60 })
@@ -185,15 +184,14 @@ describe('inventoryAging', () => {
     //   '2026-04-14' → 60 days → 31-60 ; '2026-04-13' → 61 days → 61-90
     //   '2026-03-15' → 90 days → 61-90 ; '2026-03-14' → 91 days → 90+
     const rows = [
-      ledger({ purchase_id: 1, invoice_date: '2026-05-14', balance_kg: 1 }),   // 30 → 0-30
-      ledger({ purchase_id: 1, invoice_date: '2026-05-13', balance_kg: 2 }),   // 31 → 31-60
-      ledger({ purchase_id: 1, invoice_date: '2026-04-14', balance_kg: 4 }),   // 60 → 31-60
-      ledger({ purchase_id: 1, invoice_date: '2026-04-13', balance_kg: 8 }),   // 61 → 61-90
-      ledger({ purchase_id: 1, invoice_date: '2026-03-15', balance_kg: 16 }),  // 90 → 61-90
-      ledger({ purchase_id: 1, invoice_date: '2026-03-14', balance_kg: 32 }),  // 91 → 90+
+      ledger({ invoice_date: '2026-05-14', balance_kg: 1, rate_per_kg: 10 }),   // 30 → 0-30
+      ledger({ invoice_date: '2026-05-13', balance_kg: 2, rate_per_kg: 10 }),   // 31 → 31-60
+      ledger({ invoice_date: '2026-04-14', balance_kg: 4, rate_per_kg: 10 }),   // 60 → 31-60
+      ledger({ invoice_date: '2026-04-13', balance_kg: 8, rate_per_kg: 10 }),   // 61 → 61-90
+      ledger({ invoice_date: '2026-03-15', balance_kg: 16, rate_per_kg: 10 }),  // 90 → 61-90
+      ledger({ invoice_date: '2026-03-14', balance_kg: 32, rate_per_kg: 10 }),  // 91 → 90+
     ]
-    const purchases = [purchase({ id: 1, rate_per_kg: 10 })]
-    const buckets = inventoryAging(rows, purchases, '2026-06-13')
+    const buckets = inventoryAging(rows, '2026-06-13')
     expect(buckets).toEqual([
       { bucket: '0-30', kg: 1, value: 10 },
       { bucket: '31-60', kg: 2 + 4, value: 60 },
@@ -204,17 +202,42 @@ describe('inventoryAging', () => {
 })
 
 describe('lowStock', () => {
-  it('returns lots below the threshold', () => {
-    const rows = [ledger({ our_code: 'A', balance_kg: 100 }), ledger({ our_code: 'B', balance_kg: 600 })]
-    expect(lowStock(rows, 500).map(r => r.our_code)).toEqual(['A'])
+  it('flags a material whose TOTAL is below the threshold', () => {
+    const rows = [ledger({ hsn_code: '3902', balance_kg: 100 }), ledger({ hsn_code: '3901', balance_kg: 600 })]
+    expect(lowStock(rows, 500)).toEqual([{ hsn: '3902', kg: 100 }])
   })
-  it('excludes fully-consumed lots (balance 0) from the low-stock list', () => {
+
+  it('does NOT flag a small lot when the material has plenty across other lots', () => {
+    // The old per-lot rule flagged the 400 kg lot even though 90,400 kg of that material is on hand.
     const rows = [
-      ledger({ our_code: 'A', balance_kg: 0 }),   // depleted — must NOT appear
-      ledger({ our_code: 'B', balance_kg: 100 }),  // below threshold — appears
-      ledger({ our_code: 'C', balance_kg: 600 }),  // above threshold — skipped
+      ledger({ our_code: 'A', hsn_code: '39021000', balance_kg: 400 }),
+      ledger({ our_code: 'B', hsn_code: '39021000', balance_kg: 90000 })
     ]
-    expect(lowStock(rows, 500).map(r => r.our_code)).toEqual(['B'])
+    expect(lowStock(rows, 500)).toEqual([])
+  })
+
+  it('flags a material spread thin across several lots', () => {
+    const rows = [
+      ledger({ our_code: 'A', hsn_code: '320419', balance_kg: 100 }),
+      ledger({ our_code: 'B', hsn_code: '320419', balance_kg: 150 })
+    ]
+    expect(lowStock(rows, 500)).toEqual([{ hsn: '320419', kg: 250 }])
+  })
+
+  it('excludes fully-consumed lots from the material total', () => {
+    const rows = [
+      ledger({ hsn_code: '3902', balance_kg: 0 }),
+      ledger({ hsn_code: '3902', balance_kg: 100 })
+    ]
+    expect(lowStock(rows, 500)).toEqual([{ hsn: '3902', kg: 100 }])
+  })
+
+  it('lists the most urgent material first', () => {
+    const rows = [
+      ledger({ hsn_code: '3902', balance_kg: 400 }),
+      ledger({ hsn_code: '3901', balance_kg: 50 })
+    ]
+    expect(lowStock(rows, 500).map(m => m.hsn)).toEqual(['3901', '3902'])
   })
 })
 

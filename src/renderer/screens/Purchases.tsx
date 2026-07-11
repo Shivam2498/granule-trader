@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Paper, Button, Alert, Badge, Group, Table } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Purchase } from '@shared/types'
@@ -13,10 +13,17 @@ import { useFY } from '../fy'
 export default function Purchases() {
   const nav = useNavigate()
   const { fy } = useFY()
-  const [list, setList] = useState<Purchase[]>([])
+  const [params, setParams] = useSearchParams()
+  const unpaidOnly = params.get('unpaid') === '1'
+  const [all, setAll] = useState<Purchase[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
-  async function reload() { try { setList(await window.api.listPurchases(fy)) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) } }
+  async function reload() { try { setAll(await window.api.listPurchases(fy)) } catch (e: any) { setError(e.message ?? String(e)) } finally { setLoaded(true) } }
+
+  // Payables drill-down from the dashboard: unpaid only, oldest first — the order you chase them in.
+  const list = unpaidOnly
+    ? all.filter(p => p.payment_status === 'pending').sort((a, b) => a.invoice_date.localeCompare(b.invoice_date))
+    : all
   useEffect(() => { reload() }, [fy])
   async function remove(id: number) {
     setError('')
@@ -33,8 +40,9 @@ export default function Purchases() {
   }
   return (
     <div>
-      <PageHeader title={`Purchases · ${fy}`} action={
+      <PageHeader title={unpaidOnly ? `Unpaid purchases · ${fy}` : `Purchases · ${fy}`} action={
         <Group>
+          {unpaidOnly && <Button variant="subtle" onClick={() => setParams({})}>Show all</Button>}
           <Button variant="default" disabled={list.length === 0} onClick={() => exportCsv(list, `Purchases-FY-${fy}.csv`)}>Export FY</Button>
           <Button onClick={() => nav('/purchases/new')}>+ Add purchase</Button>
         </Group>
