@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createSupplier, updateSupplier, getSupplier, listSuppliers, deleteSupplier } from '../../src/main/core/suppliers'
 import { createPurchase } from '../../src/main/core/purchase'
+import { mkPurchase, editPurchase, lotIdOf, remainingOf } from '../helpers/purchase'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -37,7 +38,7 @@ describe('suppliers', () => {
   })
   it('blocks deletion when the supplier has purchases', () => {
     const sup = createSupplier(db, s)
-    createPurchase(db, {
+    mkPurchase(db, {
       our_code: '0001/2425', supplier_invoice_number: 'SI-1', invoice_date: '2024-05-01',
       party: 'Acme', party_state: 'Gujarat', hsn_code: '3902', qty_kg: 100, amount: 5000,
       gst_rate: 18, homeState: 'Gujarat', supplier_id: sup.id

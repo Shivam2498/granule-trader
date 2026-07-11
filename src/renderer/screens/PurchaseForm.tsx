@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { TextInput, Select, Input, Button, Paper, Text } from '@mantine/core'
+import { TextInput, Select, Input, Button, Paper, Text, Table, Group, ActionIcon } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import type { HsnProduct, Settings, Supplier } from '@shared/types'
-import { computeTax } from '@shared/tax'
+import { computePurchaseTax } from '@shared/tax'
 import { round2 } from '@shared/money'
 import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
@@ -12,6 +12,9 @@ import FormSection from '../components/FormSection'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
 import { formatINR, today, formatAddress } from '../lib/format'
+
+interface ItemRow { id?: number; hsn_code: string; description: string; qty_kg: number; rate_per_kg: number }
+const blankItem = (): ItemRow => ({ hsn_code: '', description: '', qty_kg: 0, rate_per_kg: 0 })
 
 export default function PurchaseForm() {
   const nav = useNavigate()
@@ -29,16 +32,19 @@ export default function PurchaseForm() {
     initialValues: {
       our_code: '', supplier_invoice_number: '', invoice_date: today(),
       supplier_id: null as number | null,
-      hsn_code: '', description: '', qty_kg: 0, rate_per_kg: 0, roundoff: 0, tcs: 0,
+      items: [blankItem()] as ItemRow[],
+      roundoff: 0, tcs: 0,
       payment_status: 'pending' as 'pending' | 'done', payment_date: '' as string
     },
     validate: {
       our_code: isNotEmpty('Enter the code.'),
       invoice_date: isNotEmpty('Pick the invoice date.'),
-      hsn_code: isNotEmpty('Choose the HSN.'),
       supplier_id: (v) => v ? null : 'Choose a supplier.',
-      qty_kg: (v) => v > 0 ? null : 'Enter a quantity.',
-      rate_per_kg: (v) => v > 0 ? null : 'Enter a rate per kg.'
+      items: {
+        hsn_code: (v: string) => v ? null : 'Choose the HSN.',
+        qty_kg: (v: number) => v > 0 ? null : 'Enter a quantity.',
+        rate_per_kg: (v: number) => v > 0 ? null : 'Enter a rate per kg.'
+      }
     }
   })
 
@@ -47,14 +53,19 @@ export default function PurchaseForm() {
       setSettings(await window.api.getSettings()); setHsn(await window.api.listHsn()); setSuppliers(await window.api.listSuppliers())
       if (editId) {
         const p = (await window.api.listPurchases()).find(x => x.id === editId)
-        if (p) form.setValues({
+        if (!p) { setError('Record not found.'); nav('/purchases'); return }
+        const items = await window.api.getPurchaseItems(editId)
+        form.setValues({
           our_code: p.our_code, supplier_invoice_number: p.supplier_invoice_number, invoice_date: p.invoice_date,
           supplier_id: p.supplier_id,
-          hsn_code: p.hsn_code, description: p.description ?? '', qty_kg: p.qty_kg,
-          rate_per_kg: p.rate_per_kg > 0 ? p.rate_per_kg : (p.qty_kg > 0 ? round2(p.amount / p.qty_kg) : 0),
+          items: items.length
+            ? items.map(i => ({
+                id: i.id, hsn_code: i.hsn_code, description: i.description, qty_kg: i.qty_kg,
+                rate_per_kg: i.rate_per_kg > 0 ? i.rate_per_kg : (i.qty_kg > 0 ? round2(i.amount / i.qty_kg) : 0)
+              }))
+            : [blankItem()],
           roundoff: p.roundoff, tcs: p.tcs, payment_status: p.payment_status, payment_date: p.payment_date ?? ''
         })
-        else { setError('Record not found.'); nav('/purchases') }
       }
     } catch (e: any) { setError(e.message ?? String(e)) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,14 +77,20 @@ export default function PurchaseForm() {
   if (!settings) return <FormPage title="Purchase" onBack={() => nav('/purchases')} footer={null}><p>Loading…</p></FormPage>
 
   const supplier = suppliers.find(s => s.id === form.values.supplier_id) ?? null
-  const amount = round2(form.values.qty_kg * form.values.rate_per_kg)
-  const gstRate = hsn.find(h => h.hsn_code === form.values.hsn_code)?.gst_rate ?? settings.default_gst_rate
-  const tax = computeTax({ amount, gstRate, placeOfSupplyState: supplier?.state ?? '', homeState: settings.home_state, tcs: form.values.tcs, roundoff: form.values.roundoff })
+  const rateOf = (code: string) => hsn.find(h => h.hsn_code === code)?.gst_rate ?? settings.default_gst_rate
+
+  const taxLines = form.values.items.map(i => ({
+    qty_kg: i.qty_kg, rate_per_kg: i.rate_per_kg, gst_rate: rateOf(i.hsn_code), hsn_code: i.hsn_code
+  }))
+  const tax = computePurchaseTax({
+    lines: taxLines, placeOfSupplyState: supplier?.state ?? '', homeState: settings.home_state,
+    tcs: form.values.tcs, roundoff: form.values.roundoff
+  })
   const intra = tax.igst === 0
   const rows = [
-    { label: `CGST ${intra ? gstRate / 2 : 0}%`, value: tax.cgst },
-    { label: `SGST ${intra ? gstRate / 2 : 0}%`, value: tax.sgst },
-    { label: `IGST ${intra ? 0 : gstRate}%`, value: tax.igst },
+    { label: intra ? 'CGST' : 'CGST 0%', value: tax.cgst },
+    { label: intra ? 'SGST' : 'SGST 0%', value: tax.sgst },
+    { label: intra ? 'IGST 0%' : 'IGST', value: tax.igst },
     { label: 'TCS', value: tax.tcs }
   ]
 
@@ -87,14 +104,19 @@ export default function PurchaseForm() {
         supplier_id: v.supplier_id,
         party: supplier?.name ?? '', party_state: supplier?.state ?? '',
         party_city: supplier?.city ?? '', party_pincode: supplier?.pincode ?? '', party_address: supplier?.address ?? '',
-        hsn_code: v.hsn_code, description: v.description, qty_kg: v.qty_kg, rate_per_kg: v.rate_per_kg,
-        gst_rate: gstRate, homeState: settings!.home_state, roundoff: v.roundoff, tcs: v.tcs,
+        homeState: settings!.home_state, roundoff: v.roundoff, tcs: v.tcs,
+        items: v.items.map(i => ({
+          id: i.id, hsn_code: i.hsn_code, description: i.description,
+          qty_kg: i.qty_kg, rate_per_kg: i.rate_per_kg, gst_rate: rateOf(i.hsn_code)
+        })),
         payment_status: v.payment_status, payment_date: v.payment_status === 'done' ? (v.payment_date || today()) : null
       }
       if (editId) await window.api.updatePurchase(editId, payload); else await window.api.createPurchase(payload)
       nav('/purchases')
     } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
+
+  const hsnOptions = hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))
 
   return (
     <FormPage title={editId ? 'Edit purchase' : 'Add purchase'} onBack={() => nav('/purchases')} error={error}
@@ -106,9 +128,8 @@ export default function PurchaseForm() {
         <Input.Wrapper label="Invoice date" error={form.errors.invoice_date}>
           <DateField value={form.values.invoice_date} onChange={d => form.setFieldValue('invoice_date', d)} />
         </Input.Wrapper>
-        <Select label="HSN" withAsterisk data={hsn.map(h => ({ value: h.hsn_code, label: `${h.hsn_code} (${h.gst_rate}%)` }))} value={form.values.hsn_code || null} onChange={v => form.setFieldValue('hsn_code', v ?? '')} error={form.errors.hsn_code} />
-        <TextInput label="Description / item" placeholder="e.g. Black M/B" {...form.getInputProps('description')} />
       </FormSection>
+
       <FormSection title="Supplier">
         <Select
           label="Supplier"
@@ -129,14 +150,64 @@ export default function PurchaseForm() {
           </Paper>
         )}
       </FormSection>
+
+      {/* One row per material on the supplier's invoice. Each row becomes its own stock lot, so a
+          two-material invoice gives you two lots you can sell from independently. */}
+      <Paper withBorder p="lg" radius="md" mb="md">
+        <Text fw={600} mb="xs">Items</Text>
+        <Text c="dimmed" size="sm" mb="md">
+          Add one row per material on the supplier's invoice. Each row becomes a separate stock lot.
+        </Text>
+        <Table verticalSpacing="sm">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th style={{ width: 200 }}>HSN</Table.Th>
+              <Table.Th>Description</Table.Th>
+              <Table.Th style={{ width: 130 }}>Qty (kg)</Table.Th>
+              <Table.Th style={{ width: 130 }}>Rate / kg</Table.Th>
+              <Table.Th style={{ width: 130, textAlign: 'right' }}>Amount</Table.Th>
+              <Table.Th style={{ width: 44 }} />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {form.values.items.map((it, i) => (
+              <Table.Tr key={i}>
+                <Table.Td>
+                  <Select data={hsnOptions} placeholder="HSN"
+                    value={it.hsn_code || null}
+                    onChange={v => form.setFieldValue(`items.${i}.hsn_code`, v ?? '')}
+                    error={form.errors[`items.${i}.hsn_code`]} />
+                </Table.Td>
+                <Table.Td>
+                  <TextInput placeholder="e.g. Black M/B" {...form.getInputProps(`items.${i}.description`)} />
+                </Table.Td>
+                <Table.Td>
+                  <Input.Wrapper error={form.errors[`items.${i}.qty_kg`]}>
+                    <MoneyInput value={it.qty_kg} onChange={n => form.setFieldValue(`items.${i}.qty_kg`, n)} />
+                  </Input.Wrapper>
+                </Table.Td>
+                <Table.Td>
+                  <Input.Wrapper error={form.errors[`items.${i}.rate_per_kg`]}>
+                    <MoneyInput value={it.rate_per_kg} onChange={n => form.setFieldValue(`items.${i}.rate_per_kg`, n)} />
+                  </Input.Wrapper>
+                </Table.Td>
+                <Table.Td ta="right">{formatINR(round2(it.qty_kg * it.rate_per_kg))}</Table.Td>
+                <Table.Td>
+                  <ActionIcon variant="subtle" color="red" aria-label="Remove item"
+                    disabled={form.values.items.length === 1}
+                    onClick={() => form.removeListItem('items', i)}>✕</ActionIcon>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        <Group mt="md" justify="space-between">
+          <Button variant="default" onClick={() => form.insertListItem('items', blankItem())}>Add item</Button>
+          <Text fw={600}>Taxable total: {formatINR(tax.taxable_amount)}</Text>
+        </Group>
+      </Paper>
+
       <FormSection title="Amounts">
-        <Input.Wrapper label="Quantity (kg)" error={form.errors.qty_kg}>
-          <MoneyInput value={form.values.qty_kg} onChange={n => form.setFieldValue('qty_kg', n)} />
-        </Input.Wrapper>
-        <Input.Wrapper label="Rate per kg" error={form.errors.rate_per_kg}>
-          <MoneyInput value={form.values.rate_per_kg} onChange={n => form.setFieldValue('rate_per_kg', n)} />
-        </Input.Wrapper>
-        <TextInput label="Taxable amount" disabled value={formatINR(amount)} />
         <Input.Wrapper label="Round off (can be negative)">
           <SignedMoneyInput value={form.values.roundoff} onChange={n => form.setFieldValue('roundoff', n)} />
         </Input.Wrapper>

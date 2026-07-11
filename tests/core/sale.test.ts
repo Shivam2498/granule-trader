@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
+import { mkPurchase, editPurchase, lotIdOf, remainingOf } from '../helpers/purchase'
 import { createSale, fillReservedSale, listSales, deleteSale, getAllocations, getSale } from '../../src/main/core/sale'
 
 let db: ReturnType<typeof openDatabase>
@@ -8,14 +9,14 @@ beforeEach(() => { db = openDatabase(':memory:') })
 
 const pbase = { supplier_invoice_number: 'S', party: 'Acme', party_state: 'Gujarat', hsn_code: '3902', amount: 1000, gst_rate: 18, homeState: 'Gujarat' }
 function lot(code: string, date: string, qty: number) {
-  return createPurchase(db, { ...pbase, our_code: code, invoice_date: date, qty_kg: qty })
+  return mkPurchase(db, { ...pbase, our_code: code, invoice_date: date, qty_kg: qty })
 }
 const sbase = {
   buyer_customer_id: null, buyer_name: 'Buyer', buyer_gstin: '',
   buyer_billing: {}, buyer_shipping: {}, place_of_supply_state: 'Gujarat', homeState: 'Gujarat'
 }
-function line(purchase_id: number, qty: number, rate: number) {
-  return { purchase_id, qty_drawn_kg: qty, rate_per_kg: rate, hsn_code: '3902', gst_rate: 18 }
+function line(purchaseId: number, qty: number, rate: number) {
+  return { purchase_item_id: lotIdOf(db, purchaseId), qty_drawn_kg: qty, rate_per_kg: rate, hsn_code: '3902', gst_rate: 18 }
 }
 
 describe('createSale', () => {
@@ -27,8 +28,8 @@ describe('createSale', () => {
     expect(sale.total_qty_kg).toBe(1000)
     expect(sale.amount).toBe(84000)         // 600*80 + 400*90
     expect(sale.cgst).toBe(7560)            // 9% of 84000
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(400)
-    expect(getPurchase(db, b.id)!.qty_remaining_kg).toBe(600)
+    expect(remainingOf(db, a.id)).toBe(400)
+    expect(remainingOf(db, b.id)).toBe(600)
   })
 
   it('rejects a second sale with a duplicate invoice number (friendly message)', () => {
@@ -42,7 +43,7 @@ describe('createSale', () => {
     const a = lot('0001/2425', '2024-05-01', 500)
     expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
       lines: [line(a.id, 600, 80)] })).toThrow(/only has 500/)
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(500)
+    expect(remainingOf(db, a.id)).toBe(500)
     expect(listSales(db)).toHaveLength(0)
   })
 
@@ -61,7 +62,7 @@ describe('createSale', () => {
     const sale = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
       lines: [line(a.id, 300, 80)] })
     deleteSale(db, sale.id)
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(1000)
+    expect(remainingOf(db, a.id)).toBe(1000)
   })
 
   it('fills a reserved row: marks it created and draws stock', () => {
@@ -78,7 +79,7 @@ describe('createSale', () => {
     expect(filled.total_qty_kg).toBe(200)
     expect(filled.amount).toBe(18000)
     // Running remaining = 1000 - 100 (seq3) - 200 (seq1) = 700
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(700)
+    expect(remainingOf(db, a.id)).toBe(700)
   })
 
   it('stores HSN + gst_rate on each allocation', () => {
@@ -95,7 +96,7 @@ describe('createSale', () => {
     expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
       lines: [line(a.id, 400, 80), line(a.id, 400, 80)] })).toThrow(/only has/)
     // Remaining must be unchanged (transaction rolled back)
-    expect((db.prepare('SELECT qty_remaining_kg FROM purchases WHERE id = ?').get(a.id) as any).qty_remaining_kg).toBe(500)
+    expect((db.prepare('SELECT qty_remaining_kg FROM purchase_items WHERE purchase_id = ?').get(a.id) as any).qty_remaining_kg).toBe(500)
     expect(listSales(db)).toHaveLength(0)
   })
 
@@ -117,7 +118,7 @@ describe('createSale', () => {
     // view sees 0 sold, but the lot physically has 0 left. Must be rejected.
     expect(() => fillReservedSale(db, reserved1.id, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-05',
       lines: [line(a.id, 100, 90)] })).toThrow(/left in stock/)
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(0)
+    expect(remainingOf(db, a.id)).toBe(0)
   })
 
   it('rejects an invoice number whose FY does not match the invoice date', () => {
@@ -132,7 +133,7 @@ describe('createSale', () => {
     const a = lot('0001/2425', '2024-05-01', 1000)
     expect(() => createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10',
       lines: [line(a.id, -50, 80)] })).toThrow(/greater than zero/)
-    expect(getPurchase(db, a.id)!.qty_remaining_kg).toBe(1000)
+    expect(remainingOf(db, a.id)).toBe(1000)
     expect(listSales(db)).toHaveLength(0)
   })
 

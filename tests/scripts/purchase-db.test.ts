@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 // @ts-expect-error — plain ESM module, no types
 import { planImport, commitImport, ensureDescriptionColumn } from '../../scripts/purchase-db.mjs'
+import { listAvailableLots } from '../../src/main/core/available-lots'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -64,5 +65,23 @@ describe('commitImport', () => {
     ensureDescriptionColumn(db)
     const cols = db.prepare('PRAGMA table_info(purchases)').all() as Array<{ name: string }>
     expect(cols.some(c => c.name === 'description')).toBe(true)
+  })
+})
+
+describe('imported purchases are sellable stock', () => {
+  it('creates a purchase_item lot for every imported row', () => {
+    commitImport(db, [row()])
+    const items = db.prepare('SELECT * FROM purchase_items').all() as any[]
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ hsn_code: row().hsn_code, qty_kg: row().qty_kg, line_no: 1 })
+    // the lot starts full — nothing has been sold from it yet
+    expect(items[0].qty_remaining_kg).toBe(row().qty_kg)
+  })
+
+  it('shows the imported lot as available stock', () => {
+    commitImport(db, [row()])
+    const lots = listAvailableLots(db, '2099-01-01')
+    expect(lots).toHaveLength(1)
+    expect(lots[0].available_kg).toBe(row().qty_kg)
   })
 })

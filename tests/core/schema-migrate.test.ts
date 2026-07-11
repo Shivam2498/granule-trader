@@ -9,11 +9,11 @@ function freshDb(): Database.Database {
 }
 
 describe('schema migration — schema_version guard', () => {
-  it('sets schema_version to "1" on a fresh DB after initSchema', () => {
+  it('sets schema_version to the latest version on a fresh DB after initSchema', () => {
     const db = freshDb()
     initSchema(db)
     const row = db.prepare(`SELECT value FROM settings WHERE key = 'schema_version'`).get() as { value: string } | undefined
-    expect(row?.value).toBe('1')
+    expect(row?.value).toBe('2')
   })
 
   it('does NOT overwrite a legitimately 0%-rated sale_allocation on re-run', () => {
@@ -69,8 +69,8 @@ describe('schema migration — schema_version guard', () => {
     expect(alloc.hsn_code).toBe('3902')   // backfilled from purchase
     expect(alloc.gst_rate).toBe(12)        // backfilled from hsn_products
 
-    // And version is now set
+    // And version is now set — a versionless legacy DB is carried all the way to the latest
     const vRow = db.prepare(`SELECT value FROM settings WHERE key = 'schema_version'`).get() as { value: string }
-    expect(vRow.value).toBe('1')
+    expect(vRow.value).toBe('2')
   })
 })

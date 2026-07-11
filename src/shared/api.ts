@@ -1,4 +1,4 @@
-import type { Purchase, Customer, Supplier, Sale, SaleAllocation, HsnProduct, Settings, AvailableLot, LedgerRow } from './types'
+import type { Purchase, PurchaseItem, Customer, Supplier, Sale, SaleAllocation, HsnProduct, Settings, AvailableLot, LedgerRow } from './types'
 import type { NewPurchase } from '../main/core/purchase'   // type-only import; not bundled into renderer
 import type { NewSale } from '../main/core/sale'
 import type { AdjustmentRow } from '../main/core/adjustment'
@@ -14,6 +14,7 @@ export interface Api {
   createPurchase(input: NewPurchase): Promise<Purchase>
   updatePurchase(id: number, input: NewPurchase): Promise<Purchase>
   listPurchases(fyLabel?: string): Promise<Purchase[]>
+  getPurchaseItems(id: number): Promise<PurchaseItem[]>
   deletePurchase(id: number): Promise<void>
   // sales
   nextInvoiceNumber(date: string, prefix: string): Promise<string>
@@ -25,7 +26,7 @@ export interface Api {
   deleteSale(id: number): Promise<void>
   // stock
   stockLedger(): Promise<LedgerRow[]>
-  createStockAdjustment(input: { purchase_id: number; qty_kg: number; reason: string; date: string }): Promise<void>
+  createStockAdjustment(input: { purchase_item_id: number; qty_kg: number; reason: string; date: string }): Promise<void>
   listAdjustments(): Promise<AdjustmentRow[]>
   deleteAdjustment(id: number): Promise<void>
   // customers
@@ -51,7 +52,7 @@ declare global { interface Window { api: Api } }
 
 export const CHANNELS = [
   'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow','exportCsv',
-  'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
+  'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','getPurchaseItems','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
   'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','deleteHsn','listFinancialYears'

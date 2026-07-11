@@ -1,7 +1,7 @@
 import { ipcMain, dialog } from 'electron'
 import type Database from 'better-sqlite3'
 import { getSettings, saveSettings } from './core/reference'
-import { nextPurchaseCode, createPurchase, updatePurchase, listPurchases, deletePurchase } from './core/purchase'
+import { nextPurchaseCode, createPurchase, updatePurchase, listPurchases, getPurchaseItems, deletePurchase } from './core/purchase'
 import { nextInvoiceNumber } from './core/invoice-number'
 import { listAvailableLots } from './core/available-lots'
 import { createSale, fillReservedSale, listSales, getSale, getAllocations, deleteSale } from './core/sale'
@@ -53,6 +53,7 @@ export function registerIpc(ctx: IpcContext): void {
   h('createPurchase', (input) => createPurchase(db(), input))
   h('updatePurchase', (id, input) => updatePurchase(db(), id, input))
   h('listPurchases', (fyLabel) => listPurchases(db(), fyLabel))
+  h('getPurchaseItems', (id) => getPurchaseItems(db(), id))
   h('deletePurchase', (id) => deletePurchase(db(), id))
 
   h('nextInvoiceNumber', (date, prefix) => nextInvoiceNumber(db(), date, prefix))

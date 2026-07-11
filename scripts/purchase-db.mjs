@@ -53,6 +53,12 @@ export function commitImport(db, toInsert) {
      '', '', '', @qty_kg, @qty_kg, @rate_per_kg, @amount,
      @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount, 'done', NULL,
      @fy_label, @code_seq, @supplier_id)`)
+  // The CSV is one row per invoice, so an imported purchase has exactly one line — but that line
+  // still has to exist as a purchase_item, because the item IS the stock lot. Without it the
+  // imported purchase would carry no sellable stock at all.
+  const insItem = db.prepare(`INSERT INTO purchase_items
+    (purchase_id, hsn_code, description, qty_kg, qty_remaining_kg, rate_per_kg, amount, gst_rate, line_no)
+    VALUES (@purchase_id, @hsn_code, @description, @qty_kg, @qty_kg, @rate_per_kg, @amount, @gst_rate, 1)`)
 
   let inserted = 0, suppliersCreated = 0
   const run = db.transaction((rows) => {
@@ -62,12 +68,16 @@ export function commitImport(db, toInsert) {
       ensureHsn.run(r.hsn_code, r.gst_rate)
       // Bind only the columns the statement declares (r also carries `line` and `gst_rate`,
       // which are not bind parameters).
-      insPurchase.run({
+      const info = insPurchase.run({
         our_code: r.our_code, supplier_invoice_number: r.supplier_invoice_number, invoice_date: r.invoice_date,
         party: r.party, hsn_code: r.hsn_code, description: r.description, qty_kg: r.qty_kg,
         rate_per_kg: r.rate_per_kg, amount: r.amount, cgst: r.cgst, sgst: r.sgst, igst: r.igst, tcs: r.tcs,
         roundoff: r.roundoff, total_invoice_amount: r.total_invoice_amount, fy_label: r.fy_label,
         code_seq: r.code_seq, supplier_id: sup.id,
+      })
+      insItem.run({
+        purchase_id: Number(info.lastInsertRowid), hsn_code: r.hsn_code, description: r.description,
+        qty_kg: r.qty_kg, rate_per_kg: r.rate_per_kg, amount: r.amount, gst_rate: r.gst_rate
       })
       inserted++
     }

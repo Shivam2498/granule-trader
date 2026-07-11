@@ -8,7 +8,7 @@ import { reserveGaps, validateInvoiceOrder } from './invoice-validation'
 import { listAvailableLots } from './available-lots'
 
 export interface NewSaleLine {
-  purchase_id: number; qty_drawn_kg: number; rate_per_kg: number; hsn_code: string; gst_rate: number
+  purchase_item_id: number; qty_drawn_kg: number; rate_per_kg: number; hsn_code: string; gst_rate: number
 }
 export interface NewSale {
   invoice_number: string; invoice_date: string
@@ -53,28 +53,29 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   if (!order.ok) throw new Error(order.message)
 
   const avail = new Map(listAvailableLots(db, input.invoice_date, { excludeSaleId: existingReservedId ?? undefined })
-    .map(l => [l.purchase_id, l]))
+    .map(l => [l.purchase_item_id, l]))
   const requestedByLot = new Map<number, number>()
   for (const line of input.lines) {
     if (round2(line.qty_drawn_kg) <= 0)
       throw new Error(`Each line needs a quantity greater than zero.`)
-    const lot = avail.get(line.purchase_id)
+    const lot = avail.get(line.purchase_item_id)
     const have = lot?.available_kg ?? 0
     if (round2(line.qty_drawn_kg) > have)
-      throw new Error(`Lot ${lot?.our_code ?? line.purchase_id} only has ${have} kg available on ${input.invoice_date}.`)
+      throw new Error(`Lot ${lot?.our_code ?? line.purchase_item_id} only has ${have} kg available on ${input.invoice_date}.`)
     if (lot) lot.available_kg = round2(have - round2(line.qty_drawn_kg))
-    requestedByLot.set(line.purchase_id, round2((requestedByLot.get(line.purchase_id) ?? 0) + round2(line.qty_drawn_kg)))
+    requestedByLot.set(line.purchase_item_id, round2((requestedByLot.get(line.purchase_item_id) ?? 0) + round2(line.qty_drawn_kg)))
   }
 
   // Physical-stock safety net: the date-scoped check above can be fooled by back-dating
   // (a later-dated sale's draw is invisible to an earlier-dated one), so also verify the
   // draw never pushes the lot's running remaining quantity below zero.
-  for (const [purchaseId, requested] of requestedByLot) {
-    const lot = db.prepare('SELECT our_code, qty_remaining_kg FROM purchases WHERE id = ?')
-      .get(purchaseId) as { our_code: string; qty_remaining_kg: number } | undefined
+  for (const [itemId, requested] of requestedByLot) {
+    const lot = db.prepare(`SELECT p.our_code, i.qty_remaining_kg FROM purchase_items i
+      JOIN purchases p ON p.id = i.purchase_id WHERE i.id = ?`)
+      .get(itemId) as { our_code: string; qty_remaining_kg: number } | undefined
     const remaining = round2(lot?.qty_remaining_kg ?? 0)
     if (requested > remaining)
-      throw new Error(`Lot ${lot?.our_code ?? purchaseId} only has ${remaining} kg left in stock.`)
+      throw new Error(`Lot ${lot?.our_code ?? itemId} only has ${remaining} kg left in stock.`)
   }
 
   const tax = computeSaleTax({
@@ -123,12 +124,17 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
     saleId = Number(info.lastInsertRowid)
   }
 
-  const insAlloc = db.prepare(`INSERT INTO sale_allocations (sale_id, purchase_id, hsn_code, gst_rate, qty_drawn_kg, rate_per_kg, line_amount)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`)
-  const dec = db.prepare('UPDATE purchases SET qty_remaining_kg = round(qty_remaining_kg - ?, 2) WHERE id = ?')
+  const insAlloc = db.prepare(`INSERT INTO sale_allocations
+    (sale_id, purchase_id, purchase_item_id, hsn_code, gst_rate, qty_drawn_kg, rate_per_kg, line_amount)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+  const dec = db.prepare('UPDATE purchase_items SET qty_remaining_kg = round(qty_remaining_kg - ?, 2) WHERE id = ?')
+  const parentOf = db.prepare('SELECT purchase_id FROM purchase_items WHERE id = ?')
   for (const line of input.lines) {
-    insAlloc.run(saleId, line.purchase_id, line.hsn_code, line.gst_rate, round2(line.qty_drawn_kg), round2(line.rate_per_kg), round2(line.qty_drawn_kg * line.rate_per_kg))
-    dec.run(round2(line.qty_drawn_kg), line.purchase_id)
+    const parent = parentOf.get(line.purchase_item_id) as { purchase_id: number } | undefined
+    if (!parent) throw new Error(`We couldn't find one of the stock lots on this sale.`)
+    insAlloc.run(saleId, parent.purchase_id, line.purchase_item_id, line.hsn_code, line.gst_rate,
+      round2(line.qty_drawn_kg), round2(line.rate_per_kg), round2(line.qty_drawn_kg * line.rate_per_kg))
+    dec.run(round2(line.qty_drawn_kg), line.purchase_item_id)
   }
   return getSale(db, saleId)
 }
@@ -151,10 +157,14 @@ export function fillReservedSale(db: Database.Database, saleId: number, input: N
 
 export function deleteSale(db: Database.Database, id: number): void {
   const tx = db.transaction(() => {
-    const allocs = getAllocations(db, id)
-    const restore = db.prepare('UPDATE purchases SET qty_remaining_kg = round(qty_remaining_kg + ?, 2) WHERE id = ?')
-    for (const a of allocs) restore.run(a.qty_drawn_kg, a.purchase_id)
+    restoreStock(db, id)
     db.prepare('DELETE FROM sales WHERE id = ?').run(id)
   })
   tx()
+}
+
+/** Hands every quantity this sale drew back to the lot it came from. Caller supplies the transaction. */
+function restoreStock(db: Database.Database, saleId: number): void {
+  const restore = db.prepare('UPDATE purchase_items SET qty_remaining_kg = round(qty_remaining_kg + ?, 2) WHERE id = ?')
+  for (const a of getAllocations(db, saleId)) restore.run(a.qty_drawn_kg, a.purchase_item_id)
 }

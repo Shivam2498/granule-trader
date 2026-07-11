@@ -25,7 +25,6 @@ export default function NewSale() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [hsn, setHsn] = useState<HsnProduct[]>([])
   const [lots, setLots] = useState<AvailableLot[]>([])
-  const [purchaseCost, setPurchaseCost] = useState<Map<number, number>>(new Map())
   const [error, setError] = useState('')
 
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -43,9 +42,6 @@ export default function NewSale() {
   useEffect(() => { (async () => {
     try {
       setSettings(await window.api.getSettings()); setCustomers(await window.api.listCustomers()); setHsn(await window.api.listHsn())
-      // cost/kg per lot = purchase.amount / qty_kg (reference only)
-      const ps = await window.api.listPurchases()
-      setPurchaseCost(new Map(ps.map(p => [p.id, p.qty_kg > 0 ? p.amount / p.qty_kg : 0])))
       if (fillId) { const { sale } = await window.api.getSaleWithAllocations(fillId); setInvoiceNumber(sale.invoice_number); setInvoiceDate(sale.invoice_date ?? today()); setVehicle(sale.vehicle ?? '') }
     } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [fillId])
@@ -60,8 +56,8 @@ export default function NewSale() {
   const hsnRate = useMemo(() => new Map(hsn.map(h => [h.hsn_code, h.gst_rate])), [hsn])
 
   const lines = useMemo(() => lots
-    .filter(l => draw[l.purchase_id]?.include && (draw[l.purchase_id]?.qty ?? 0) > 0)
-    .map(l => ({ purchase_id: l.purchase_id, qty_drawn_kg: draw[l.purchase_id].qty, rate_per_kg: draw[l.purchase_id].rate,
+    .filter(l => draw[l.purchase_item_id]?.include && (draw[l.purchase_item_id]?.qty ?? 0) > 0)
+    .map(l => ({ purchase_item_id: l.purchase_item_id, qty_drawn_kg: draw[l.purchase_item_id].qty, rate_per_kg: draw[l.purchase_item_id].rate,
       hsn_code: l.hsn_code, gst_rate: hsnRate.get(l.hsn_code) ?? settings?.default_gst_rate ?? 18 })), [lots, draw, hsnRate, settings])
 
   const tax = computeSaleTax({ lines, placeOfSupplyState: placeOfSupply, homeState: settings?.home_state ?? '', roundoff })
@@ -71,7 +67,7 @@ export default function NewSale() {
     { label: intra ? 'IGST 0%' : 'IGST', value: tax.igst }
   ]
   const lotDraws = lots.map(l => {
-    const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
+    const d = draw[l.purchase_item_id] ?? { include: false, qty: 0, rate: 0 }
     return { include: d.include, qty: d.qty, rate: d.rate, available: l.available_kg }
   })
   const ewayRequired = ewayBillRequired(tax.total)
@@ -192,29 +188,29 @@ export default function NewSale() {
           </Table.Thead>
           <Table.Tbody>
             {lots.map(l => {
-              const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
+              const d = draw[l.purchase_item_id] ?? { include: false, qty: 0, rate: 0 }
               const amt = d.include ? d.qty * d.rate : 0
               const rowErr = lotDrawError({ include: d.include, qty: d.qty, rate: d.rate, available: l.available_kg })
               return (
-                <Table.Tr key={l.purchase_id}>
+                <Table.Tr key={l.purchase_item_id}>
                   <Table.Td>
                     <Checkbox
                       checked={d.include}
-                      onChange={e => setLine(l.purchase_id, { include: e.currentTarget.checked })}
+                      onChange={e => setLine(l.purchase_item_id, { include: e.currentTarget.checked })}
                     />
                   </Table.Td>
                   <Table.Td>{l.our_code}</Table.Td>
                   <Table.Td>{l.hsn_code}</Table.Td>
                   <Table.Td>{l.party}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>{l.available_kg}</Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>{formatINR(purchaseCost.get(l.purchase_id) ?? 0)}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatINR(l.rate_per_kg)}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
-                    {d.include ? <MoneyInput value={d.rate} onChange={n => setLine(l.purchase_id, { rate: n })} /> : '—'}
+                    {d.include ? <MoneyInput value={d.rate} onChange={n => setLine(l.purchase_item_id, { rate: n })} /> : '—'}
                   </Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     {d.include ? (
                       <>
-                        <MoneyInput value={d.qty} onChange={n => setLine(l.purchase_id, { qty: n })} />
+                        <MoneyInput value={d.qty} onChange={n => setLine(l.purchase_item_id, { qty: n })} />
                         {rowErr && <Text c="red" size="xs" mt={4}>{rowErr}</Text>}
                       </>
                     ) : '—'}

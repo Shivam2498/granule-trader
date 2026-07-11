@@ -31,6 +31,23 @@ export interface Purchase {
   supplier_id: number | null
 }
 
+/**
+ * One line of a supplier invoice — and the unit of stock. A purchase may carry several
+ * materials; each line is drawn down independently by sales and adjustments.
+ */
+export interface PurchaseItem {
+  id: number
+  purchase_id: number
+  hsn_code: string
+  description: string
+  qty_kg: number
+  qty_remaining_kg: number
+  rate_per_kg: number
+  amount: number
+  gst_rate: number
+  line_no: number
+}
+
 export interface Supplier {
   id: number
   name: string
@@ -63,7 +80,8 @@ export interface Customer {
 export interface SaleAllocation {
   id: number
   sale_id: number
-  purchase_id: number
+  purchase_id: number          // the parent purchase, kept for reporting
+  purchase_item_id: number     // the lot actually drawn from
   hsn_code: string
   gst_rate: number
   qty_drawn_kg: number
@@ -145,21 +163,27 @@ export interface TaxResult {
   total: number
 }
 
+/** A sellable lot = one purchase_item with stock left on a given date. */
 export interface AvailableLot {
+  purchase_item_id: number
   purchase_id: number
-  our_code: string
+  our_code: string            // '0007/2526', or '0007/2526-2' for line 2 of a multi-line purchase
   party: string
   hsn_code: string
+  description: string
   invoice_date: string
+  rate_per_kg: number         // what it cost us — reference only
   available_kg: number
 }
 
 export interface LedgerRow {
+  purchase_item_id: number
   purchase_id: number
   our_code: string
   hsn_code: string
   party: string
   invoice_date: string
+  rate_per_kg: number
   qty_kg: number
   consumed_kg: number
   balance_kg: number

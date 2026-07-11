@@ -16,7 +16,7 @@ export default function StockAdjust() {
   const [recent, setRecent] = useState<AdjustmentRow[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [adj, setAdj] = useState({ purchase_id: null as number | null, qty_kg: 0, reason: REASONS[0], date: today() })
+  const [adj, setAdj] = useState({ purchase_item_id: null as number | null, qty_kg: 0, reason: REASONS[0], date: today() })
 
   async function reload() {
     try { setLots(await window.api.stockLedger()); setRecent(await window.api.listAdjustments()) }
@@ -27,11 +27,11 @@ export default function StockAdjust() {
   async function save() {
     if (saving) return
     setError('')
-    if (!adj.purchase_id || adj.qty_kg <= 0) { setError('Please choose a lot and enter a quantity greater than 0.'); return }
+    if (!adj.purchase_item_id || adj.qty_kg <= 0) { setError('Please choose a lot and enter a quantity greater than 0.'); return }
     setSaving(true)
     try {
-      await window.api.createStockAdjustment({ purchase_id: adj.purchase_id, qty_kg: adj.qty_kg, reason: adj.reason, date: adj.date })
-      setAdj({ purchase_id: null, qty_kg: 0, reason: REASONS[0], date: today() }); await reload()
+      await window.api.createStockAdjustment({ purchase_item_id: adj.purchase_item_id, qty_kg: adj.qty_kg, reason: adj.reason, date: adj.date })
+      setAdj({ purchase_item_id: null, qty_kg: 0, reason: REASONS[0], date: today() }); await reload()
     } catch (e: any) { setError(e.message ?? String(e)) }
     finally { setSaving(false) }
   }
@@ -62,9 +62,9 @@ export default function StockAdjust() {
         <Text fw={600} mb="md">Record an adjustment</Text>
         <Select
           label="Lot"
-          data={lots.map(r => ({ value: String(r.purchase_id), label: `${r.our_code} (${r.hsn_code}) — ${r.balance_kg} kg left` }))}
-          value={adj.purchase_id ? String(adj.purchase_id) : null}
-          onChange={v => setAdj({ ...adj, purchase_id: v ? Number(v) : null })}
+          data={lots.map(r => ({ value: String(r.purchase_item_id), label: `${r.our_code} (${r.hsn_code}) — ${r.balance_kg} kg left` }))}
+          value={adj.purchase_item_id ? String(adj.purchase_item_id) : null}
+          onChange={v => setAdj({ ...adj, purchase_item_id: v ? Number(v) : null })}
           mb="sm"
         />
         <Input.Wrapper label="Quantity removed (kg)" mb="sm">
