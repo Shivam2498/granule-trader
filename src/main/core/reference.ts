@@ -38,6 +38,22 @@ export function upsertHsn(db: Database.Database, h: HsnProduct): void {
     .run(h.hsn_code, h.description, h.gst_rate)
 }
 
+// An HSN code is referenced by name (not by foreign key) from purchases and from the
+// gst_rate snapshot on sale_allocations. Deleting one that is still in use would leave
+// old invoices printing a blank description, so refuse and name who is using it.
+export function deleteHsn(db: Database.Database, code: string): void {
+  const purchases = (db.prepare('SELECT COUNT(*) AS n FROM purchases WHERE hsn_code = ?').get(code) as { n: number }).n
+  const invoices = (db.prepare('SELECT COUNT(DISTINCT sale_id) AS n FROM sale_allocations WHERE hsn_code = ?').get(code) as { n: number }).n
+  if (purchases > 0 || invoices > 0) {
+    const used = [
+      purchases > 0 ? `${purchases} purchase${purchases === 1 ? '' : 's'}` : null,
+      invoices > 0 ? `${invoices} invoice${invoices === 1 ? '' : 's'}` : null
+    ].filter(Boolean).join(' and ')
+    throw new Error(`Product ${code} is used by ${used}, so it can't be deleted. You can still change its description or GST %.`)
+  }
+  db.prepare('DELETE FROM hsn_products WHERE hsn_code = ?').run(code)
+}
+
 export function getHsnRate(db: Database.Database, code: string, fallback: number): number {
   const r = db.prepare('SELECT gst_rate FROM hsn_products WHERE hsn_code = ?').get(code) as { gst_rate: number } | undefined
   return r ? r.gst_rate : fallback
