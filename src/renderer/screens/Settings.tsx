@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Table, Checkbox, Center, Loader } from '@mantine/core'
+import { Paper, Title, TextInput, Textarea, Input, Button, Group, SimpleGrid, Checkbox, Center, Loader } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import type { Settings as S, HsnProduct } from '@shared/types'
+import type { Settings as S } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
 import { vGstin, vPhone, vPincode } from '../lib/formValidators'
 import MoneyInput from '../components/MoneyInput'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
-import ListTable from '../components/ListTable'
+import HsnEditor from '../components/HsnEditor'
 
 export default function Settings() {
   const form = useForm<S & { godown_same: boolean }>({
@@ -29,15 +29,12 @@ export default function Settings() {
     }
   })
   const [loaded, setLoaded] = useState(false)
-  const [hsn, setHsn] = useState<HsnProduct[]>([])
-  const [newHsn, setNewHsn] = useState<HsnProduct>({ hsn_code: '', description: '', gst_rate: 18 })
 
   async function reload() {
     const settings = await window.api.getSettings()
     const godown = (settings.seller_godown_address ?? '').trim()
     form.setValues({ ...settings, godown_same: !godown || godown === (settings.seller_address ?? '').trim() })
     setLoaded(true)
-    setHsn(await window.api.listHsn())
   }
   useEffect(() => { reload() }, [])
   if (!loaded) return <Center h="60vh"><Loader /></Center>
@@ -59,19 +56,6 @@ export default function Settings() {
       notifications.show({ message: `Backup failed: ${(e as Error).message}`, color: 'red' })
     }
   }
-  async function addHsn() {
-    if (!newHsn.hsn_code.trim()) return
-    try {
-      await window.api.upsertHsn(newHsn)
-      setNewHsn({ hsn_code: '', description: '', gst_rate: 18 })
-      // Only refresh the HSN list — calling reload() here would reset the business form
-      // and silently discard any unsaved edits the user has in progress.
-      setHsn(await window.api.listHsn())
-    } catch (e) {
-      notifications.show({ message: `Couldn't add product: ${(e as Error).message}`, color: 'red' })
-    }
-  }
-
   return (
     <div>
       <h1>Settings</h1>
@@ -135,27 +119,7 @@ export default function Settings() {
         </Group>
       </Paper>
 
-      <Paper withBorder p="lg" radius="md" mb="md">
-        <Title order={2} mb="sm">Products (HSN)</Title>
-        <ListTable head={<><Table.Th>HSN</Table.Th><Table.Th>Description</Table.Th><Table.Th>GST %</Table.Th></>}>
-          {hsn.map(h => (
-            <Table.Tr key={h.hsn_code}>
-              <Table.Td>{h.hsn_code}</Table.Td>
-              <Table.Td>{h.description}</Table.Td>
-              <Table.Td>{h.gst_rate}</Table.Td>
-            </Table.Tr>
-          ))}
-          {hsn.length === 0 && <Table.Tr><Table.Td colSpan={3} c="dimmed">No products yet.</Table.Td></Table.Tr>}
-        </ListTable>
-        <Group mt="md" align="flex-end">
-          <TextInput label="HSN code" value={newHsn.hsn_code} onChange={e => setNewHsn({ ...newHsn, hsn_code: e.currentTarget.value })} />
-          <TextInput label="Description" style={{ flex: 1 }} value={newHsn.description} onChange={e => setNewHsn({ ...newHsn, description: e.currentTarget.value })} />
-          <Input.Wrapper label="GST %">
-            <MoneyInput value={newHsn.gst_rate} onChange={n => setNewHsn({ ...newHsn, gst_rate: n })} />
-          </Input.Wrapper>
-          <Button onClick={addHsn}>Add / update</Button>
-        </Group>
-      </Paper>
+      <HsnEditor />
     </div>
   )
 }
