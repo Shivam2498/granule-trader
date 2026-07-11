@@ -36,10 +36,10 @@ export function saleFormError(s: SaleFormState): string {
   if (!s.invoiceNumber.trim()) return 'Enter an invoice number.'
   if (!s.hasBuyer) return 'Please choose a buyer.'
   if (!s.vehicle.trim()) return 'Enter the vehicle number.'
-  // "ticked" = the checkbox is on. A ticked-but-empty lot is not "no lot chosen";
+  // A lot is on the sale simply by having been added. An added-but-empty lot is not "no lot chosen";
   // it falls through to the per-lot loop below, which asks for its quantity.
   const ticked = s.lots.filter(l => l.include)
-  if (ticked.length === 0) return 'Tick at least one stock lot, then enter its quantity and selling rate.'
+  if (ticked.length === 0) return 'Add at least one stock lot, then enter its quantity and selling rate.'
   for (const l of s.lots) {
     const e = lotDrawError(l)
     if (e) return e

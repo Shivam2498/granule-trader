@@ -40,9 +40,9 @@ describe('saleFormError', () => {
   it('requires a vehicle number', () => {
     expect(saleFormError({ ...okForm(), vehicle: '   ' })).toBe('Enter the vehicle number.')
   })
-  it('asks to tick a lot only when none is ticked', () => {
+  it('asks to add a lot only when none is chosen', () => {
     expect(saleFormError({ ...okForm(), lots: [lot({ include: false })] }))
-      .toBe('Tick at least one stock lot, then enter its quantity and selling rate.')
+      .toBe('Add at least one stock lot, then enter its quantity and selling rate.')
   })
   it('asks for the quantity when the only ticked lot has none', () => {
     expect(saleFormError({ ...okForm(), lots: [lot({ include: true, qty: 0 })] }))
@@ -81,7 +81,7 @@ describe('saleFormError', () => {
     })
     it('asks for the lots before the e-way bill, since the total depends on them', () => {
       expect(saleFormError({ ...okForm(), total: 53100, lots: [lot({ include: false })] }))
-        .toBe('Tick at least one stock lot, then enter its quantity and selling rate.')
+        .toBe('Add at least one stock lot, then enter its quantity and selling rate.')
     })
   })
 })
