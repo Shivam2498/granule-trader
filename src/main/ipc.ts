@@ -8,7 +8,7 @@ import { createSale, fillReservedSale, listSales, getSale, getAllocations, delet
 import { stockLedger, createStockAdjustment, listAdjustments, deleteAdjustment } from './core/adjustment'
 import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from './core/customers'
 import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from './core/suppliers'
-import { listHsn, upsertHsn } from './core/reference'
+import { listHsn, upsertHsn, deleteHsn } from './core/reference'
 import { createBackup } from './core/backup'
 import { listFinancialYears } from './core/financial-year'
 import { join, dirname } from 'path'
@@ -80,6 +80,7 @@ export function registerIpc(ctx: IpcContext): void {
 
   h('listHsn', () => listHsn(db()))
   h('upsertHsn', (hh) => upsertHsn(db(), hh))
+  h('deleteHsn', (code) => deleteHsn(db(), code))
 
   h('listFinancialYears', () => listFinancialYears(db()))
 }

@@ -41,6 +41,7 @@ export interface Api {
   // hsn
   listHsn(): Promise<HsnProduct[]>
   upsertHsn(h: HsnProduct): Promise<void>
+  deleteHsn(code: string): Promise<void>
   // financial years
   listFinancialYears(): Promise<string[]>
   // export
@@ -53,5 +54,5 @@ export const CHANNELS = [
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','deletePurchase',
   'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
-  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','listFinancialYears'
+  'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','deleteHsn','listFinancialYears'
 ] as const
