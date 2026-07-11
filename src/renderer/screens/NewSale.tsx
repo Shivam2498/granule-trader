@@ -5,7 +5,7 @@ import {
   Select, Table, Text, TextInput
 } from '@mantine/core'
 import type { Customer, AvailableLot, Settings, HsnProduct } from '@shared/types'
-import { computeSaleTax } from '@shared/tax'
+import { computeSaleTax, ewayBillRequired, EWAY_BILL_THRESHOLD } from '@shared/tax'
 import { placeOfSupplyState } from '../../main/core/customers'
 import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
@@ -74,7 +74,9 @@ export default function NewSale() {
     const d = draw[l.purchase_id] ?? { include: false, qty: 0, rate: 0 }
     return { include: d.include, qty: d.qty, rate: d.rate, available: l.available_kg }
   })
-  const formError = saleFormError({ invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws })
+  const ewayRequired = ewayBillRequired(tax.total)
+  const formState = { invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws, total: tax.total, ewayNo, ewayDate }
+  const formError = saleFormError(formState)
 
   function setLine(pid: number, patch: Partial<Draw>) {
     setDraw(d => {
@@ -86,7 +88,7 @@ export default function NewSale() {
   async function save(thenInvoice: boolean) {
     if (saving) return
     setError('')
-    const fe = saleFormError({ invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws })
+    const fe = saleFormError(formState)
     if (fe) { setError(fe); return }
     if (!buyer) return
     setSaving(true)
@@ -146,13 +148,26 @@ export default function NewSale() {
             <Text size="xs" c="dimmed" mt={4}>To edit these, open the Customers screen.</Text>
           </Paper>
         )}
-        <Button variant="subtle" size="xs" onClick={() => setShowOptional(s => !s)} mb="xs">
-          {showOptional ? '▾' : '▸'} Optional (e-way bill)
+        {/* Over the GST threshold the e-way bill stops being optional, so the section opens itself
+            and stays open — a required field hidden behind a collapsed toggle is a trap. */}
+        <Button variant="subtle" size="xs" onClick={() => setShowOptional(s => !s)} mb="xs" disabled={ewayRequired}>
+          {showOptional || ewayRequired ? '▾' : '▸'}{' '}
+          {ewayRequired ? `E-way bill (required — this sale is over ${formatINR(EWAY_BILL_THRESHOLD)})` : 'Optional (e-way bill)'}
         </Button>
-        <Collapse in={showOptional}>
+        <Collapse in={showOptional || ewayRequired}>
           <Group grow align="flex-start" mt="xs">
-            <TextInput label="E-way bill no." value={ewayNo} onChange={e => setEwayNo(e.currentTarget.value)} />
-            <Input.Wrapper label="E-way bill date">
+            <TextInput
+              label="E-way bill no."
+              withAsterisk={ewayRequired}
+              value={ewayNo}
+              onChange={e => setEwayNo(e.currentTarget.value)}
+              error={ewayRequired && !ewayNo.trim() ? 'Required over ₹50,000.' : undefined}
+            />
+            <Input.Wrapper
+              label="E-way bill date"
+              withAsterisk={ewayRequired}
+              error={ewayRequired && !ewayDate.trim() ? 'Required over ₹50,000.' : undefined}
+            >
               <DateField value={ewayDate} onChange={setEwayDate} />
             </Input.Wrapper>
           </Group>

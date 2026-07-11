@@ -1,4 +1,6 @@
 // Pure save-gating logic for the New Sale screen. No React, no window.api — unit-tested.
+import { EWAY_BILL_THRESHOLD, ewayBillRequired } from '@shared/tax'
+import { formatINR } from './format'
 
 /** One lot row's draw, paired with how much stock that lot still has. */
 export interface LotDraw {
@@ -14,6 +16,10 @@ export interface SaleFormState {
   hasBuyer: boolean
   vehicle: string
   lots: LotDraw[]
+  /** Invoice total incl. GST and round-off — what the e-way bill threshold is measured against. */
+  total: number
+  ewayNo: string
+  ewayDate: string
 }
 
 /** Per-lot message for a ticked row. Empty string means the row is fine (or not ticked). */
@@ -37,6 +43,13 @@ export function saleFormError(s: SaleFormState): string {
   for (const l of s.lots) {
     const e = lotDrawError(l)
     if (e) return e
+  }
+  // Checked last on purpose: the total is only meaningful once the lots are settled, so asking
+  // for an e-way bill before then would nag about a figure the user hasn't finished building.
+  if (ewayBillRequired(s.total)) {
+    const over = `This sale comes to ${formatINR(s.total)}, which is over ${formatINR(EWAY_BILL_THRESHOLD)}`
+    if (!s.ewayNo.trim()) return `${over} — enter the e-way bill number.`
+    if (!s.ewayDate.trim()) return `${over} — enter the e-way bill date.`
   }
   return ''
 }

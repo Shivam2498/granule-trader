@@ -1,4 +1,21 @@
 import { describe, it, expect } from 'vitest'
+import { EWAY_BILL_THRESHOLD, ewayBillRequired } from '../../src/shared/tax'
+
+describe('ewayBillRequired', () => {
+  it('is not required below the threshold', () => {
+    expect(ewayBillRequired(49999.99)).toBe(false)
+  })
+  it('is not required exactly at the threshold', () => {
+    expect(ewayBillRequired(EWAY_BILL_THRESHOLD)).toBe(false)   // the rule is "exceeds 50,000"
+  })
+  it('is required above the threshold', () => {
+    expect(ewayBillRequired(50000.01)).toBe(true)
+    expect(ewayBillRequired(53100)).toBe(true)
+  })
+  it('uses the statutory 50,000 figure', () => {
+    expect(EWAY_BILL_THRESHOLD).toBe(50000)
+  })
+})
 import { computeTax, computeSaleTax } from '../../src/shared/tax'
 
 describe('computeTax (purchases, single rate)', () => {

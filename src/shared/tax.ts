@@ -1,6 +1,17 @@
 import { round2 } from './money'
 import type { TaxResult } from './types'
 
+/**
+ * GST requires an e-way bill once a consignment's value exceeds ₹50,000. "Value" is the
+ * invoice total the buyer pays — taxable amount plus GST plus round-off — not the pre-tax
+ * amount, so a ₹45,000 sale at 18% crosses the line at ₹53,100.
+ */
+export const EWAY_BILL_THRESHOLD = 50000
+
+export function ewayBillRequired(invoiceTotal: number): boolean {
+  return invoiceTotal > EWAY_BILL_THRESHOLD
+}
+
 export interface ComputeTaxInput {
   amount: number; gstRate: number
   placeOfSupplyState: string; homeState: string

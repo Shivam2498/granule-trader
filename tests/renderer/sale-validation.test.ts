@@ -26,7 +26,10 @@ describe('lotDrawError', () => {
 })
 
 describe('saleFormError', () => {
-  const okForm = () => ({ invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234', lots: [lot({ qty: 50, rate: 8 })] })
+  const okForm = () => ({
+    invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234', lots: [lot({ qty: 50, rate: 8 })],
+    total: 472, ewayNo: '', ewayDate: ''
+  })
 
   it('requires an invoice number', () => {
     expect(saleFormError({ ...okForm(), invoiceNumber: '   ' })).toBe('Enter an invoice number.')
@@ -55,5 +58,30 @@ describe('saleFormError', () => {
   })
   it('returns empty for a fully valid form', () => {
     expect(saleFormError(okForm())).toBe('')
+  })
+
+  describe('e-way bill over ₹50,000', () => {
+    it('does not ask for an e-way bill at or below the threshold', () => {
+      expect(saleFormError({ ...okForm(), total: 50000 })).toBe('')
+    })
+    it('requires the e-way bill number once the invoice total passes 50,000', () => {
+      expect(saleFormError({ ...okForm(), total: 53100 }))
+        .toBe('This sale comes to ₹53,100.00, which is over ₹50,000.00 — enter the e-way bill number.')
+    })
+    it('then requires the e-way bill date', () => {
+      expect(saleFormError({ ...okForm(), total: 53100, ewayNo: '391000123456' }))
+        .toBe('This sale comes to ₹53,100.00, which is over ₹50,000.00 — enter the e-way bill date.')
+    })
+    it('is satisfied once both the number and date are filled in', () => {
+      expect(saleFormError({ ...okForm(), total: 53100, ewayNo: '391000123456', ewayDate: '2024-05-10' })).toBe('')
+    })
+    it('treats blank-but-spaces as missing', () => {
+      expect(saleFormError({ ...okForm(), total: 53100, ewayNo: '   ' }))
+        .toContain('enter the e-way bill number')
+    })
+    it('asks for the lots before the e-way bill, since the total depends on them', () => {
+      expect(saleFormError({ ...okForm(), total: 53100, lots: [lot({ include: false })] }))
+        .toBe('Tick at least one stock lot, then enter its quantity and selling rate.')
+    })
   })
 })
