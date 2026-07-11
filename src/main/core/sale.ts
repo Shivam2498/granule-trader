@@ -32,7 +32,14 @@ export function listSales(db: Database.Database, fyLabel?: string): Sale[] {
     : db.prepare('SELECT * FROM sales ORDER BY fy_label DESC, seq DESC').all()) as Sale[]
 }
 
-function writeSale(db: Database.Database, input: NewSale, existingReservedId: number | null): Sale {
+/**
+ * Identifies a sale row that writeSale should overwrite rather than insert, and the status it must
+ * be in. 'reserved' = filling a gap placeholder; 'created' = editing an issued invoice.
+ */
+interface ExistingSale { id: number; expect: 'reserved' | 'created' }
+
+function writeSale(db: Database.Database, input: NewSale, existing: ExistingSale | null): Sale {
+  const existingId = existing?.id ?? null
   const parsed = parseInvoiceNumber(input.invoice_number)
   if (!parsed) throw new Error(`Please enter the invoice number in the format RP/008/2024-25.`)
   const { prefix, seq, fyLabel } = parsed
@@ -46,13 +53,13 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   // Friendly duplicate-invoice guard (the DB also enforces UNIQUE(fy_label, seq),
   // but we surface a readable message instead of the raw SqliteError).
   const dupe = db.prepare('SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND id IS NOT ?')
-    .get(fyLabel, seq, existingReservedId ?? null)
+    .get(fyLabel, seq, existingId)
   if (dupe) throw new Error(`Invoice number ${input.invoice_number} already exists.`)
 
-  const order = validateInvoiceOrder(db, { fyLabel, seq, invoiceDate: input.invoice_date, excludeSaleId: existingReservedId ?? undefined })
+  const order = validateInvoiceOrder(db, { fyLabel, seq, invoiceDate: input.invoice_date, excludeSaleId: existingId ?? undefined })
   if (!order.ok) throw new Error(order.message)
 
-  const avail = new Map(listAvailableLots(db, input.invoice_date, { excludeSaleId: existingReservedId ?? undefined })
+  const avail = new Map(listAvailableLots(db, input.invoice_date, { excludeSaleId: existingId ?? undefined })
     .map(l => [l.purchase_item_id, l]))
   const requestedByLot = new Map<number, number>()
   for (const line of input.lines) {
@@ -99,9 +106,13 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
   }
 
   let saleId: number
-  if (existingReservedId != null) {
-    const existing = db.prepare('SELECT status FROM sales WHERE id = ?').get(existingReservedId) as { status: string } | undefined
-    if (!existing || existing.status !== 'reserved') throw new Error('Can only fill a reserved invoice.')
+  if (existing != null) {
+    const row = db.prepare('SELECT status FROM sales WHERE id = ?').get(existing.id) as { status: string } | undefined
+    if (!row) throw new Error(`We couldn't find that invoice.`)
+    if (row.status !== existing.expect)
+      throw new Error(existing.expect === 'reserved'
+        ? 'Can only fill a reserved invoice.'
+        : 'That invoice number is reserved but not yet filled in. Fill it in instead of editing it.')
     db.prepare(`UPDATE sales SET invoice_number=@invoice_number, prefix=@prefix, seq=@seq, fy_label=@fy_label,
       status=@status, invoice_date=@invoice_date, eway_bill_no=@eway_bill_no, eway_bill_date=@eway_bill_date,
       vehicle=@vehicle, buyer_customer_id=@buyer_customer_id, buyer_name=@buyer_name, buyer_gstin=@buyer_gstin,
@@ -109,8 +120,8 @@ function writeSale(db: Database.Database, input: NewSale, existingReservedId: nu
       place_of_supply_state=@place_of_supply_state,
       amount=@amount, cgst=@cgst, sgst=@sgst, igst=@igst, tcs=@tcs, roundoff=@roundoff,
       total_invoice_amount=@total_invoice_amount, total_qty_kg=@total_qty_kg, payment_status=@payment_status,
-      payment_date=@payment_date WHERE id=@id`).run({ ...fields, id: existingReservedId })
-    saleId = existingReservedId
+      payment_date=@payment_date WHERE id=@id`).run({ ...fields, id: existing.id })
+    saleId = existing.id
     db.prepare('DELETE FROM sale_allocations WHERE sale_id = ?').run(saleId)
   } else {
     const info = db.prepare(`INSERT INTO sales (invoice_number, prefix, seq, fy_label, status, invoice_date,
@@ -145,13 +156,35 @@ export function createSale(db: Database.Database, input: NewSale): Sale {
     const reserved = parsed
       ? db.prepare(`SELECT id FROM sales WHERE fy_label = ? AND seq = ? AND status = 'reserved'`).get(parsed.fyLabel, parsed.seq) as { id: number } | undefined
       : undefined
-    return writeSale(db, input, reserved?.id ?? null)
+    return writeSale(db, input, reserved ? { id: reserved.id, expect: 'reserved' } : null)
   })
   return tx()
 }
 
 export function fillReservedSale(db: Database.Database, saleId: number, input: NewSale): Sale {
-  const tx = db.transaction(() => writeSale(db, input, saleId))
+  const tx = db.transaction(() => writeSale(db, input, { id: saleId, expect: 'reserved' }))
+  return tx()
+}
+
+/**
+ * Edits an issued invoice. The old stock draw is handed back to its lots BEFORE the new one is
+ * validated — otherwise re-saving a sale with the same lots would fail its own availability check,
+ * since its existing draw would still be counted against it.
+ *
+ * The whole thing runs in one transaction, so a rejected edit leaves the original draw intact.
+ * The invoice number is fixed: renumbering an issued invoice would break the gap-free sequence.
+ */
+export function updateSale(db: Database.Database, saleId: number, input: NewSale): Sale {
+  const tx = db.transaction(() => {
+    const current = getSale(db, saleId)
+    if (!current) throw new Error(`We couldn't find that invoice.`)
+    if (current.invoice_number !== input.invoice_number)
+      throw new Error(`An invoice number can't be changed once it has been issued. This invoice is ${current.invoice_number}.`)
+
+    restoreStock(db, saleId)
+    db.prepare('DELETE FROM sale_allocations WHERE sale_id = ?').run(saleId)
+    return writeSale(db, input, { id: saleId, expect: 'created' })
+  })
   return tx()
 }
 

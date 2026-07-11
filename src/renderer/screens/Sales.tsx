@@ -67,6 +67,7 @@ export default function Sales() {
                   <Table.Td>
                     <Group gap="xs" justify="flex-end">
                       <Button variant="subtle" size="compact-sm" onClick={() => nav(`/invoice/${s.id}`)}>Preview / PDF</Button>
+                      <Button variant="subtle" size="compact-sm" onClick={() => nav(`/sales/edit/${s.id}`)}>Edit</Button>
                       <Button variant="subtle" color="red" size="compact-sm" onClick={() => remove(s.id)}>Delete</Button>
                     </Group>
                   </Table.Td>

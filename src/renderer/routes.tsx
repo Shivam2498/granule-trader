@@ -22,6 +22,7 @@ export default function AppRoutes() {
       <Route path="/sales" element={<Sales />} />
       <Route path="/sales/new" element={<NewSale />} />
       <Route path="/sales/fill/:id" element={<NewSale />} />
+      <Route path="/sales/edit/:id" element={<NewSale />} />
       <Route path="/stock" element={<Stock />} />
       <Route path="/stock/adjust" element={<StockAdjust />} />
       <Route path="/customers" element={<Customers />} />

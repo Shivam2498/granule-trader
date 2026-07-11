@@ -4,7 +4,7 @@ import { getSettings, saveSettings } from './core/reference'
 import { nextPurchaseCode, createPurchase, updatePurchase, listPurchases, getPurchaseItems, deletePurchase } from './core/purchase'
 import { nextInvoiceNumber } from './core/invoice-number'
 import { listAvailableLots } from './core/available-lots'
-import { createSale, fillReservedSale, listSales, getSale, getAllocations, deleteSale } from './core/sale'
+import { createSale, fillReservedSale, updateSale, listSales, getSale, getAllocations, deleteSale } from './core/sale'
 import { stockLedger, createStockAdjustment, listAdjustments, deleteAdjustment } from './core/adjustment'
 import { listCustomers, createCustomer, updateCustomer, deleteCustomer } from './core/customers'
 import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from './core/suppliers'
@@ -60,6 +60,7 @@ export function registerIpc(ctx: IpcContext): void {
   h('listAvailableLots', (asOfDate, excludeSaleId) => listAvailableLots(db(), asOfDate, { excludeSaleId }))
   h('createSale', (input) => createSale(db(), input))
   h('fillReservedSale', (id, input) => fillReservedSale(db(), id, input))
+  h('updateSale', (id, input) => updateSale(db(), id, input))
   h('listSales', (fyLabel) => listSales(db(), fyLabel))
   h('getSaleWithAllocations', (id) => ({ sale: getSale(db(), id), allocations: getAllocations(db(), id) }))
   h('deleteSale', (id) => deleteSale(db(), id))

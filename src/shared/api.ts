@@ -21,6 +21,7 @@ export interface Api {
   listAvailableLots(asOfDate: string, excludeSaleId?: number): Promise<AvailableLot[]>
   createSale(input: NewSale): Promise<Sale>
   fillReservedSale(id: number, input: NewSale): Promise<Sale>
+  updateSale(id: number, input: NewSale): Promise<Sale>
   listSales(fyLabel?: string): Promise<Sale[]>
   getSaleWithAllocations(id: number): Promise<{ sale: Sale; allocations: SaleAllocation[] }>
   deleteSale(id: number): Promise<void>
@@ -53,7 +54,7 @@ declare global { interface Window { api: Api } }
 export const CHANNELS = [
   'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow','exportCsv',
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','getPurchaseItems','deletePurchase',
-  'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
+  'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','updateSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
   'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','deleteHsn','listFinancialYears'
 ] as const

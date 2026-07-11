@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { openDatabase } from '../../src/main/db/connection'
 import { createPurchase, getPurchase } from '../../src/main/core/purchase'
 import { mkPurchase, editPurchase, lotIdOf, remainingOf } from '../helpers/purchase'
-import { createSale, fillReservedSale, listSales, deleteSale, getAllocations, getSale } from '../../src/main/core/sale'
+import { createSale, fillReservedSale, updateSale, listSales, deleteSale, getAllocations, getSale } from '../../src/main/core/sale'
 
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
@@ -162,5 +162,80 @@ describe('listSales FY filter', () => {
     expect(listSales(db).length).toBeGreaterThanOrEqual(2)
     expect(listSales(db, '2024-25').every(s => s.fy_label === '2024-25')).toBe(true)
     expect(listSales(db, '2024-25')).toHaveLength(1)
+  })
+})
+
+describe('updateSale', () => {
+  const base = (lines: any[]) => ({
+    ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10', lines
+  })
+
+  it('re-saves an unchanged sale without tripping its own availability check', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, base([line(a.id, 600, 80)]))
+    // The old draw must be returned BEFORE the new one is validated, or the sale's own 600 kg
+    // would still be counted against it and a no-op edit would fail.
+    expect(() => updateSale(db, s.id, base([line(a.id, 600, 80)]))).not.toThrow()
+    expect(remainingOf(db, a.id)).toBe(400)
+  })
+
+  it('returns stock to the old lot and draws from the new one', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const b = lot('0002/2425', '2024-05-02', 1000)
+    const s = createSale(db, base([line(a.id, 600, 80)]))
+    expect(remainingOf(db, a.id)).toBe(400)
+
+    updateSale(db, s.id, base([line(b.id, 250, 95)]))
+    expect(remainingOf(db, a.id)).toBe(1000)   // fully restored
+    expect(remainingOf(db, b.id)).toBe(750)
+  })
+
+  it('recomputes the totals from the new lines', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, base([line(a.id, 600, 80)]))
+    const updated = updateSale(db, s.id, base([line(a.id, 100, 50)]))
+    expect(updated.amount).toBe(5000)
+    expect(updated.total_qty_kg).toBe(100)
+    expect(updated.cgst).toBe(450)             // 9% of 5000
+    expect(getAllocations(db, s.id)).toHaveLength(1)
+  })
+
+  it('rolls back completely when the new lines are not valid', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const b = lot('0002/2425', '2024-05-02', 100)
+    const s = createSale(db, base([line(a.id, 600, 80)]))
+
+    expect(() => updateSale(db, s.id, base([line(b.id, 999, 80)]))).toThrow(/only has/)
+    // the original draw survives untouched — no stock was left floating
+    expect(remainingOf(db, a.id)).toBe(400)
+    expect(remainingOf(db, b.id)).toBe(100)
+    expect(getAllocations(db, s.id)).toHaveLength(1)
+    expect(getSale(db, s.id).total_qty_kg).toBe(600)
+  })
+
+  it('refuses to renumber an issued invoice', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, base([line(a.id, 100, 80)]))
+    expect(() => updateSale(db, s.id, { ...base([line(a.id, 100, 80)]), invoice_number: 'RP/009/2024-25' }))
+      .toThrow(/can't be changed once it has been issued/)
+  })
+
+  it('can change the buyer and the date', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, base([line(a.id, 100, 80)]))
+    const updated = updateSale(db, s.id, {
+      ...base([line(a.id, 100, 80)]), buyer_name: 'New Buyer', invoice_date: '2024-05-20'
+    })
+    expect(updated.buyer_name).toBe('New Buyer')
+    expect(updated.invoice_date).toBe('2024-05-20')
+  })
+
+  it('will not edit a reserved invoice — it must be filled instead', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    createSale(db, { ...sbase, invoice_number: 'RP/003/2024-25', invoice_date: '2024-05-10', lines: [line(a.id, 100, 80)] })
+    const reserved = listSales(db).find(x => x.status === 'reserved')!
+    expect(() => updateSale(db, reserved.id, {
+      ...sbase, invoice_number: reserved.invoice_number, invoice_date: '2024-05-10', lines: [line(a.id, 50, 80)]
+    })).toThrow(/Fill it in instead/)
   })
 })

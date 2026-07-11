@@ -4,7 +4,7 @@ import { CHANNELS } from '../../src/shared/api'
 const API_METHODS = [
   'needsSetup','chooseDataFolder','getSettings','saveSettings','backupNow',
   'nextPurchaseCode','createPurchase','updatePurchase','listPurchases','getPurchaseItems','deletePurchase',
-  'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','listSales',
+  'nextInvoiceNumber','listAvailableLots','createSale','fillReservedSale','updateSale','listSales',
   'getSaleWithAllocations','deleteSale','stockLedger','createStockAdjustment','listAdjustments','deleteAdjustment',
   'listCustomers','createCustomer','updateCustomer','deleteCustomer','listSuppliers','createSupplier','updateSupplier','deleteSupplier','listHsn','upsertHsn','deleteHsn','listFinancialYears','exportCsv'
 ]

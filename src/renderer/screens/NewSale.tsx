@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   Alert, Button, Center, Collapse, Group, Input, Loader, Paper,
   Select, Text, TextInput
@@ -18,7 +18,13 @@ import { saleFormError } from '../lib/sale-validation'
 export default function NewSale() {
   const nav = useNavigate()
   const { id } = useParams()
-  const fillId = id ? Number(id) : null
+  const loc = useLocation()
+  // One screen, three modes: create a new sale, fill a reserved gap, or edit an issued invoice.
+  const mode: 'new' | 'fill' | 'edit' = loc.pathname.startsWith('/sales/edit') ? 'edit'
+    : loc.pathname.startsWith('/sales/fill') ? 'fill' : 'new'
+  const saleId = id ? Number(id) : null
+  const fillId = mode === 'fill' ? saleId : null
+  const editId = mode === 'edit' ? saleId : null
   const [settings, setSettings] = useState<Settings | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [hsn, setHsn] = useState<HsnProduct[]>([])
@@ -40,13 +46,28 @@ export default function NewSale() {
   useEffect(() => { (async () => {
     try {
       setSettings(await window.api.getSettings()); setCustomers(await window.api.listCustomers()); setHsn(await window.api.listHsn())
-      if (fillId) { const { sale } = await window.api.getSaleWithAllocations(fillId); setInvoiceNumber(sale.invoice_number); setInvoiceDate(sale.invoice_date ?? today()); setVehicle(sale.vehicle ?? '') }
+      if (saleId) {
+        const { sale, allocations } = await window.api.getSaleWithAllocations(saleId)
+        setInvoiceNumber(sale.invoice_number)
+        setInvoiceDate(sale.invoice_date ?? today())
+        setVehicle(sale.vehicle ?? '')
+        if (editId) {
+          setBuyerId(sale.buyer_customer_id)
+          setEwayNo(sale.eway_bill_no ?? ''); setEwayDate(sale.eway_bill_date ?? '')
+          setRoundoff(sale.roundoff); setPayment(sale.payment_status)
+          setPaymentDate(sale.payment_date ?? '')
+          setDraw(Object.fromEntries(allocations.map(a =>
+            [a.purchase_item_id, { qty: a.qty_drawn_kg, rate: a.rate_per_kg }])))
+        }
+      }
     } catch (e: any) { setError(e.message ?? String(e)) }
-  })() }, [fillId])
+  })() }, [saleId, editId])
 
-  useEffect(() => { window.api.listAvailableLots(invoiceDate, fillId ?? undefined).then(setLots).catch(e => setError(e.message ?? String(e))) }, [invoiceDate, fillId])
+  // Exclude this sale's own allocations from availability, or an edit would see its own stock as
+  // already sold and refuse to keep the lots it is currently using.
+  useEffect(() => { window.api.listAvailableLots(invoiceDate, saleId ?? undefined).then(setLots).catch(e => setError(e.message ?? String(e))) }, [invoiceDate, saleId])
   // Auto-suggest the next invoice number, but never clobber a number the user typed themselves.
-  useEffect(() => { if (!fillId && settings && !invoiceEdited) window.api.nextInvoiceNumber(invoiceDate, settings.invoice_prefix).then(setInvoiceNumber) }, [invoiceDate, settings, fillId, invoiceEdited])
+  useEffect(() => { if (mode === 'new' && settings && !invoiceEdited) window.api.nextInvoiceNumber(invoiceDate, settings.invoice_prefix).then(setInvoiceNumber) }, [invoiceDate, settings, mode, invoiceEdited])
 
   const buyer = customers.find(c => c.id === buyerId) ?? null
   const placeOfSupply = buyer ? placeOfSupplyState(buyer) : ''
@@ -90,7 +111,9 @@ export default function NewSale() {
       payment_status: payment, payment_date: payment === 'done' ? (paymentDate || today()) : null
     }
     try {
-      const sale = fillId ? await window.api.fillReservedSale(fillId, payload) : await window.api.createSale(payload)
+      const sale = editId ? await window.api.updateSale(editId, payload)
+        : fillId ? await window.api.fillReservedSale(fillId, payload)
+        : await window.api.createSale(payload)
       nav(thenInvoice ? `/invoice/${sale.id}` : '/sales')
     } catch (e: any) { setError(e.message ?? String(e)); setSaving(false) }
   }
@@ -98,12 +121,14 @@ export default function NewSale() {
   if (!settings) return <Center h="60vh"><Loader /></Center>
   return (
     <div>
-      <PageHeader title={fillId ? 'Fill reserved invoice' : 'New sale'} back={() => nav('/sales')} />
+      <PageHeader title={editId ? `Edit ${invoiceNumber}` : fillId ? 'Fill reserved invoice' : 'New sale'} back={() => nav('/sales')} />
       {error && <Alert color="red" mb="md">{error}</Alert>}
 
       <Paper withBorder p="lg" radius="md" mb="md">
         <Group grow align="flex-start" mb="sm">
-          <TextInput label="Invoice number" value={invoiceNumber} onChange={e => { setInvoiceEdited(true); setInvoiceNumber(e.currentTarget.value) }} />
+          <TextInput label="Invoice number" value={invoiceNumber} disabled={mode === 'edit'}
+            description={mode === 'edit' ? 'Cannot be changed once issued' : undefined}
+            onChange={e => { setInvoiceEdited(true); setInvoiceNumber(e.currentTarget.value) }} />
           <Input.Wrapper label="Invoice date">
             <DateField value={invoiceDate} onChange={setInvoiceDate} />
           </Input.Wrapper>
