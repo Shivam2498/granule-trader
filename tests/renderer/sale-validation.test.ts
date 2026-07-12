@@ -1,20 +1,31 @@
 import { describe, it, expect } from 'vitest'
-import { saleFormError } from '../../src/renderer/lib/sale-validation'
-import { newLine, type SaleLineDraft } from '../../src/renderer/lib/sale-lines'
-import type { AvailableLot } from '../../src/shared/types'
+import { lotDrawError, saleFormError } from '../../src/renderer/lib/sale-validation'
 
-const lot = (o: Partial<AvailableLot> & { purchase_item_id: number }): AvailableLot => ({
-  purchase_id: 1, our_code: `LOT${o.purchase_item_id}`, party: 'Reliance', hsn_code: 'PP',
-  description: 'PP', invoice_date: '2026-01-12', rate_per_kg: 80, available_kg: 1000, ...o
+const lot = (o: Partial<{ our_code: string; qty: number; rate: number; available: number }> = {}) =>
+  ({ our_code: '0012/2526', qty: 10, rate: 5, available: 100, ...o })
+
+describe('lotDrawError', () => {
+  it('flags a missing quantity', () => {
+    expect(lotDrawError(lot({ qty: 0 }))).toBe('Enter a quantity.')
+  })
+  it('flags an over-draw with the available amount', () => {
+    expect(lotDrawError(lot({ qty: 150, available: 100 }))).toBe('Only 100 kg available in this lot.')
+  })
+  it('flags a missing rate once qty is within range', () => {
+    expect(lotDrawError(lot({ qty: 50, rate: 0 }))).toBe('Enter a selling rate.')
+  })
+  it('returns empty for a valid lot', () => {
+    expect(lotDrawError(lot({ qty: 50, rate: 8, available: 100 }))).toBe('')
+  })
+  it('allows drawing exactly the available amount', () => {
+    expect(lotDrawError(lot({ qty: 100, available: 100, rate: 8 }))).toBe('')
+  })
 })
-
-const LOTS = [lot({ purchase_item_id: 1, available_kg: 1000 }), lot({ purchase_item_id: 2, hsn_code: 'HDPE', available_kg: 500 })]
 
 describe('saleFormError', () => {
   const okForm = () => ({
     invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234',
-    lines: [newLine(LOTS, 'PP', 50, 8)],
-    lots: LOTS,
+    lots: [lot({ qty: 50, rate: 8 })],
     total: 472, ewayNo: '', ewayDate: ''
   })
 
@@ -27,17 +38,20 @@ describe('saleFormError', () => {
   it('requires a vehicle number', () => {
     expect(saleFormError({ ...okForm(), vehicle: '   ' })).toBe('Enter the vehicle number.')
   })
-  it('asks for a material when nothing has been added', () => {
-    expect(saleFormError({ ...okForm(), lines: [] })).toBe('Add at least one material to sell.')
+  it('asks you to choose stock when no lot has been added', () => {
+    expect(saleFormError({ ...okForm(), lots: [] })).toBe('Choose stock to sell.')
   })
-  it('names the material whose line is incomplete', () => {
-    const line: SaleLineDraft = { ...newLine(LOTS, 'PP', 50, 8), rate_per_kg: 0 }
-    expect(saleFormError({ ...okForm(), lines: [line] })).toBe('PP: Enter a selling rate.')
+  it('names the lot whose row is incomplete', () => {
+    expect(saleFormError({ ...okForm(), lots: [lot({ our_code: '0019/2526', qty: 0 })] }))
+      .toBe('0019/2526: Enter a quantity.')
   })
-  it('surfaces a line that asks for more than the material has', () => {
-    const line: SaleLineDraft = { ...newLine(LOTS, 'HDPE', 500, 8), qty_kg: 9999 }
-    expect(saleFormError({ ...okForm(), lines: [line] }))
-      .toBe('HDPE: Only 500 kg of HDPE is available — you asked for 9999 kg.')
+  it('surfaces an over-drawn lot', () => {
+    expect(saleFormError({ ...okForm(), lots: [lot({ our_code: '0019/2526', qty: 150, available: 100, rate: 8 })] }))
+      .toBe('0019/2526: Only 100 kg available in this lot.')
+  })
+  it('surfaces a missing rate on a chosen lot', () => {
+    expect(saleFormError({ ...okForm(), lots: [lot({ our_code: '0019/2526', qty: 50, rate: 0 })] }))
+      .toBe('0019/2526: Enter a selling rate.')
   })
   it('returns empty for a fully valid form', () => {
     expect(saleFormError(okForm())).toBe('')
@@ -62,9 +76,8 @@ describe('saleFormError', () => {
       expect(saleFormError({ ...okForm(), total: 53100, ewayNo: '   ' }))
         .toContain('enter the e-way bill number')
     })
-    it('asks for the goods before the e-way bill, since the total depends on them', () => {
-      expect(saleFormError({ ...okForm(), total: 53100, lines: [] }))
-        .toBe('Add at least one material to sell.')
+    it('asks for the stock before the e-way bill, since the total depends on it', () => {
+      expect(saleFormError({ ...okForm(), total: 53100, lots: [] })).toBe('Choose stock to sell.')
     })
   })
 })

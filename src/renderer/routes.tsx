@@ -4,6 +4,7 @@ import Purchases from './screens/Purchases'
 import PurchaseForm from './screens/PurchaseForm'
 import Sales from './screens/Sales'
 import NewSale from './screens/NewSale'
+import LotSelect from './screens/LotSelect'
 import Stock from './screens/Stock'
 import StockAdjust from './screens/StockAdjust'
 import Customers from './screens/Customers'
@@ -21,6 +22,7 @@ export default function AppRoutes() {
       <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
       <Route path="/sales" element={<Sales />} />
       <Route path="/sales/new" element={<NewSale />} />
+      <Route path="/sales/lots" element={<LotSelect />} />
       <Route path="/sales/fill/:id" element={<NewSale />} />
       <Route path="/sales/edit/:id" element={<NewSale />} />
       <Route path="/stock" element={<Stock />} />
