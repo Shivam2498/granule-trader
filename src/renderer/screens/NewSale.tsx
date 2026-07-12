@@ -8,12 +8,13 @@ import type { Customer, AvailableLot, Settings, HsnProduct } from '@shared/types
 import { computeSaleTax, ewayBillRequired, EWAY_BILL_THRESHOLD } from '@shared/tax'
 import { placeOfSupplyState } from '../../main/core/customers'
 import SignedMoneyInput from '../components/SignedMoneyInput'
-import LotPicker, { type Draw } from '../components/LotPicker'
+import SaleLines from '../components/SaleLines'
 import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
 import { formatINR, today, formatAddress } from '../lib/format'
 import { saleFormError } from '../lib/sale-validation'
+import { type SaleLineDraft, toApiLines, reallocate, linesFromAllocations } from '../lib/sale-lines'
 
 export default function NewSale() {
   const nav = useNavigate()
@@ -41,7 +42,7 @@ export default function NewSale() {
   const [vehicleTouched, setVehicleTouched] = useState(false)
   const [roundoff, setRoundoff] = useState(0)
   const [payment, setPayment] = useState<'pending' | 'done'>('pending'); const [paymentDate, setPaymentDate] = useState('')
-  const [draw, setDraw] = useState<Record<number, Draw>>({})
+  const [saleLines, setSaleLines] = useState<SaleLineDraft[]>([])
 
   useEffect(() => { (async () => {
     try {
@@ -56,8 +57,7 @@ export default function NewSale() {
           setEwayNo(sale.eway_bill_no ?? ''); setEwayDate(sale.eway_bill_date ?? '')
           setRoundoff(sale.roundoff); setPayment(sale.payment_status)
           setPaymentDate(sale.payment_date ?? '')
-          setDraw(Object.fromEntries(allocations.map(a =>
-            [a.purchase_item_id, { qty: a.qty_drawn_kg, rate: a.rate_per_kg }])))
+          setSaleLines(linesFromAllocations(allocations))
         }
       }
     } catch (e: any) { setError(e.message ?? String(e)) }
@@ -74,10 +74,8 @@ export default function NewSale() {
   const intra = !!settings && placeOfSupply.trim().toLowerCase() === settings.home_state.trim().toLowerCase()
   const hsnRate = useMemo(() => new Map(hsn.map(h => [h.hsn_code, h.gst_rate])), [hsn])
 
-  const lines = useMemo(() => lots
-    .filter(l => (draw[l.purchase_item_id]?.qty ?? 0) > 0)
-    .map(l => ({ purchase_item_id: l.purchase_item_id, qty_drawn_kg: draw[l.purchase_item_id].qty, rate_per_kg: draw[l.purchase_item_id].rate,
-      hsn_code: l.hsn_code, gst_rate: hsnRate.get(l.hsn_code) ?? settings?.default_gst_rate ?? 18 })), [lots, draw, hsnRate, settings])
+  const gstRateOf = (code: string) => hsnRate.get(code) ?? settings?.default_gst_rate ?? 18
+  const lines = useMemo(() => toApiLines(saleLines, gstRateOf), [saleLines, hsnRate, settings])
 
   const tax = computeSaleTax({ lines, placeOfSupplyState: placeOfSupply, homeState: settings?.home_state ?? '', roundoff })
   const rows = [
@@ -85,11 +83,8 @@ export default function NewSale() {
     { label: intra ? 'SGST' : 'SGST 0%', value: tax.sgst },
     { label: intra ? 'IGST 0%' : 'IGST', value: tax.igst }
   ]
-  const lotDraws = lots
-    .filter(l => l.purchase_item_id in draw)
-    .map(l => ({ include: true, qty: draw[l.purchase_item_id].qty, rate: draw[l.purchase_item_id].rate, available: l.available_kg }))
   const ewayRequired = ewayBillRequired(tax.total)
-  const formState = { invoiceNumber, hasBuyer: !!buyer, vehicle, lots: lotDraws, total: tax.total, ewayNo, ewayDate }
+  const formState = { invoiceNumber, hasBuyer: !!buyer, vehicle, lines: saleLines, lots, total: tax.total, ewayNo, ewayDate }
   const formError = saleFormError(formState)
 
   async function save(thenInvoice: boolean) {
@@ -185,7 +180,7 @@ export default function NewSale() {
         </Collapse>
       </Paper>
 
-      <LotPicker lots={lots} hsn={hsn} asOfDate={invoiceDate} chosen={draw} onChange={setDraw} />
+      <SaleLines lots={lots} hsn={hsn} asOfDate={invoiceDate} lines={saleLines} onChange={setSaleLines} />
 
       <Paper withBorder p="lg" radius="md" mb="md">
         <Group justify="space-between" align="flex-start">
