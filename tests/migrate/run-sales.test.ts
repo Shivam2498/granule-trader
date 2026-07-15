@@ -29,6 +29,7 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
 
     const db = openDatabase(DB!)
     const homeState = getSettings(db).home_state
+    if (!homeState.trim()) throw new Error('home_state is not set in this database — set it in Settings before migrating, or every sale would be booked as inter-state IGST.')
 
     // expected ending balance per lot = the LAST balance cell of each lot block that has migrated sales
     const expectedBalance = new Map<string, number>()  // key `${lot_code}@${lot_cost}` -> balance
@@ -44,16 +45,21 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
 
     const log: string[] = []
     let written = 0, skipped = 0, failed = 0
+    let lastDate = ''
 
     // Process in invoice-number order so the app's gap-free numbering is satisfied.
     const invoices = [...headers.keys()].sort((a, b) =>
       Number(a.match(/RP\/(\d+)/)![1]) - Number(b.match(/RP\/(\d+)/)![1]))
 
+    // The whole loop runs inside one manual transaction: dry runs roll back everything —
+    // including any customers auto-created by resolveBuyer — so a dry run never writes.
+    // Commit runs commit at the end, once every invoice has been processed.
+    db.exec('BEGIN')
     for (const inv of invoices) {
       const header = headers.get(inv)!
       const lines = byInvoice.get(inv)
       if (!lines || lines.length === 0) { log.push(`SKIP ${inv}: no stock rows tagged with this invoice`); skipped++; continue }
-      const already = db.prepare('SELECT id FROM sales WHERE invoice_number = ?').get(inv)
+      const already = db.prepare(`SELECT id FROM sales WHERE invoice_number = ? AND status = 'created'`).get(inv)
       if (already) { log.push(`SKIP ${inv}: already in the database`); skipped++; continue }
 
       try {
@@ -61,18 +67,22 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
         const drawn = payload.lines.reduce((s, l) => s + l.qty_drawn_kg, 0)
         if (COMMIT) {
           const sale = createSale(db, payload)
+          if (sale.igst !== 0) throw new Error(`booked as inter-state (IGST ${sale.igst}) — check the buyer's state ("${payload.place_of_supply_state}") vs home state ("${homeState}").`)
           const diff = Math.round((sale.total_invoice_amount - header.sheet_total) * 100) / 100
           log.push(`OK   ${inv}: ${payload.lines.length} lines, ${drawn} kg, total ₹${sale.total_invoice_amount}` +
                    (Math.abs(diff) > 0.01 ? `  ⚠ sheet total ₹${header.sheet_total} (diff ${diff})` : ''))
           written++
         } else {
           // Dry run: compute tax the same way createSale would, without writing.
+          if (payload.invoice_date < lastDate) log.push(`WARN ${inv}: dated ${payload.invoice_date}, earlier than the previous invoice — createSale will reject this on commit.`)
+          lastDate = payload.invoice_date > lastDate ? payload.invoice_date : lastDate
           log.push(`DRY  ${inv}: ${payload.lines.length} lines, ${drawn} kg, buyer ${payload.buyer_name}`)
         }
       } catch (e) {
         log.push(`FAIL ${inv}: ${(e as Error).message}`); failed++
       }
     }
+    db.exec(COMMIT ? 'COMMIT' : 'ROLLBACK')
 
     // Reconcile every lot that had migrated sales (only meaningful after a commit).
     const reconLog: string[] = []
@@ -94,7 +104,8 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
 
     closeDatabase(db)
 
-    console.log('\n===== SALES MIGRATION ' + (COMMIT ? '(COMMIT)' : '(DRY RUN)') + ' =====')
+    console.log('\n===== SALES MIGRATION ' +
+      (COMMIT ? '(COMMIT)' : '(DRY RUN — rolled back at the end, including any auto-created customers)') + ' =====')
     console.log(log.join('\n'))
     console.log(`\n-- written ${written}, skipped ${skipped}, failed ${failed} --`)
     if (COMMIT) {

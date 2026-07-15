@@ -45,3 +45,4 @@ lots recorded in the Stock sheet.
    re-running skips invoices already imported.
 
 If the Invoice No column isn't at position 11, pass `MIGRATE_INVOICE_COL=<0-indexed>`.
+The dry run validates parsing, buyers and lots (and warns on out-of-order dates); stock availability and invoice-ordering are fully enforced only on the commit run.
