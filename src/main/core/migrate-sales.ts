@@ -124,3 +124,42 @@ export function resolveBuyer(db: Database.Database, gstin: string, name: string,
     shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
   })
 }
+
+function gstRateOf(db: Database.Database, hsn: string): number {
+  const row = db.prepare('SELECT gst_rate FROM hsn_products WHERE hsn_code = ?').get(hsn) as { gst_rate: number } | undefined
+  return row ? row.gst_rate : 18
+}
+
+export function buildSalePayload(
+  db: Database.Database, header: SaleHeader, allocs: StockAllocation[], master: CustomerRow[], homeState: string
+): NewSale {
+  const buyer = resolveBuyer(db, header.buyer_gstin, header.buyer_name, master)
+  const lines: NewSaleLine[] = allocs.map(a => ({
+    purchase_item_id: resolveLotItemId(db, a.lot_code, a.lot_cost),
+    qty_drawn_kg: a.qty,
+    rate_per_kg: a.rate,
+    hsn_code: a.hsn_code,
+    gst_rate: gstRateOf(db, a.hsn_code)
+  }))
+  const billing = {
+    address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode
+  }
+  return {
+    invoice_number: header.invoice_number,
+    invoice_date: header.invoice_date,
+    buyer_customer_id: buyer.id,
+    buyer_name: buyer.name,
+    buyer_gstin: buyer.gstin,
+    buyer_billing: billing,
+    buyer_shipping: billing,
+    place_of_supply_state: placeOfSupplyState(buyer),
+    homeState,
+    lines,
+    roundoff: header.roundoff,
+    eway_bill_no: header.eway_bill_no || undefined,
+    eway_bill_date: header.eway_bill_date || undefined,
+    vehicle: header.vehicle || undefined,
+    payment_status: 'done',
+    payment_date: header.invoice_date
+  }
+}

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster, resolveBuyer } from '../../src/main/core/migrate-sales'
+import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster, resolveBuyer, buildSalePayload } from '../../src/main/core/migrate-sales'
 import { openDatabase } from '../../src/main/db/connection'
 import { createCustomer } from '../../src/main/core/customers'
+import { createPurchase } from '../../src/main/core/purchase'
+import { createSale, getAllocations } from '../../src/main/core/sale'
 
 describe('excelSerialToISO', () => {
   it('converts known anchors', () => {
@@ -169,5 +171,46 @@ describe('resolveBuyer', () => {
     expect(got.billing_state).toBe('West Bengal')
     expect(got.billing_pincode).toBe('700016')
     expect(got.gstin).toBe('19NAYAN1234N1ZB')
+  })
+})
+
+describe('buildSalePayload + createSale (end to end)', () => {
+  function seed(db: ReturnType<typeof openDatabase>) {
+    db.prepare(`INSERT INTO hsn_products (hsn_code, description, gst_rate) VALUES ('320419','MB',18)`).run()
+    // one purchase, one lot of 300 kg at cost 170
+    createPurchase(db, {
+      our_code: '082/2526', supplier_invoice_number: 'S', invoice_date: '2026-02-01',
+      party: 'Swastik', party_state: 'West Bengal', homeState: 'West Bengal',
+      items: [{ hsn_code: '320419', qty_kg: 300, rate_per_kg: 170, gst_rate: 18 }]
+    })
+  }
+  const header = {
+    invoice_number: 'RP/001/2026-27', invoice_date: '2026-04-02',
+    buyer_name: 'Jenisa Enterprise', buyer_gstin: '19BOGPB4474J1ZQ',
+    eway_bill_no: '518', eway_bill_date: '', vehicle: '', roundoff: -0.25, sheet_total: 17224.75
+  }
+  const master = [{ name: 'Jenisa Enterprise', address: 'A', city: 'Kolkata', state: 'West Bengal', pincode: '700144', gstin: '19BOGPB4474J1ZQ', pan: 'BOGPB4474J' }]
+  const allocs = [
+    { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 75, rate: 172 },
+    { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 25, rate: 175 }
+  ]
+
+  it('produces a payload whose sale draws the exact lots and quantities', () => {
+    const db = openDatabase(':memory:'); seed(db)
+    const payload = buildSalePayload(db, header, allocs, master, 'West Bengal')
+    expect(payload.invoice_number).toBe('RP/001/2026-27')
+    expect(payload.payment_status).toBe('done')
+    expect(payload.payment_date).toBe('2026-04-02')
+    expect(payload.lines).toHaveLength(2)
+    expect(payload.lines.map(l => [l.qty_drawn_kg, l.rate_per_kg])).toEqual([[75, 172], [25, 175]])
+
+    const sale = createSale(db, payload)
+    expect(sale.total_qty_kg).toBe(100)
+    // 75*172 + 25*175 = 12900 + 4375 = 17275 taxable
+    expect(sale.amount).toBe(17275)
+    // lot drawn down exactly 100 kg from 300
+    const rem = db.prepare(`SELECT qty_remaining_kg FROM purchase_items`).get() as { qty_remaining_kg: number }
+    expect(rem.qty_remaining_kg).toBe(200)
+    expect(getAllocations(db, sale.id)).toHaveLength(2)
   })
 })
