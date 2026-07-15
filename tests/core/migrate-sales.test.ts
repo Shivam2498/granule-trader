@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId } from '../../src/main/core/migrate-sales'
+import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster, resolveBuyer } from '../../src/main/core/migrate-sales'
 import { openDatabase } from '../../src/main/db/connection'
+import { createCustomer } from '../../src/main/core/customers'
 
 describe('excelSerialToISO', () => {
   it('converts known anchors', () => {
@@ -101,5 +102,58 @@ describe('resolveLotItemId', () => {
     seedLot(db, '070/2526', 100)
     seedLot(db, '070/2526', 100)
     expect(() => resolveLotItemId(db, '070/2526', 100)).toThrow(/more than one/i)
+  })
+})
+
+describe('parseCustomerMaster', () => {
+  const r = (over: Record<number, string>) => Object.assign(Array(9).fill(''), over)
+  it('reads name/address/city/state/pincode/gstin/pan and skips blank rows', () => {
+    const rows = [
+      r({ 0: 'Sl No', 1: 'Header' }),
+      r({ 0: '88', 1: 'Jenisa Enterprise', 2: '1129 Canning Road', 3: 'Kolkata', 4: 'West Bengal', 5: '700144', 7: '19BOGPB4474J1ZQ', 8: 'BOGPB4474J' }),
+      r({ 0: '', 1: '' })
+    ]
+    const cs = parseCustomerMaster(rows)
+    expect(cs).toHaveLength(1)
+    expect(cs[0]).toMatchObject({ name: 'Jenisa Enterprise', city: 'Kolkata', state: 'West Bengal', pincode: '700144', gstin: '19BOGPB4474J1ZQ' })
+  })
+})
+
+describe('resolveBuyer', () => {
+  const master = [
+    { name: 'Jenisa Enterprise', address: '1129 Canning Road', city: 'Kolkata', state: 'West Bengal', pincode: '700144', gstin: '19BOGPB4474J1ZQ', pan: 'BOGPB4474J' },
+    { name: 'S.M ENGINEERING & CO', address: '91/S Majlish Ara Road', city: 'Kolkata', state: 'West Bengal', pincode: '700041', gstin: '', pan: 'AIUPM2937N' }
+  ]
+
+  it('returns an existing app customer matched by GSTIN', () => {
+    const db = openDatabase(':memory:')
+    const existing = createCustomer(db, {
+      name: 'Jenisa Enterprise', gstin: '19BOGPB4474J1ZQ', pan: 'BOGPB4474J', phone: '',
+      billing_address: 'x', billing_city: 'Kolkata', billing_state: 'West Bengal', billing_pincode: '700144',
+      shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
+    })
+    const got = resolveBuyer(db, '19BOGPB4474J1ZQ', 'Jenisa Enterprise', master)
+    expect(got.id).toBe(existing.id)
+  })
+
+  it('creates a missing buyer from CustomerMaster (GSTIN match)', () => {
+    const db = openDatabase(':memory:')
+    const got = resolveBuyer(db, '19BOGPB4474J1ZQ', 'Jenisa Enterprise', master)
+    expect(got.id).toBeGreaterThan(0)
+    expect(got.billing_city).toBe('Kolkata')
+    expect(got.billing_state).toBe('West Bengal')
+    expect(got.pan).toBe('BOGPB4474J')          // derived from GSTIN
+  })
+
+  it('creates a missing buyer whose CustomerMaster row has no GSTIN, matched by PAN inside the GSTIN', () => {
+    const db = openDatabase(':memory:')
+    const got = resolveBuyer(db, '19AIUPM2937N1ZA', 'S.M ENGINEERING & CO', master)
+    expect(got.billing_pincode).toBe('700041')
+    expect(got.gstin).toBe('19AIUPM2937N1ZA')
+  })
+
+  it('throws when the buyer is nowhere to be found', () => {
+    const db = openDatabase(':memory:')
+    expect(() => resolveBuyer(db, '19ZZZZZ0000Z1ZZ', 'Nobody Ltd', master)).toThrow(/could not find an address/i)
   })
 })

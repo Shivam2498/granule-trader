@@ -81,3 +81,49 @@ export function resolveLotItemId(db: Database.Database, lotCode: string, lotCost
     throw new Error(`Lot ${lotCode} at cost ~${lotCost}/kg matches more than one lot — cannot tell them apart.`)
   return matches[0].id
 }
+
+export interface CustomerRow {
+  name: string; address: string; city: string; state: string; pincode: string; gstin: string; pan: string
+}
+
+export function parseCustomerMaster(rows: string[][]): CustomerRow[] {
+  const out: CustomerRow[] = []
+  for (const r of rows) {
+    const name = (r[1] ?? '').trim()
+    if (!name || name === 'Header') continue
+    if ((r[0] ?? '').trim().toLowerCase() === 'sl no') continue
+    out.push({
+      name,
+      address: (r[2] ?? '').trim(), city: (r[3] ?? '').trim(),
+      state: (r[4] ?? '').trim(), pincode: String(r[5] ?? '').replace(/\.0$/, '').trim(),
+      gstin: (r[7] ?? '').trim(), pan: (r[8] ?? '').trim()
+    })
+  }
+  return out
+}
+
+// GSTIN layout: 2 state digits + 10-char PAN + 3 more. So chars 2..12 are the PAN.
+const panOfGstin = (g: string) => g.slice(2, 12)
+
+export function resolveBuyer(db: Database.Database, gstin: string, name: string, master: CustomerRow[]): Customer {
+  const existing = db.prepare('SELECT * FROM customers WHERE gstin = ?').get(gstin) as Customer | undefined
+  if (existing) return existing
+
+  const pan = panOfGstin(gstin)
+  const src =
+    master.find(m => m.gstin && m.gstin === gstin) ||
+    master.find(m => m.pan && m.pan === pan) ||
+    master.find(m => m.name.trim().toLowerCase() === name.trim().toLowerCase())
+  if (!src)
+    throw new Error(`Buyer ${name} (${gstin}) is not in the app and could not find an address in CustomerMaster.`)
+
+  return createCustomer(db, {
+    name: src.name || name,
+    gstin,
+    pan: panFromGstin(gstin),
+    phone: '',
+    billing_address: src.address, billing_city: src.city, billing_state: src.state, billing_pincode: src.pincode,
+    shipping_same: true,
+    shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
+  })
+}
