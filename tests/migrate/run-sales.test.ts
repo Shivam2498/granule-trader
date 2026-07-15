@@ -17,6 +17,14 @@ const COMMIT = process.env.MIGRATE_COMMIT === '1'
 const ADJ_DATE = '2026-03-31'   // last day of FY2025-26 — before every migrated invoice
 const adjReason = (inv: string) => `Sold in FY2025-26 (${inv}) — before the app`
 
+// Owner-ruled corrections to the Stock sheet's Balance column, decided against the purchase
+// register (the ruling document). Key = `${lot_code}@${lot_cost}` as the sheet records it.
+const SHEET_CORRECTIONS: Record<string, { expected: number; why: string }> = {
+  // Sheet opens lot 094/2526 at 250 kg; supplier bill SPL/25-26/3398 (purchase register) says
+  // 300 kg were bought. Same ₹56,250 value — the sheet transposed qty/rate. 300 − 250 sold = 50.
+  '094/2526@225': { expected: 50, why: 'sheet opened the lot at 250 kg; the purchase register says 300 kg bought (SPL/25-26/3398)' }
+}
+
 // Whole suite is inert unless MIGRATE_DIR is set — `npm test` never runs the migration.
 describe.runIf(DIR && DB)('sales migration runner (CSV)', () => {
   it('migrates FY2026-27 sales + FY2025-26 opening adjustments, reconciling lot-for-lot', () => {
@@ -101,7 +109,10 @@ describe.runIf(DIR && DB)('sales migration runner (CSV)', () => {
     const reconLog: string[] = []
     let mismatches = 0
     if (COMMIT) {
-      for (const [key, expected] of balances) {
+      for (const [key, sheetExpected] of balances) {
+        const correction = SHEET_CORRECTIONS[key]
+        const expected = correction ? correction.expected : sheetExpected
+        if (correction) reconLog.push(`  NOTE lot ${key}: expecting ${expected} kg instead of the sheet's ${sheetExpected} — ${correction.why}`)
         const [code, cost] = key.split('@')
         let actual = NaN
         try {
