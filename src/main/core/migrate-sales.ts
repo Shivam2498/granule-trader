@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { Customer } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
-import { createCustomer, placeOfSupplyState } from './customers'
+import { createCustomer, getCustomer, placeOfSupplyState } from './customers'
 import type { NewSale, NewSaleLine } from './sale'
 
 // Excel's 1900 date system: serial 25569 is 1970-01-01, and that offset already absorbs Excel's
@@ -102,14 +102,11 @@ export function parseCustomerMaster(rows: string[][]): CustomerRow[] {
   return out
 }
 
-// GSTIN layout: 2 state digits + 10-char PAN + 3 more. So chars 2..12 are the PAN.
-const panOfGstin = (g: string) => g.slice(2, 12)
-
 export function resolveBuyer(db: Database.Database, gstin: string, name: string, master: CustomerRow[]): Customer {
-  const existing = db.prepare('SELECT * FROM customers WHERE gstin = ?').get(gstin) as Customer | undefined
-  if (existing) return existing
+  const existing = db.prepare('SELECT id FROM customers WHERE gstin = ?').get(gstin) as { id: number } | undefined
+  if (existing) return getCustomer(db, existing.id)!
 
-  const pan = panOfGstin(gstin)
+  const pan = panFromGstin(gstin)
   const src =
     master.find(m => m.gstin && m.gstin === gstin) ||
     master.find(m => m.pan && m.pan === pan) ||

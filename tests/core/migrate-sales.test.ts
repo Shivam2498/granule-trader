@@ -156,4 +156,18 @@ describe('resolveBuyer', () => {
     const db = openDatabase(':memory:')
     expect(() => resolveBuyer(db, '19ZZZZZ0000Z1ZZ', 'Nobody Ltd', master)).toThrow(/could not find an address/i)
   })
+
+  it('creates a missing buyer whose CustomerMaster row has no GSTIN or matching PAN, matched by name case-insensitively', () => {
+    const db = openDatabase(':memory:')
+    const nameOnlyMaster = [
+      ...master,
+      { name: 'Nayan Traders', address: '12 Park Street', city: 'Kolkata', state: 'West Bengal', pincode: '700016', gstin: '', pan: '' }
+    ]
+    const got = resolveBuyer(db, '19NAYAN1234N1ZB', 'NAYAN TRADERS', nameOnlyMaster)
+    expect(got.billing_address).toBe('12 Park Street')
+    expect(got.billing_city).toBe('Kolkata')
+    expect(got.billing_state).toBe('West Bengal')
+    expect(got.billing_pincode).toBe('700016')
+    expect(got.gstin).toBe('19NAYAN1234N1ZB')
+  })
 })
