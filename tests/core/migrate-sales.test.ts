@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { excelSerialToISO, parseSaleHeaders, parseStockAllocations } from '../../src/main/core/migrate-sales'
+import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId } from '../../src/main/core/migrate-sales'
+import { openDatabase } from '../../src/main/db/connection'
 
 describe('excelSerialToISO', () => {
   it('converts known anchors', () => {
@@ -66,5 +67,39 @@ describe('parseStockAllocations', () => {
   it('skips sale rows with no invoice number', () => {
     const allocs = parseStockAllocations(rows, 11)
     expect(allocs.some(a => a.qty === 10)).toBe(false)
+  })
+})
+
+function seedLot(db: ReturnType<typeof openDatabase>, code: string, cost: number, hsn = '320419', qty = 300) {
+  const p = db.prepare(`INSERT INTO purchases (our_code, invoice_date, hsn_code, qty_kg, qty_remaining_kg, rate_per_kg, fy_label, code_seq)
+    VALUES (?, '2026-02-01', ?, ?, ?, ?, '2025-26', 82)`).run(code, hsn, qty, qty, cost)
+  db.prepare(`INSERT INTO purchase_items (purchase_id, hsn_code, description, qty_kg, qty_remaining_kg, rate_per_kg, amount, gst_rate, line_no)
+    VALUES (?, ?, '', ?, ?, ?, ?, 18, 1)`).run(p.lastInsertRowid, hsn, qty, qty, cost, qty * cost)
+  return db.prepare('SELECT id FROM purchase_items WHERE purchase_id = ?').get(p.lastInsertRowid) as { id: number }
+}
+
+describe('resolveLotItemId', () => {
+  it('disambiguates two lots that share a code by their cost', () => {
+    const db = openDatabase(':memory:')
+    const a = seedLot(db, '082/2526', 170)
+    const b = seedLot(db, '082/2526', 102)
+    expect(resolveLotItemId(db, '082/2526', 170)).toBe(a.id)
+    expect(resolveLotItemId(db, '082/2526', 102)).toBe(b.id)
+  })
+  it('matches cost within a rupee (sheet rounding)', () => {
+    const db = openDatabase(':memory:')
+    const a = seedLot(db, '090/2526', 148)
+    expect(resolveLotItemId(db, '090/2526', 148.31)).toBe(a.id)
+  })
+  it('throws when no lot matches', () => {
+    const db = openDatabase(':memory:')
+    seedLot(db, '090/2526', 148)
+    expect(() => resolveLotItemId(db, '090/2526', 999)).toThrow(/no lot/i)
+  })
+  it('throws when the match is ambiguous', () => {
+    const db = openDatabase(':memory:')
+    seedLot(db, '070/2526', 100)
+    seedLot(db, '070/2526', 100)
+    expect(() => resolveLotItemId(db, '070/2526', 100)).toThrow(/more than one/i)
   })
 })

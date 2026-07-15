@@ -66,3 +66,18 @@ export function parseStockAllocations(rows: string[][], invoiceCol: number): Sto
   }
   return out
 }
+
+// A lot is identified by its purchase code plus cost/kg — the code alone is not unique because one
+// supplier invoice (e.g. 082/2526) was imported as two purchase lines at different rates.
+export function resolveLotItemId(db: Database.Database, lotCode: string, lotCost: number): number {
+  const matches = db.prepare(`
+    SELECT i.id, i.rate_per_kg
+    FROM purchase_items i JOIN purchases p ON p.id = i.purchase_id
+    WHERE p.our_code = ? AND ABS(i.rate_per_kg - ?) <= 1
+  `).all(lotCode, lotCost) as Array<{ id: number; rate_per_kg: number }>
+  if (matches.length === 0)
+    throw new Error(`No lot ${lotCode} at cost ~${lotCost}/kg exists in the database.`)
+  if (matches.length > 1)
+    throw new Error(`Lot ${lotCode} at cost ~${lotCost}/kg matches more than one lot — cannot tell them apart.`)
+  return matches[0].id
+}
