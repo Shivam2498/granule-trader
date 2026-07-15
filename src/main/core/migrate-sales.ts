@@ -144,6 +144,9 @@ export function buildSalePayload(
   const billing = {
     address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode
   }
+  const shipping = buyer.shipping_same
+    ? { address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode }
+    : { address: buyer.shipping_address, city: buyer.shipping_city, state: buyer.shipping_state, pincode: buyer.shipping_pincode }
   return {
     invoice_number: header.invoice_number,
     invoice_date: header.invoice_date,
@@ -151,7 +154,7 @@ export function buildSalePayload(
     buyer_name: buyer.name,
     buyer_gstin: buyer.gstin,
     buyer_billing: billing,
-    buyer_shipping: billing,
+    buyer_shipping: shipping,
     place_of_supply_state: placeOfSupplyState(buyer),
     homeState,
     lines,

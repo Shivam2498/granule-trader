@@ -212,5 +212,10 @@ describe('buildSalePayload + createSale (end to end)', () => {
     const rem = db.prepare(`SELECT qty_remaining_kg FROM purchase_items`).get() as { qty_remaining_kg: number }
     expect(rem.qty_remaining_kg).toBe(200)
     expect(getAllocations(db, sale.id)).toHaveLength(2)
+    expect(sale.cgst).toBe(1554.75)      // 9% of 17275 — intra-state routing engaged
+    expect(sale.sgst).toBe(1554.75)
+    expect(sale.igst).toBe(0)
+    expect(sale.total_invoice_amount).toBe(20384.25)   // 17275 + 1554.75 + 1554.75 - 0.25
+    expect(sale.payment_status).toBe('done')
   })
 })
