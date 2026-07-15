@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { excelSerialToISO, parseSaleHeaders } from '../../src/main/core/migrate-sales'
+import { excelSerialToISO, parseSaleHeaders, parseStockAllocations } from '../../src/main/core/migrate-sales'
 
 describe('excelSerialToISO', () => {
   it('converts known anchors', () => {
@@ -38,5 +38,33 @@ describe('parseSaleHeaders', () => {
     expect(h.roundoff).toBe(0)
     expect(h.eway_bill_date).toBe('2026-04-03')
     expect(h.vehicle).toBe('WB23D1657')
+  })
+})
+
+describe('parseStockAllocations', () => {
+  // Stock columns: 0 code/voucher, 4 kind, 5 hsn, 6 qty, 8 rate, 10 balance, 11 invoice no (new col)
+  const r = (over: Record<number, string>) => Object.assign(Array(12).fill(''), over)
+  const rows = [
+    r({ 0: 'Stock Statement' }),                                                   // title
+    r({ 0: 'Code Number', 4: 'Items' }),                                           // header
+    r({ 0: 'Code 082/2526', 4: 'Purchases', 5: '320419', 6: '300', 8: '170', 10: '300' }),
+    r({ 0: '647', 4: 'Sales', 5: '320419', 6: '75', 8: '172', 10: '225', 11: 'RP/001/2026-27' }),
+    r({ 0: '517', 4: 'Sales', 5: '320419', 6: '25', 8: '175', 10: '200', 11: 'RP/001/2026-27' }),
+    r({ 0: '999', 4: 'Sales', 5: '320419', 6: '10', 8: '170', 10: '190', 11: '' }),   // unlabelled -> skipped
+    r({ 0: 'Code 082/2526', 4: 'Purchases', 5: '320419', 6: '300', 8: '102', 10: '300' }),  // 2nd lot, same code
+    r({ 0: '650', 4: 'Sales', 5: '320419', 6: '100', 8: '104', 10: '200', 11: 'RP/009/2026-27' })
+  ]
+
+  it('attaches each sale to the lot block above it, with that lot cost', () => {
+    const allocs = parseStockAllocations(rows, 11)
+    expect(allocs).toEqual([
+      { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 75, rate: 172 },
+      { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 25, rate: 175 },
+      { invoice_number: 'RP/009/2026-27', lot_code: '082/2526', lot_cost: 102, hsn_code: '320419', qty: 100, rate: 104 }
+    ])
+  })
+  it('skips sale rows with no invoice number', () => {
+    const allocs = parseStockAllocations(rows, 11)
+    expect(allocs.some(a => a.qty === 10)).toBe(false)
   })
 })

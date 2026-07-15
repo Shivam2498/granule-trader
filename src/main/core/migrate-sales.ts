@@ -40,3 +40,29 @@ export function parseSaleHeaders(rows: string[][]): Map<string, SaleHeader> {
   }
   return out
 }
+
+export interface StockAllocation {
+  invoice_number: string; lot_code: string; lot_cost: number; hsn_code: string; qty: number; rate: number
+}
+
+export function parseStockAllocations(rows: string[][], invoiceCol: number): StockAllocation[] {
+  const out: StockAllocation[] = []
+  let lotCode = '', lotCost = 0, lotHsn = ''
+  for (const r of rows) {
+    const c0 = (r[0] ?? '').trim()
+    if (c0.startsWith('Code ')) {
+      lotCode = c0.slice(5).trim()
+      lotCost = Number(r[8] ?? 0)
+      lotHsn = (r[5] ?? '').trim()
+      continue
+    }
+    if ((r[4] ?? '').trim() !== 'Sales') continue
+    const inv = (r[invoiceCol] ?? '').trim()
+    if (!inv) continue
+    out.push({
+      invoice_number: inv, lot_code: lotCode, lot_cost: lotCost, hsn_code: lotHsn,
+      qty: Number(r[6] ?? 0), rate: Number(r[8] ?? 0)
+    })
+  }
+  return out
+}
