@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster, resolveBuyer, buildSalePayload } from '../../src/main/core/migrate-sales'
+import {
+  excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster,
+  resolveBuyer, buildSalePayload, parseCsv, cleanNumber, mdyToISO, parseSaleHeadersCsv, parseStockCsv
+} from '../../src/main/core/migrate-sales'
 import { openDatabase } from '../../src/main/db/connection'
 import { createCustomer } from '../../src/main/core/customers'
 import { createPurchase } from '../../src/main/core/purchase'
@@ -94,10 +97,22 @@ describe('resolveLotItemId', () => {
     const a = seedLot(db, '090/2526', 148)
     expect(resolveLotItemId(db, '090/2526', 148.31)).toBe(a.id)
   })
-  it('throws when no lot matches', () => {
+  it('resolves a UNIQUE code even when the sheet cost disagrees with the purchase record', () => {
+    // Real case: 094/2526 — sheet says 225/kg, the purchase import recorded 187.50/kg.
+    const db = openDatabase(':memory:')
+    const a = seedLot(db, '094/2526', 187.5)
+    expect(resolveLotItemId(db, '094/2526', 225)).toBe(a.id)
+  })
+  it('throws when the code does not exist at all', () => {
     const db = openDatabase(':memory:')
     seedLot(db, '090/2526', 148)
-    expect(() => resolveLotItemId(db, '090/2526', 999)).toThrow(/no lot/i)
+    expect(() => resolveLotItemId(db, '099/9999', 148)).toThrow(/no lot/i)
+  })
+  it('still requires a cost match when the code covers several lots', () => {
+    const db = openDatabase(':memory:')
+    seedLot(db, '082/2526', 170)
+    seedLot(db, '082/2526', 102)
+    expect(() => resolveLotItemId(db, '082/2526', 999)).toThrow(/no lot/i)
   })
   it('throws when the match is ambiguous', () => {
     const db = openDatabase(':memory:')
@@ -217,5 +232,78 @@ describe('buildSalePayload + createSale (end to end)', () => {
     expect(sale.igst).toBe(0)
     expect(sale.total_invoice_amount).toBe(20384.25)   // 17275 + 1554.75 + 1554.75 - 0.25
     expect(sale.payment_status).toBe('done')
+  })
+})
+
+describe('CSV input layer', () => {
+  it('parseCsv handles quoted fields with commas and preserves empties', () => {
+    const rows = parseCsv('a,"1,234.00",c\n,x,\n"q ""z""",,')
+    expect(rows[0]).toEqual(['a', '1,234.00', 'c'])
+    expect(rows[1]).toEqual(['', 'x', ''])
+    expect(rows[2]).toEqual(['q "z"', '', ''])
+  })
+
+  it('cleanNumber strips commas, spaces, treats "-" and #N/A as zero', () => {
+    expect(cleanNumber('  12,900 ')).toBe(12900)
+    expect(cleanNumber('  -   ')).toBe(0)
+    expect(cleanNumber('#N/A')).toBe(0)
+    expect(cleanNumber('  -0.34 ')).toBe(-0.34)
+    expect(cleanNumber('')).toBe(0)
+  })
+
+  it('mdyToISO converts M/D/YYYY and rejects garbage', () => {
+    expect(mdyToISO('4/2/2026')).toBe('2026-04-02')
+    expect(mdyToISO('12/31/2025')).toBe('2025-12-31')
+    expect(mdyToISO('#N/A')).toBe('')
+    expect(mdyToISO('')).toBe('')
+  })
+})
+
+describe('parseSaleHeadersCsv', () => {
+  const row = (over: Record<number, string>) => Object.assign(Array(39).fill(''), over)
+  it('reads headers from the CSV register (M/D/YYYY dates, formatted numbers)', () => {
+    const rows = [
+      row({ 0: 'Invoice Number' }),
+      row({ 0: 'RP/001/2026-27', 1: '4/2/2026', 4: 'WB972889', 5: 'Jenisa Enterprise', 6: '19BOGPB4474J1ZQ', 34: '  -0.34 ', 35: '  18,500.00 ' }),
+      row({ 0: 'RP/002/2026-27', 1: '4/3/2026', 2: '8116 6782 6962', 3: '4/3/2026', 5: 'SHIVAM TRADERS', 6: '19ACNPC1217E1Z0', 35: '  871,725.00 ' })
+    ]
+    const m = parseSaleHeadersCsv(rows)
+    expect(m.size).toBe(2)
+    expect(m.get('RP/001/2026-27')).toMatchObject({
+      invoice_date: '2026-04-02', buyer_gstin: '19BOGPB4474J1ZQ', vehicle: 'WB972889',
+      eway_bill_no: '', eway_bill_date: '', roundoff: -0.34, sheet_total: 18500
+    })
+    expect(m.get('RP/002/2026-27')).toMatchObject({ eway_bill_date: '2026-04-03', roundoff: 0, sheet_total: 871725 })
+  })
+})
+
+describe('parseStockCsv', () => {
+  const r = (over: Record<number, string>) => Object.assign(Array(11).fill(''), over)
+  const rows = [
+    r({ 0: 'Stock Statement' }),
+    r({ 0: 'Code Number', 1: 'Invoice Number' }),
+    r({ 0: 'Code 082/2526', 1: 'SPL/25-26/3054', 4: 'Purchases', 5: '320419', 6: '  300.00 ', 8: '  170.00 ', 10: '  300.00 ' }),
+    r({ 1: 'RP/243/2025-26', 4: 'Sales', 5: '320419', 6: '75', 8: '  172.00 ', 10: '  225.00 ' }),
+    r({ 1: 'RP/001/2026-27', 2: '4/2/2026', 3: 'Jenisa Enterprise', 4: 'Sales', 5: '320419', 6: '25', 8: '  175.00 ', 10: '  200.00 ' }),
+    r({}),  // blank separator
+    r({ 0: 'Code 103/2526', 1: 'DO250', 4: 'Purchases', 5: '39021000', 6: '  5,000 ', 8: '  147.31 ', 10: '  5,000 ' }),
+    r({ 1: 'RP/002/2026-27', 4: 'Sales', 5: '39021000', 6: '5000', 8: '  148.50 ', 10: '  -   ' })
+  ]
+
+  it('splits FY26-27 sales from FY25-26 draws, both carrying their lot', () => {
+    const { sales, old } = parseStockCsv(rows)
+    expect(sales).toEqual([
+      { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 25, rate: 175 },
+      { invoice_number: 'RP/002/2026-27', lot_code: '103/2526', lot_cost: 147.31, hsn_code: '39021000', qty: 5000, rate: 148.5 }
+    ])
+    expect(old).toEqual([
+      { invoice_number: 'RP/243/2025-26', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 75, rate: 172 }
+    ])
+  })
+
+  it('reports each lot\'s final sheet balance keyed by code@cost', () => {
+    const { balances } = parseStockCsv(rows)
+    expect(balances.get('082/2526@170')).toBe(200)
+    expect(balances.get('103/2526@147.31')).toBe(0)   // the "-" cell
   })
 })

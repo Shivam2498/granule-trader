@@ -67,16 +67,24 @@ export function parseStockAllocations(rows: string[][], invoiceCol: number): Sto
   return out
 }
 
-// A lot is identified by its purchase code plus cost/kg — the code alone is not unique because one
-// supplier invoice (e.g. 082/2526) was imported as two purchase lines at different rates.
+// A lot is identified by its purchase code; the cost/kg is a tie-breaker used only when one code
+// covers several lots (082/2526 was imported as two purchase lines at different rates). A UNIQUE
+// code resolves even when the sheet's cost disagrees with the purchase record — the two sources
+// occasionally recorded different rates (094/2526: sheet 225 vs purchase 187.50), and for a
+// unique code there is no ambiguity for the cost to resolve.
 export function resolveLotItemId(db: Database.Database, lotCode: string, lotCost: number): number {
-  const matches = db.prepare(`
+  const all = db.prepare(`
     SELECT i.id, i.rate_per_kg
     FROM purchase_items i JOIN purchases p ON p.id = i.purchase_id
-    WHERE p.our_code = ? AND ABS(i.rate_per_kg - ?) <= 1
-  `).all(lotCode, lotCost) as Array<{ id: number; rate_per_kg: number }>
+    WHERE p.our_code = ?
+  `).all(lotCode) as Array<{ id: number; rate_per_kg: number }>
+  if (all.length === 0)
+    throw new Error(`No lot ${lotCode} exists in the database.`)
+  if (all.length === 1) return all[0].id
+
+  const matches = all.filter(m => Math.abs(m.rate_per_kg - lotCost) <= 1)
   if (matches.length === 0)
-    throw new Error(`No lot ${lotCode} at cost ~${lotCost}/kg exists in the database.`)
+    throw new Error(`No lot ${lotCode} at cost ~${lotCost}/kg exists in the database (the code has ${all.length} lots at other costs).`)
   if (matches.length > 1)
     throw new Error(`Lot ${lotCode} at cost ~${lotCost}/kg matches more than one lot — cannot tell them apart.`)
   return matches[0].id
@@ -165,4 +173,108 @@ export function buildSalePayload(
     payment_status: 'done',
     payment_date: header.invoice_date
   }
+}
+
+// ---------- CSV input layer ----------
+// The owner's sheets arrive as CSV exports (the live Google Sheet is the source of truth; the
+// xlsx snapshot went stale). Same row shapes, different mechanics: RFC-quoted fields, dates as
+// M/D/YYYY strings, numbers formatted like "  12,900 " with "-" standing for zero.
+
+/** Minimal RFC-4180 parser: quoted fields, embedded commas/quotes/newlines. */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = [], field = '', inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++ } else inQuotes = false
+      } else field += ch
+    } else if (ch === '"') inQuotes = true
+    else if (ch === ',') { row.push(field); field = '' }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++
+      row.push(field); field = ''
+      rows.push(row); row = []
+    } else field += ch
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row) }
+  return rows
+}
+
+/** "  12,900 " → 12900; "  -   " (accounting zero), '#N/A' and '' → 0. */
+export function cleanNumber(s: string | undefined): number {
+  const t = (s ?? '').replace(/,/g, '').trim()
+  if (t === '' || t === '-' || t === '#N/A') return 0
+  const n = Number(t)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** '4/2/2026' → '2026-04-02'. Anything unparseable (blank, #N/A) → ''. */
+export function mdyToISO(s: string | undefined): string {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((s ?? '').trim())
+  if (!m) return ''
+  return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+}
+
+export function parseSaleHeadersCsv(rows: string[][]): Map<string, SaleHeader> {
+  const out = new Map<string, SaleHeader>()
+  for (const r of rows) {
+    const inv = (r[0] ?? '').trim()
+    if (!INVOICE_RE.test(inv)) continue
+    out.set(inv, {
+      invoice_number: inv,
+      invoice_date: mdyToISO(r[1]),
+      buyer_name: (r[5] ?? '').trim(),
+      buyer_gstin: (r[6] ?? '').trim(),
+      eway_bill_no: (r[2] ?? '').trim(),
+      eway_bill_date: mdyToISO(r[3]),
+      vehicle: (r[4] ?? '').trim(),
+      roundoff: cleanNumber(r[34]),
+      sheet_total: cleanNumber(r[35])
+    })
+  }
+  return out
+}
+
+export interface ParsedStock {
+  /** FY2026-27 draws — these become sale lines. */
+  sales: StockAllocation[]
+  /** FY2025-26 draws — consumed stock before the app; they become opening adjustments. */
+  old: StockAllocation[]
+  /** Each lot's final Balance cell, keyed `${lot_code}@${lot_cost}`. */
+  balances: Map<string, number>
+}
+
+/**
+ * Walks the CSV Stock sheet. Invoice numbers live in column 1 on Sales rows (both financial
+ * years); the block structure is unchanged — a 'Code …' row opens a lot, the Sales rows under it
+ * draw it down, and the last Balance cell of a block is that lot's true remaining stock.
+ */
+export function parseStockCsv(rows: string[][]): ParsedStock {
+  const sales: StockAllocation[] = [], old: StockAllocation[] = []
+  const balances = new Map<string, number>()
+  let lotCode = '', lotCost = 0, lotHsn = '', key = ''
+  for (const r of rows) {
+    const c0 = (r[0] ?? '').trim()
+    if (c0.startsWith('Code ')) {
+      lotCode = c0.slice(5).trim()
+      lotCost = cleanNumber(r[8])
+      lotHsn = (r[5] ?? '').trim()
+      key = `${lotCode}@${lotCost}`
+      if (!balances.has(key)) balances.set(key, cleanNumber(r[10]))   // opening = bought, until a sale updates it
+      continue
+    }
+    if ((r[4] ?? '').trim() !== 'Sales' || !lotCode) continue
+    const inv = (r[1] ?? '').trim()
+    if (!inv) continue
+    const alloc: StockAllocation = {
+      invoice_number: inv, lot_code: lotCode, lot_cost: lotCost, hsn_code: lotHsn,
+      qty: cleanNumber(r[6]), rate: cleanNumber(r[8])
+    }
+    if (/\/2026-27$/.test(inv)) sales.push(alloc)
+    else old.push(alloc)
+    balances.set(key, cleanNumber(r[10]))
+  }
+  return { sales, old, balances }
 }

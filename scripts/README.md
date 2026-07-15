@@ -33,16 +33,16 @@ sheet. Suppliers are created by name only; fill in their details later in Suppli
 Imports the FY2026-27 sale invoices from `DataMigration.xlsx`, drawing each sale from the exact
 lots recorded in the Stock sheet.
 
-1. On the Stock sheet, add an `Invoice No` column and tag every Sales row with its RP number.
+1. Export the Stock, SaleInvoiceMaster and CustomerMaster tabs as CSVs into one folder. The Stock sheet's Invoice Number column (col B) must carry each Sales row's RP number — both financial years.
 2. Quit Granule Trader (release the data lock).
 3. `npm run rebuild:node`
 4. Dry-run against a copy:
-   `MIGRATE_XLSX=<DataMigration.xlsx> MIGRATE_DB=<copy.db> npx vitest run tests/migrate/run-sales.test.ts`
-   Fix any FAIL lines in the sheet, re-run until `failed 0`.
+   `MIGRATE_DIR=<folder with Stock.csv, SaleInvoiceMaster.csv, CustomerMaster.csv> MIGRATE_DB=<copy.db> npx vitest run tests/migrate/run-sales.test.ts`
+   Fix any FAIL lines in the sheet, re-run until `failed 0`. FY2025-26 rows become opening-stock
+   adjustments dated 2026-03-31; an invoice with no stock rows is left as a reserved blank bill.
 5. Commit-run against the copy and confirm `all lots reconcile exactly`:
    add `MIGRATE_COMMIT=1`.
 6. Only then repeat step 5 against the real `granule-trader.db` (back it up first). Idempotent —
    re-running skips invoices already imported.
 
-If the Invoice No column isn't at position 11, pass `MIGRATE_INVOICE_COL=<0-indexed>`.
 The dry run validates parsing, buyers and lots (and warns on out-of-order dates); stock availability and invoice-ordering are fully enforced only on the commit run.

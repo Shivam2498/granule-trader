@@ -1,83 +1,91 @@
 import { describe, it, expect } from 'vitest'
-import { readWorkbook } from '../../scripts/xlsx-lite.mjs'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { openDatabase, closeDatabase } from '../../src/main/db/connection'
 import { getSettings } from '../../src/main/core/reference'
 import { createSale } from '../../src/main/core/sale'
+import { createStockAdjustment } from '../../src/main/core/adjustment'
 import {
-  parseSaleHeaders, parseStockAllocations, parseCustomerMaster, buildSalePayload
+  parseCsv, parseSaleHeadersCsv, parseStockCsv, parseCustomerMaster, buildSalePayload,
+  resolveLotItemId, type StockAllocation
 } from '../../src/main/core/migrate-sales'
 
-const XLSX = process.env.MIGRATE_XLSX
+const DIR = process.env.MIGRATE_DIR      // folder holding Stock.csv, SaleInvoiceMaster.csv, CustomerMaster.csv
 const DB = process.env.MIGRATE_DB
-const INVOICE_COL = Number(process.env.MIGRATE_INVOICE_COL ?? '11')
 const COMMIT = process.env.MIGRATE_COMMIT === '1'
 
-// Whole suite is inert unless MIGRATE_XLSX is set — so `npm test` never runs the migration.
-describe.runIf(XLSX && DB)('sales migration runner', () => {
-  it('migrates FY2026-27 sales, mimicking the Stock sheet lot-for-lot', () => {
-    const wb = readWorkbook(XLSX!)
-    const headers = parseSaleHeaders(wb.SaleInvoiceMaster)
-    const allocs = parseStockAllocations(wb.Stock, INVOICE_COL)
-    const master = parseCustomerMaster(wb.CustomerMaster)
+const ADJ_DATE = '2026-03-31'   // last day of FY2025-26 — before every migrated invoice
+const adjReason = (inv: string) => `Sold in FY2025-26 (${inv}) — before the app`
 
-    // group allocations by invoice
-    const byInvoice = new Map<string, typeof allocs>()
-    for (const a of allocs) {
+// Whole suite is inert unless MIGRATE_DIR is set — `npm test` never runs the migration.
+describe.runIf(DIR && DB)('sales migration runner (CSV)', () => {
+  it('migrates FY2026-27 sales + FY2025-26 opening adjustments, reconciling lot-for-lot', () => {
+    const sheet = (name: string) => parseCsv(readFileSync(join(DIR!, name), 'utf8'))
+    const headers = parseSaleHeadersCsv(sheet('SaleInvoiceMaster.csv'))
+    const { sales, old, balances } = parseStockCsv(sheet('Stock.csv'))
+    const master = parseCustomerMaster(sheet('CustomerMaster.csv'))
+
+    const byInvoice = new Map<string, StockAllocation[]>()
+    for (const a of sales) {
       const arr = byInvoice.get(a.invoice_number) ?? []
       arr.push(a); byInvoice.set(a.invoice_number, arr)
     }
 
     const db = openDatabase(DB!)
     const homeState = getSettings(db).home_state
-    if (!homeState.trim()) throw new Error('home_state is not set in this database — set it in Settings before migrating, or every sale would be booked as inter-state IGST.')
-
-    // expected ending balance per lot = the LAST balance cell of each lot block that has migrated sales
-    const expectedBalance = new Map<string, number>()  // key `${lot_code}@${lot_cost}` -> balance
-    {
-      let key = ''
-      for (const r of wb.Stock) {
-        const c0 = (r[0] ?? '').trim()
-        if (c0.startsWith('Code ')) key = `${c0.slice(5).trim()}@${Number(r[8] ?? 0)}`
-        else if ((r[4] ?? '').trim() === 'Sales' && (r[INVOICE_COL] ?? '').trim())
-          expectedBalance.set(key, Number(r[10] ?? 0))
-      }
-    }
+    if (!homeState.trim()) throw new Error('home_state is not set in this database — set it in Settings before migrating.')
 
     const log: string[] = []
-    let written = 0, skipped = 0, failed = 0
-    let lastDate = ''
+    let written = 0, skipped = 0, failed = 0, adjusted = 0, adjSkipped = 0
 
-    // Process in invoice-number order so the app's gap-free numbering is satisfied.
+    db.exec('BEGIN')   // dry run rolls back EVERYTHING below, including auto-created customers
+
+    // ---- Phase 1: FY2025-26 draws become opening-stock adjustments (dated before every invoice) ----
+    for (const a of old) {
+      try {
+        const itemId = resolveLotItemId(db, a.lot_code, a.lot_cost)
+        const reason = adjReason(a.invoice_number)
+        const dupe = db.prepare('SELECT id FROM stock_adjustments WHERE purchase_item_id = ? AND qty_kg = ? AND reason = ?')
+          .get(itemId, a.qty, reason)
+        if (dupe) { adjSkipped++; continue }
+        createStockAdjustment(db, { purchase_item_id: itemId, qty_kg: a.qty, reason, date: ADJ_DATE })
+        adjusted++
+      } catch (e) {
+        log.push(`FAIL adjustment ${a.invoice_number} (lot ${a.lot_code}@${a.lot_cost}, ${a.qty} kg): ${(e as Error).message}`)
+        failed++
+      }
+    }
+    log.push(`-- opening adjustments: ${adjusted} applied, ${adjSkipped} already present --`)
+
+    // ---- Phase 2: FY2026-27 invoices, ascending (gap-free numbering requires it) ----
+    // An invoice with no stock rows (RP/039) is skipped here and becomes a reserved BLANK bill
+    // automatically when the next invoice reserves the gap — fill it in the app later.
     const invoices = [...headers.keys()].sort((a, b) =>
       Number(a.match(/RP\/(\d+)/)![1]) - Number(b.match(/RP\/(\d+)/)![1]))
+    let lastDate = ''
 
-    // The whole loop runs inside one manual transaction: dry runs roll back everything —
-    // including any customers auto-created by resolveBuyer — so a dry run never writes.
-    // Commit runs commit at the end, once every invoice has been processed.
-    db.exec('BEGIN')
     for (const inv of invoices) {
       const header = headers.get(inv)!
       const lines = byInvoice.get(inv)
-      if (!lines || lines.length === 0) { log.push(`SKIP ${inv}: no stock rows tagged with this invoice`); skipped++; continue }
+      if (!lines || lines.length === 0) { log.push(`SKIP ${inv}: no stock rows — will remain a blank (reserved) bill`); skipped++; continue }
       const already = db.prepare(`SELECT id FROM sales WHERE invoice_number = ? AND status = 'created'`).get(inv)
       if (already) { log.push(`SKIP ${inv}: already in the database`); skipped++; continue }
 
       try {
         const payload = buildSalePayload(db, header, lines, master, homeState)
-        // Every FY2026-27 sale is intra-state (all buyers are West Bengal). Refuse BEFORE writing,
-        // so a misconfigured buyer state can never leave a wrongly-routed sale in the database.
+        // Every FY2026-27 sale is intra-state. Refuse BEFORE writing, so a misconfigured buyer
+        // state can never leave a wrongly-routed sale in the database.
         if ((payload.place_of_supply_state ?? '').trim().toLowerCase() !== homeState.trim().toLowerCase())
           throw new Error(`buyer state "${payload.place_of_supply_state}" differs from home state "${homeState}" — would book as inter-state IGST. Fix the buyer's state first.`)
         const drawn = payload.lines.reduce((s, l) => s + l.qty_drawn_kg, 0)
         if (COMMIT) {
           const sale = createSale(db, payload)
-          if (sale.igst !== 0) throw new Error(`booked as inter-state (IGST ${sale.igst}) — check the buyer's state ("${payload.place_of_supply_state}") vs home state ("${homeState}").`)
+          if (sale.igst !== 0) throw new Error(`booked as inter-state (IGST ${sale.igst}).`)
           const diff = Math.round((sale.total_invoice_amount - header.sheet_total) * 100) / 100
           log.push(`OK   ${inv}: ${payload.lines.length} lines, ${drawn} kg, total ₹${sale.total_invoice_amount}` +
-                   (Math.abs(diff) > 0.01 ? `  ⚠ sheet total ₹${header.sheet_total} (diff ${diff})` : ''))
+                   (Math.abs(diff) > 0.01 ? `  ⚠ register total ₹${header.sheet_total} (diff ${diff})` : ''))
           written++
         } else {
-          // Dry run: compute tax the same way createSale would, without writing.
           if (payload.invoice_date < lastDate) log.push(`WARN ${inv}: dated ${payload.invoice_date}, earlier than the previous invoice — createSale will reject this on commit.`)
           lastDate = payload.invoice_date > lastDate ? payload.invoice_date : lastDate
           log.push(`DRY  ${inv}: ${payload.lines.length} lines, ${drawn} kg, buyer ${payload.buyer_name}`)
@@ -86,39 +94,48 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
         log.push(`FAIL ${inv}: ${(e as Error).message}`); failed++
       }
     }
+
     db.exec(COMMIT ? 'COMMIT' : 'ROLLBACK')
 
-    // Reconcile every lot that had migrated sales (only meaningful after a commit).
+    // ---- Phase 3: reconciliation — every sheet lot's app balance equals its Balance column ----
     const reconLog: string[] = []
     let mismatches = 0
     if (COMMIT) {
-      for (const [key, expected] of expectedBalance) {
+      for (const [key, expected] of balances) {
         const [code, cost] = key.split('@')
-        const row = db.prepare(`
-          SELECT i.qty_remaining_kg AS bal FROM purchase_items i JOIN purchases p ON p.id = i.purchase_id
-          WHERE p.our_code = ? AND ABS(i.rate_per_kg - ?) <= 1
-        `).get(code, Number(cost)) as { bal: number } | undefined
-        const actual = row ? Math.round(row.bal * 100) / 100 : NaN
+        let actual = NaN
+        try {
+          const itemId = resolveLotItemId(db, code, Number(cost))
+          const row = db.prepare('SELECT qty_remaining_kg AS bal FROM purchase_items WHERE id = ?').get(itemId) as { bal: number }
+          actual = Math.round(row.bal * 100) / 100
+        } catch { /* unresolvable key falls through as NaN → mismatch */ }
         if (Math.abs(actual - expected) > 0.01) {
-          reconLog.push(`  MISMATCH lot ${code}@${cost}: sheet ${expected} kg, db ${actual} kg`)
+          reconLog.push(`  MISMATCH lot ${key}: sheet ${expected} kg, app ${actual} kg`)
           mismatches++
         }
+      }
+      // Lots the app knows but the sheet does not track — informational, never a failure.
+      const sheetCodes = new Set([...balances.keys()].map(k => k.split('@')[0]))
+      const untracked = db.prepare(`
+        SELECT p.our_code, i.qty_remaining_kg, i.rate_per_kg FROM purchase_items i
+        JOIN purchases p ON p.id = i.purchase_id`).all() as Array<{ our_code: string; qty_remaining_kg: number; rate_per_kg: number }>
+      for (const u of untracked) {
+        if (!sheetCodes.has(u.our_code))
+          reconLog.push(`  NOTE untracked lot ${u.our_code} @ ${u.rate_per_kg}/kg: app carries ${u.qty_remaining_kg} kg (sheet has no block for it)`)
       }
     }
 
     closeDatabase(db)
 
-    console.log('\n===== SALES MIGRATION ' +
-      (COMMIT ? '(COMMIT)' : '(DRY RUN — rolled back at the end, including any auto-created customers)') + ' =====')
+    console.log('\n===== SALES MIGRATION ' + (COMMIT ? '(COMMIT)' : '(DRY RUN — rolled back)') + ' =====')
     console.log(log.join('\n'))
-    console.log(`\n-- written ${written}, skipped ${skipped}, failed ${failed} --`)
+    console.log(`\n-- invoices: written ${written}, skipped ${skipped}, failed ${failed} --`)
     if (COMMIT) {
       console.log('\n===== STOCK RECONCILIATION vs Stock sheet =====')
       console.log(reconLog.length ? reconLog.join('\n') : '  all lots reconcile exactly ✅')
     }
 
-    // The run must not have failed any invoice, and (when committing) every lot must reconcile.
-    expect(failed, 'some invoices failed — see log above').toBe(0)
+    expect(failed, 'some rows failed — see log above').toBe(0)
     if (COMMIT) expect(mismatches, 'some lots do not match the Stock sheet — see reconciliation above').toBe(0)
   })
 })
