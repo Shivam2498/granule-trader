@@ -64,6 +64,10 @@ describe.runIf(XLSX && DB)('sales migration runner', () => {
 
       try {
         const payload = buildSalePayload(db, header, lines, master, homeState)
+        // Every FY2026-27 sale is intra-state (all buyers are West Bengal). Refuse BEFORE writing,
+        // so a misconfigured buyer state can never leave a wrongly-routed sale in the database.
+        if ((payload.place_of_supply_state ?? '').trim().toLowerCase() !== homeState.trim().toLowerCase())
+          throw new Error(`buyer state "${payload.place_of_supply_state}" differs from home state "${homeState}" — would book as inter-state IGST. Fix the buyer's state first.`)
         const drawn = payload.lines.reduce((s, l) => s + l.qty_drawn_kg, 0)
         if (COMMIT) {
           const sale = createSale(db, payload)
