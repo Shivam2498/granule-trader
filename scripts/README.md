@@ -27,3 +27,21 @@ Granule Trader `.db`. Dry-run by default — review the report files, then commi
 
 Tax figures (CGST/SGST/IGST/TCS/round-off/total) are imported verbatim from the
 sheet. Suppliers are created by name only; fill in their details later in Suppliers.
+
+## Sales migration (FY2026-27, one-time)
+
+Imports the FY2026-27 sale invoices from `DataMigration.xlsx`, drawing each sale from the exact
+lots recorded in the Stock sheet.
+
+1. On the Stock sheet, add an `Invoice No` column and tag every Sales row with its RP number.
+2. Quit Granule Trader (release the data lock).
+3. `npm run rebuild:node`
+4. Dry-run against a copy:
+   `MIGRATE_XLSX=<DataMigration.xlsx> MIGRATE_DB=<copy.db> npx vitest run tests/migrate/run-sales.test.ts`
+   Fix any FAIL lines in the sheet, re-run until `failed 0`.
+5. Commit-run against the copy and confirm `all lots reconcile exactly`:
+   add `MIGRATE_COMMIT=1`.
+6. Only then repeat step 5 against the real `granule-trader.db` (back it up first). Idempotent —
+   re-running skips invoices already imported.
+
+If the Invoice No column isn't at position 11, pass `MIGRATE_INVOICE_COL=<0-indexed>`.
