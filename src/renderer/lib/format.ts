@@ -12,3 +12,10 @@ export function formatAddress(p: { address?: string; city?: string; state?: stri
   const line = [p.address, p.city, p.state].filter(Boolean).join(', ')
   return p.pincode ? (line ? `${line} — ${p.pincode}` : p.pincode) : line
 }
+/** ISO 'YYYY-MM-DD' → display 'DD/MM/YYYY'. Storage stays ISO; this is display-only.
+ *  Empty/null/undefined → ''; anything not ISO-shaped is returned unchanged (defensive). */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}

@@ -1,5 +1,6 @@
 import type { Sale, Purchase } from '@shared/types'
 import { parseState } from './dashboard'
+import { formatDate } from './format'
 
 export interface CsvColumn<T> { header: string; value: (row: T) => string | number }
 
@@ -19,7 +20,7 @@ export function toCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
 
 export const salesColumns: CsvColumn<Sale>[] = [
   { header: 'Invoice No', value: s => s.invoice_number },
-  { header: 'Date', value: s => s.invoice_date ?? '' },
+  { header: 'Date', value: s => formatDate(s.invoice_date) },
   { header: 'Buyer', value: s => s.buyer_name },
   { header: 'Buyer GSTIN', value: s => s.buyer_gstin },
   { header: 'State', value: s => parseState(s.buyer_billing_json) },
@@ -32,13 +33,13 @@ export const salesColumns: CsvColumn<Sale>[] = [
   { header: 'Round-off', value: s => s.roundoff },
   { header: 'Total', value: s => s.total_invoice_amount },
   { header: 'Payment status', value: s => s.payment_status },
-  { header: 'Payment date', value: s => s.payment_date ?? '' },
+  { header: 'Payment date', value: s => formatDate(s.payment_date) },
 ]
 
 export const purchaseColumns: CsvColumn<Purchase>[] = [
   { header: 'Code', value: p => p.our_code },
   { header: 'Supplier Inv No', value: p => p.supplier_invoice_number },
-  { header: 'Date', value: p => p.invoice_date ?? '' },
+  { header: 'Date', value: p => formatDate(p.invoice_date) },
   { header: 'Supplier', value: p => p.party },
   { header: 'State', value: p => p.party_state },
   { header: 'HSN', value: p => p.hsn_code },
@@ -52,5 +53,5 @@ export const purchaseColumns: CsvColumn<Purchase>[] = [
   { header: 'Round-off', value: p => p.roundoff },
   { header: 'Total', value: p => p.total_invoice_amount },
   { header: 'Payment status', value: p => p.payment_status },
-  { header: 'Payment date', value: p => p.payment_date ?? '' },
+  { header: 'Payment date', value: p => formatDate(p.payment_date) },
 ]

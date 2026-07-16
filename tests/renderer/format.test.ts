@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatINR, formatAddress } from '../../src/renderer/lib/format'
+import { formatINR, formatAddress, formatDate } from '../../src/renderer/lib/format'
 describe('formatINR', () => {
   it('uses Indian grouping with two decimals', () => { expect(formatINR(1180)).toBe('₹1,180.00') })
   it('groups lakhs', () => { expect(formatINR(125000.5)).toBe('₹1,25,000.50') })
@@ -28,5 +28,21 @@ describe('formatAddress', () => {
   })
   it('returns empty string when nothing is provided', () => {
     expect(formatAddress({})).toBe('')
+  })
+})
+
+describe('formatDate', () => {
+  it('converts ISO to DD/MM/YYYY', () => {
+    expect(formatDate('2026-04-16')).toBe('16/04/2026')
+    expect(formatDate('2025-12-01')).toBe('01/12/2025')
+  })
+  it('returns empty for empty, null or undefined', () => {
+    expect(formatDate('')).toBe('')
+    expect(formatDate(null)).toBe('')
+    expect(formatDate(undefined)).toBe('')
+  })
+  it('passes through anything that is not an ISO date', () => {
+    expect(formatDate('16/04/2026')).toBe('16/04/2026')   // already formatted
+    expect(formatDate('not a date')).toBe('not a date')
   })
 })

@@ -43,7 +43,7 @@ describe('salesColumns', () => {
       buyer_billing_json: '{"state":"Gujarat"}', total_qty_kg: 5, amount: 100, cgst: 9, sgst: 9, igst: 0, tcs: 0,
       roundoff: 0, total_invoice_amount: 118, payment_status: 'pending', payment_date: null } as Sale
     const row = salesColumns.map(c => c.value(s))
-    expect(row).toEqual(['RP/1', '2026-06-10', 'Acme', '24X', 'Gujarat', 5, 100, 9, 9, 0, 0, 0, 118, 'pending', ''])
+    expect(row).toEqual(['RP/1', '10/06/2026', 'Acme', '24X', 'Gujarat', 5, 100, 9, 9, 0, 0, 0, 118, 'pending', ''])
     expect(salesColumns.map(c => c.header)).toContain('Buyer GSTIN')
   })
 })
@@ -54,7 +54,7 @@ describe('purchaseColumns', () => {
       party_state: 'Gujarat', hsn_code: '3901', qty_kg: 10, rate_per_kg: 50, amount: 500, cgst: 45, sgst: 45,
       igst: 0, tcs: 0, roundoff: 0, total_invoice_amount: 590, payment_status: 'done', payment_date: '2026-06-12' } as Purchase
     const row = purchaseColumns.map(c => c.value(p))
-    expect(row).toEqual(['P1', 'S1', '2026-06-10', 'Supp', 'Gujarat', '3901', 10, 50, 500, 45, 45, 0, 0, 0, 590, 'done', '2026-06-12'])
+    expect(row).toEqual(['P1', 'S1', '10/06/2026', 'Supp', 'Gujarat', '3901', 10, 50, 500, 45, 45, 0, 0, 0, 590, 'done', '12/06/2026'])
     expect(purchaseColumns.map(c => c.header)).toContain('Round-off')
   })
   it('emits empty string for a null invoice date', () => {
