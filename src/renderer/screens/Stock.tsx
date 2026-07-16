@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
 import InventoryAgingTable from '../components/dashboard/InventoryAgingTable'
 import { inventoryAging } from '../lib/dashboard'
-import { today } from '../lib/format'
+import { today, formatDate } from '../lib/format'
 
 export default function Stock() {
   const nav = useNavigate()
@@ -43,7 +43,7 @@ export default function Stock() {
             const isLow = r.balance_kg < low
             return (
               <Table.Tr key={r.purchase_id} bg={isLow ? 'orange.0' : undefined}>
-                <Table.Td>{r.hsn_code}</Table.Td><Table.Td>{r.our_code}</Table.Td><Table.Td>{r.invoice_date}</Table.Td><Table.Td>{r.party}</Table.Td>
+                <Table.Td>{r.hsn_code}</Table.Td><Table.Td>{r.our_code}</Table.Td><Table.Td>{formatDate(r.invoice_date)}</Table.Td><Table.Td>{r.party}</Table.Td>
                 <Table.Td ta="right">{r.qty_kg}</Table.Td><Table.Td ta="right">{r.consumed_kg}</Table.Td><Table.Td ta="right">{r.balance_kg}{isLow ? ' ⚠' : ''}</Table.Td><Table.Td ta="right">{r.running}</Table.Td>
               </Table.Tr>)
           })}

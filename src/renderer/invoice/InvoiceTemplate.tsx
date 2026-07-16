@@ -1,6 +1,7 @@
 import type { Sale, SaleAllocation, Settings } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
 import { rupeesInWords } from '../lib/words'
+import { formatDate } from '../lib/format'
 import { fillerHeightPx } from './items-layout'
 import './invoice.css'
 
@@ -80,8 +81,8 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
           </td>
           <td className="meta">
             <table className="kv"><tbody>
-              <tr><td>Invoice No</td><td className="bold">{sale.invoice_number}</td><td>Date</td><td>{sale.invoice_date}</td></tr>
-              <tr><td>e-Way Bill No</td><td>{sale.eway_bill_no ?? ''}</td><td>Date</td><td>{sale.eway_bill_date ?? ''}</td></tr>
+              <tr><td>Invoice No</td><td className="bold">{sale.invoice_number}</td><td>Date</td><td>{formatDate(sale.invoice_date)}</td></tr>
+              <tr><td>e-Way Bill No</td><td>{sale.eway_bill_no ?? ''}</td><td>Date</td><td>{formatDate(sale.eway_bill_date)}</td></tr>
               <tr><td>Delivery Note</td><td></td><td>Date</td><td></td></tr>
               <tr><td>Order No</td><td></td><td>Date</td><td></td></tr>
               <tr><td>Payment Terms</td><td colSpan={3}>{PAYMENT_TERMS}</td></tr>

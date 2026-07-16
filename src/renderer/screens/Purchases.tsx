@@ -5,7 +5,7 @@ import { notifications } from '@mantine/notifications'
 import type { Purchase } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
-import { formatINR } from '../lib/format'
+import { formatINR, formatDate } from '../lib/format'
 import { groupByMonth, monthLabel } from '../lib/group'
 import { toCsv, purchaseColumns } from '../lib/csv'
 import { useFY } from '../fy'
@@ -62,7 +62,7 @@ export default function Purchases() {
               </Table.Tr>
               {g.items.map(p => (
                 <Table.Tr key={p.id}>
-                  <Table.Td>{p.our_code}</Table.Td><Table.Td>{p.invoice_date}</Table.Td><Table.Td>{p.party}</Table.Td><Table.Td>{p.hsn_code}</Table.Td><Table.Td>{p.description}</Table.Td>
+                  <Table.Td>{p.our_code}</Table.Td><Table.Td>{formatDate(p.invoice_date)}</Table.Td><Table.Td>{p.party}</Table.Td><Table.Td>{p.hsn_code}</Table.Td><Table.Td>{p.description}</Table.Td>
                   <Table.Td ta="right">{p.qty_kg}</Table.Td><Table.Td ta="right">{p.qty_remaining_kg}</Table.Td><Table.Td ta="right">{formatINR(p.total_invoice_amount)}</Table.Td>
                   <Table.Td><Badge color={p.payment_status === 'done' ? 'green' : 'orange'}>{p.payment_status}</Badge></Table.Td>
                   <Table.Td>

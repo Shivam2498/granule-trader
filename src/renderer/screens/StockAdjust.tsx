@@ -6,7 +6,7 @@ import type { AdjustmentRow } from '../../main/core/adjustment'
 import PageHeader from '../components/PageHeader'
 import MoneyInput from '../components/MoneyInput'
 import DateField from '../components/DateField'
-import { today } from '../lib/format'
+import { today, formatDate } from '../lib/format'
 
 const REASONS = ['Spillage / wastage', 'Sample given', 'Loss / damage', 'Correction']
 
@@ -101,7 +101,7 @@ export default function StockAdjust() {
                 <Table.Td>{a.our_code}</Table.Td>
                 <Table.Td ta="right">{a.qty_kg}</Table.Td>
                 <Table.Td>{a.reason}</Table.Td>
-                <Table.Td>{a.date}</Table.Td>
+                <Table.Td>{formatDate(a.date)}</Table.Td>
                 <Table.Td ta="right">
                   <Button variant="subtle" color="red" size="compact-sm" onClick={() => undo(a.id)}>Undo</Button>
                 </Table.Td>

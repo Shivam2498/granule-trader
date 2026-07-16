@@ -5,7 +5,7 @@ import { notifications } from '@mantine/notifications'
 import type { Sale } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
-import { formatINR } from '../lib/format'
+import { formatINR, formatDate } from '../lib/format'
 import { groupByMonth, monthLabel } from '../lib/group'
 import { toCsv, salesColumns } from '../lib/csv'
 import { useFY } from '../fy'
@@ -71,7 +71,7 @@ export default function Sales() {
                 </Table.Tr>
               ) : (
                 <Table.Tr key={s.id}>
-                  <Table.Td>{s.invoice_number}</Table.Td><Table.Td>{s.invoice_date}</Table.Td><Table.Td>{s.buyer_name}</Table.Td>
+                  <Table.Td>{s.invoice_number}</Table.Td><Table.Td>{formatDate(s.invoice_date)}</Table.Td><Table.Td>{s.buyer_name}</Table.Td>
                   <Table.Td ta="right">{s.total_qty_kg}</Table.Td><Table.Td ta="right">{formatINR(s.total_invoice_amount)}</Table.Td>
                   <Table.Td><Badge color={s.payment_status === 'done' ? 'green' : 'orange'}>{s.payment_status}</Badge></Table.Td>
                   <Table.Td>

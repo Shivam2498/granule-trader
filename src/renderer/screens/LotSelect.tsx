@@ -4,7 +4,7 @@ import { Paper, Table, Checkbox, Select, TextInput, Button, Group, Text, Alert, 
 import type { AvailableLot, HsnProduct } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
-import { formatINR } from '../lib/format'
+import { formatINR, formatDate } from '../lib/format'
 import { filterLots } from '../lib/allocation'
 import { daysBetween } from '../lib/dashboard'
 import { useSaleDraft } from '../sale-draft'
@@ -135,7 +135,7 @@ export default function LotSelect() {
                 </Table.Td>
                 <Table.Td>{l.hsn_code}</Table.Td>
                 <Table.Td>{l.description || '—'}</Table.Td>
-                <Table.Td>{l.invoice_date}</Table.Td>
+                <Table.Td>{formatDate(l.invoice_date)}</Table.Td>
                 <Table.Td ta="right">{daysBetween(l.invoice_date, draft.invoiceDate)}d</Table.Td>
                 <Table.Td ta="right">{l.available_kg}</Table.Td>
                 <Table.Td ta="right">{formatINR(l.rate_per_kg)}</Table.Td>
