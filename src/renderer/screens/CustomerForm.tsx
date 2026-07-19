@@ -5,14 +5,14 @@ import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Customer } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
-import { vGstin, vPhoneOptional, vPincode } from '../lib/formValidators'
+import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import StateSelect from '../components/StateSelect'
 import PincodeField from '../components/PincodeField'
 
 const EMPTY: Omit<Customer, 'id'> = {
-  name: '', gstin: '', pan: '', phone: '',
+  name: '', gstin: '', pan: '', phone: '', email: '',
   billing_address: '', billing_city: '', billing_state: '', billing_pincode: '',
   shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
 }
@@ -31,6 +31,7 @@ export default function CustomerForm() {
       name: isNotEmpty('Enter the name.'),
       gstin: vGstin,
       phone: vPhoneOptional,
+      email: vEmailOptional,
       billing_city: isNotEmpty('Enter the city.'),
       billing_state: isNotEmpty('Choose the state.'),
       billing_pincode: vPincode,
@@ -80,7 +81,8 @@ export default function CustomerForm() {
           }} />
         <TextInput label="PAN (from GSTIN)" disabled value={form.values.pan} />
         <TextInput label="Phone" {...form.getInputProps('phone')}
-          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))} />
+          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/D/g, '').slice(0, 10))} />
+        <TextInput label="Email" placeholder="name@company.com" {...form.getInputProps('email')} />
       </FormSection>
       <FormSection title="Billing address">
         <Input.Wrapper label="Pincode" withAsterisk error={form.errors.billing_pincode}>

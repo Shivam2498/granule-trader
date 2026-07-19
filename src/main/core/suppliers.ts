@@ -1,16 +1,16 @@
 import type Database from 'better-sqlite3'
 import type { Supplier } from '@shared/types'
 
-const COLS = `name, gstin, pan, phone, address, city, state, pincode`
+const COLS = `name, gstin, pan, phone, email, address, city, state, pincode`
 
 export function createSupplier(db: Database.Database, s: Omit<Supplier, 'id'>): Supplier {
   const info = db.prepare(`INSERT INTO suppliers (${COLS}) VALUES
-    (@name,@gstin,@pan,@phone,@address,@city,@state,@pincode)`).run(s)
+    (@name,@gstin,@pan,@phone,@email,@address,@city,@state,@pincode)`).run(s)
   return getSupplier(db, Number(info.lastInsertRowid))!
 }
 
 export function updateSupplier(db: Database.Database, id: number, s: Omit<Supplier, 'id'>): Supplier {
-  db.prepare(`UPDATE suppliers SET name=@name, gstin=@gstin, pan=@pan, phone=@phone,
+  db.prepare(`UPDATE suppliers SET name=@name, gstin=@gstin, pan=@pan, phone=@phone, email=@email,
     address=@address, city=@city, state=@state, pincode=@pincode WHERE id=@id`).run({ ...s, id })
   return getSupplier(db, id)!
 }

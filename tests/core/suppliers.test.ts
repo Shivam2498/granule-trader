@@ -9,7 +9,7 @@ beforeEach(() => { db = openDatabase(':memory:') })
 
 const s = {
   name: 'Acme Polymers', gstin: '24CCGPC8555A1Z5', pan: 'CCGPC8555A', phone: '9876543210',
-  address: '1 Industrial Estate', city: 'Surat', state: 'Gujarat', pincode: '395003'
+  address: '1 Industrial Estate', city: 'Surat', state: 'Gujarat', pincode: '395003', email: 'acme@x.com'
 }
 
 describe('suppliers', () => {

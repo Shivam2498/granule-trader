@@ -15,11 +15,16 @@ export function isMobile(s: string): boolean {
 export function isPincode(s: string): boolean {
   return /^[0-9]{6}$/.test(s.trim())
 }
+export function isEmail(s: string): boolean {
+  // Deliberately loose: something@something.tld, no spaces. Catches typos, not RFC edge cases.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
+}
 
 export const VMSG = {
   gstin: 'Enter a valid GSTIN, like 24ABCDE1234F1Z5.',
   phone: 'Enter a 10-digit phone number.',
-  pincode: 'Enter a 6-digit pincode.'
+  pincode: 'Enter a 6-digit pincode.',
+  email: 'Enter a valid email, like name@company.com.'
 } as const
 
 const PREFIX_SKIP = new Set(['and', 'the', 'of', '&'])

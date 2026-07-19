@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin } from '../../src/shared/validation'
+import { isGstin, isPan, isMobile, isPincode, deriveInvoicePrefix, panFromGstin, isEmail } from '../../src/shared/validation'
 
 describe('format validators', () => {
   it('accepts a valid GSTIN and rejects bad ones', () => {
@@ -44,5 +44,18 @@ describe('panFromGstin', () => {
   it('returns empty for a too-short GSTIN', () => {
     expect(panFromGstin('24CCGPC')).toBe('')
     expect(panFromGstin('')).toBe('')
+  })
+})
+
+describe('isEmail', () => {
+  it('accepts a normal address', () => {
+    expect(isEmail('a@b.com')).toBe(true)
+    expect(isEmail('ajay.arora_ent@gmail.co.in')).toBe(true)
+  })
+  it('rejects malformed', () => {
+    expect(isEmail('nope')).toBe(false)
+    expect(isEmail('a@b')).toBe(false)
+    expect(isEmail('a b@c.com')).toBe(false)
+    expect(isEmail('')).toBe(false)
   })
 })

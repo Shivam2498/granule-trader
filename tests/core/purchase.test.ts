@@ -98,7 +98,7 @@ describe('rate-driven amount', () => {
 describe('purchase supplier link', () => {
   it('stores and returns supplier_id', () => {
     const sup = createSupplier(db, {
-      name: 'Acme Polymers', gstin: '24CCGPC8555A1Z5', pan: 'CCGPC8555A', phone: '9876543210',
+      name: 'Acme Polymers', gstin: '24CCGPC8555A1Z5', pan: 'CCGPC8555A', phone: '9876543210', email: '',
       address: '1 Estate', city: 'Surat', state: 'Gujarat', pincode: '395003'
     })
     const p = mkPurchase(db, { ...base, our_code: '0001/2425', invoice_date: '2024-05-01', supplier_id: sup.id })

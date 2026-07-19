@@ -5,12 +5,18 @@ import { createCustomer, listCustomers, deleteCustomer, placeOfSupplyState } fro
 let db: ReturnType<typeof openDatabase>
 beforeEach(() => { db = openDatabase(':memory:') })
 const c = {
-  name: 'Beta Traders', gstin: '24XXX', pan: 'AAA', phone: '999',
+  name: 'Beta Traders', gstin: '24XXX', pan: 'AAA', phone: '999', email: 'beta@x.com',
   billing_address: 'A', billing_city: 'Surat', billing_state: 'Gujarat', billing_pincode: '395003',
   shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
 }
 
 describe('customers', () => {
+  it('stores and returns the email', () => {
+    const saved = createCustomer(db, c)
+    expect(saved.email).toBe('beta@x.com')
+    const blank = createCustomer(db, { ...c, name: 'No Email', email: '' })
+    expect(blank.email).toBe('')
+  })
   it('creates and searches by name', () => {
     createCustomer(db, c)
     expect(listCustomers(db, 'beta')).toHaveLength(1)

@@ -145,7 +145,7 @@ describe('resolveBuyer', () => {
   it('returns an existing app customer matched by GSTIN', () => {
     const db = openDatabase(':memory:')
     const existing = createCustomer(db, {
-      name: 'Jenisa Enterprise', gstin: '19BOGPB4474J1ZQ', pan: 'BOGPB4474J', phone: '',
+      name: 'Jenisa Enterprise', gstin: '19BOGPB4474J1ZQ', pan: 'BOGPB4474J', phone: '', email: '',
       billing_address: 'x', billing_city: 'Kolkata', billing_state: 'West Bengal', billing_pincode: '700144',
       shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
     })

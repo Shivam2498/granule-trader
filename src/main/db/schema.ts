@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS customers (
   gstin TEXT NOT NULL DEFAULT '',
   pan TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
   billing_address TEXT NOT NULL DEFAULT '',
   billing_city TEXT NOT NULL DEFAULT '',
   billing_state TEXT NOT NULL DEFAULT '',
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
   gstin TEXT NOT NULL DEFAULT '',
   pan TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
   address TEXT NOT NULL DEFAULT '',
   city TEXT NOT NULL DEFAULT '',
   state TEXT NOT NULL DEFAULT '',
@@ -183,6 +185,10 @@ function migrate(db: Database.Database): void {
   }
   if (!hasColumn(db, 'sales', 'place_of_supply_state'))
     db.exec(`ALTER TABLE sales ADD COLUMN place_of_supply_state TEXT NOT NULL DEFAULT ''`)
+  if (!hasColumn(db, 'customers', 'email'))
+    db.exec(`ALTER TABLE customers ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
+  if (!hasColumn(db, 'suppliers', 'email'))
+    db.exec(`ALTER TABLE suppliers ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
   if (!hasColumn(db, 'sale_allocations', 'purchase_item_id'))
     db.exec(`ALTER TABLE sale_allocations ADD COLUMN purchase_item_id INTEGER REFERENCES purchase_items(id)`)
   if (!hasColumn(db, 'stock_adjustments', 'purchase_item_id'))

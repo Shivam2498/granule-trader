@@ -1,21 +1,21 @@
 import type Database from 'better-sqlite3'
 import type { Customer } from '@shared/types'
 
-const COLS = `name, gstin, pan, phone, billing_address, billing_city, billing_state, billing_pincode,
+const COLS = `name, gstin, pan, phone, email, billing_address, billing_city, billing_state, billing_pincode,
   shipping_same, shipping_address, shipping_city, shipping_state, shipping_pincode`
 
 function rowToCustomer(r: any): Customer { return { ...r, shipping_same: !!r.shipping_same } }
 
 export function createCustomer(db: Database.Database, c: Omit<Customer, 'id'>): Customer {
   const info = db.prepare(`INSERT INTO customers (${COLS}) VALUES
-    (@name,@gstin,@pan,@phone,@billing_address,@billing_city,@billing_state,@billing_pincode,
+    (@name,@gstin,@pan,@phone,@email,@billing_address,@billing_city,@billing_state,@billing_pincode,
      @shipping_same,@shipping_address,@shipping_city,@shipping_state,@shipping_pincode)`)
     .run({ ...c, shipping_same: c.shipping_same ? 1 : 0 })
   return getCustomer(db, Number(info.lastInsertRowid))!
 }
 
 export function updateCustomer(db: Database.Database, id: number, c: Omit<Customer, 'id'>): Customer {
-  db.prepare(`UPDATE customers SET name=@name, gstin=@gstin, pan=@pan, phone=@phone,
+  db.prepare(`UPDATE customers SET name=@name, gstin=@gstin, pan=@pan, phone=@phone, email=@email,
     billing_address=@billing_address, billing_city=@billing_city, billing_state=@billing_state,
     billing_pincode=@billing_pincode, shipping_same=@shipping_same, shipping_address=@shipping_address,
     shipping_city=@shipping_city, shipping_state=@shipping_state, shipping_pincode=@shipping_pincode

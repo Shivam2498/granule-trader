@@ -54,6 +54,7 @@ export interface Supplier {
   gstin: string
   pan: string
   phone: string
+  email: string
   address: string
   city: string
   state: string
@@ -66,6 +67,7 @@ export interface Customer {
   gstin: string
   pan: string
   phone: string
+  email: string
   billing_address: string
   billing_city: string
   billing_state: string

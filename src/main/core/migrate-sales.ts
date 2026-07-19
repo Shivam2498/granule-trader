@@ -126,7 +126,7 @@ export function resolveBuyer(db: Database.Database, gstin: string, name: string,
     name: src.name || name,
     gstin,
     pan: panFromGstin(gstin),
-    phone: '',
+    phone: '', email: '',
     billing_address: src.address, billing_city: src.city, billing_state: src.state, billing_pincode: src.pincode,
     shipping_same: true,
     shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
