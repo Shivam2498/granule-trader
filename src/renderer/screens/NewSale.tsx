@@ -250,7 +250,7 @@ export default function NewSale() {
                   <Table.Td ta="right">{l.available_kg}</Table.Td>
                   <Table.Td ta="right">{formatINR(l.rate_per_kg)}</Table.Td>
                   <Table.Td>
-                    <MoneyInput value={d.rate} onChange={n => setLot(l.purchase_item_id, { rate: n })} />
+                    <MoneyInput value={d.rate} onChange={n => setLot(l.purchase_item_id, { rate: n })} decimals={4} />
                     {d.rate > 0 && (
                       <Text size="xs" mt={4} c={margin < 0 ? 'red' : 'dimmed'}>
                         {margin < 0 ? `${formatINR(Math.abs(margin))}/kg below cost` : `+${formatINR(margin)}/kg`}
