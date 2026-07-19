@@ -1,0 +1,5 @@
+/* On paper: only the statement. The app chrome (sidebar) already carries .no-print. */
+@media print {
+  .report-controls { display: none !important; }
+  .mantine-AppShell-main { padding: 0 !important; }
+}

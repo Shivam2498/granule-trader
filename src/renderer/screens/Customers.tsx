@@ -38,7 +38,7 @@ export default function Customers() {
               <Table.Td>{c.name}</Table.Td><Table.Td>{c.gstin}</Table.Td><Table.Td>{c.billing_city}</Table.Td><Table.Td>{c.billing_state}</Table.Td>
               <Table.Td>
                 <Group gap="xs" justify="flex-end">
-                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/customers/edit/${c.id}`)}>Edit</Button>
+                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/reports?type=sales&party=${c.id}`)}>Report</Button>                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/customers/edit/${c.id}`)}>Edit</Button>
                   <Button variant="subtle" color="red" size="compact-sm" onClick={() => remove(c.id)}>Delete</Button>
                 </Group>
               </Table.Td>

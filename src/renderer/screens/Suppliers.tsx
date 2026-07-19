@@ -38,7 +38,7 @@ export default function Suppliers() {
               <Table.Td>{s.name}</Table.Td><Table.Td>{s.gstin}</Table.Td><Table.Td>{s.city}</Table.Td><Table.Td>{s.state}</Table.Td>
               <Table.Td>
                 <Group gap="xs" justify="flex-end">
-                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/suppliers/edit/${s.id}`)}>Edit</Button>
+                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/reports?type=purchases&party=${s.id}`)}>Report</Button>                  <Button variant="subtle" size="compact-sm" onClick={() => nav(`/suppliers/edit/${s.id}`)}>Edit</Button>
                   <Button variant="subtle" color="red" size="compact-sm" onClick={() => remove(s.id)}>Delete</Button>
                 </Group>
               </Table.Td>
