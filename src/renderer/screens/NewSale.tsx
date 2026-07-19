@@ -123,7 +123,7 @@ export default function NewSale() {
   const ewayRequired = ewayBillRequired(tax.total)
   const formState = {
     invoiceNumber: draft.invoiceNumber, hasBuyer: !!buyer, vehicle: draft.vehicle,
-    lots: lotDraws, total: tax.total, ewayNo: draft.ewayNo, ewayDate: draft.ewayDate
+    lots: lotDraws, placeOfSupply, total: tax.total, ewayNo: draft.ewayNo, ewayDate: draft.ewayDate
   }
   const formError = saleFormError(formState)
 

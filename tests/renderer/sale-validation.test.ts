@@ -26,6 +26,7 @@ describe('saleFormError', () => {
   const okForm = () => ({
     invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234',
     lots: [lot({ qty: 50, rate: 8 })],
+    placeOfSupply: 'West Bengal',
     total: 472, ewayNo: '', ewayDate: ''
   })
 
@@ -79,5 +80,24 @@ describe('saleFormError', () => {
     it('asks for the stock before the e-way bill, since the total depends on it', () => {
       expect(saleFormError({ ...okForm(), total: 53100, lots: [] })).toBe('Choose stock to sell.')
     })
+  })
+})
+
+describe('buyer state guard (tax must never be derived from a blank state)', () => {
+  const okForm = () => ({
+    invoiceNumber: 'INV-001', hasBuyer: true, vehicle: 'GJ-05-AB-1234',
+    lots: [lot({ qty: 50, rate: 8 })],
+    placeOfSupply: 'West Bengal',
+    total: 472, ewayNo: '', ewayDate: ''
+  })
+  it('refuses to save when the buyer has no state — GST could not be worked out', () => {
+    expect(saleFormError({ ...okForm(), placeOfSupply: '' }))
+      .toBe('This buyer has no state set, so GST cannot be worked out. Open the Customers screen and set their state.')
+  })
+  it('asks for the buyer before complaining about their state', () => {
+    expect(saleFormError({ ...okForm(), hasBuyer: false, placeOfSupply: '' })).toBe('Please choose a buyer.')
+  })
+  it('passes when the state is set', () => {
+    expect(saleFormError(okForm())).toBe('')
   })
 })

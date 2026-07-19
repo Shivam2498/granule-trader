@@ -13,7 +13,7 @@ describe('schema migration — schema_version guard', () => {
     const db = freshDb()
     initSchema(db)
     const row = db.prepare(`SELECT value FROM settings WHERE key = 'schema_version'`).get() as { value: string } | undefined
-    expect(row?.value).toBe('2')
+    expect(row?.value).toBe('3')
   })
 
   it('does NOT overwrite a legitimately 0%-rated sale_allocation on re-run', () => {
@@ -71,6 +71,6 @@ describe('schema migration — schema_version guard', () => {
 
     // And version is now set — a versionless legacy DB is carried all the way to the latest
     const vRow = db.prepare(`SELECT value FROM settings WHERE key = 'schema_version'`).get() as { value: string }
-    expect(vRow.value).toBe('2')
+    expect(vRow.value).toBe('3')
   })
 })

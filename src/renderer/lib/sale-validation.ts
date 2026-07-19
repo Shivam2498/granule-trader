@@ -16,6 +16,8 @@ export interface SaleFormState {
   hasBuyer: boolean
   vehicle: string
   lots: LotDraw[]
+  /** The buyer's place of supply. Blank means GST cannot be split — the sale must not be saved. */
+  placeOfSupply: string
   /** Invoice total incl. GST and round-off — what the e-way bill threshold is measured against. */
   total: number
   ewayNo: string
@@ -34,6 +36,10 @@ export function lotDrawError(d: LotDraw): string {
 export function saleFormError(s: SaleFormState): string {
   if (!s.invoiceNumber.trim()) return 'Enter an invoice number.'
   if (!s.hasBuyer) return 'Please choose a buyer.'
+  // A blank state silently reads as inter-state and would book the whole GST as IGST. Refuse
+  // rather than guess — the tax split is decided by the place of supply, never by a default.
+  if (!s.placeOfSupply.trim())
+    return 'This buyer has no state set, so GST cannot be worked out. Open the Customers screen and set their state.'
   if (!s.vehicle.trim()) return 'Enter the vehicle number.'
   if (s.lots.length === 0) return 'Choose stock to sell.'
   for (const l of s.lots) {

@@ -87,13 +87,13 @@ describe('migration to purchase_items (schema_version 2)', () => {
     initSchema(db)
     initSchema(db)
     expect(db.prepare('SELECT COUNT(*) AS n FROM purchase_items').get()).toEqual({ n: 1 })
-    expect((db.prepare(`SELECT value FROM settings WHERE key='schema_version'`).get() as any).value).toBe('2')
+    expect((db.prepare(`SELECT value FROM settings WHERE key='schema_version'`).get() as any).value).toBe('3')
   })
 
-  it('leaves a fresh database with no items and version 2', () => {
+  it('leaves a fresh database with no items and the latest version', () => {
     const db = new Database(':memory:')
     initSchema(db)
     expect(db.prepare('SELECT COUNT(*) AS n FROM purchase_items').get()).toEqual({ n: 0 })
-    expect((db.prepare(`SELECT value FROM settings WHERE key='schema_version'`).get() as any).value).toBe('2')
+    expect((db.prepare(`SELECT value FROM settings WHERE key='schema_version'`).get() as any).value).toBe('3')
   })
 })

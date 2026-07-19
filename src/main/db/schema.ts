@@ -231,4 +231,23 @@ function migrate(db: Database.Database): void {
     `)
     db.exec(`INSERT INTO settings(key,value) VALUES('schema_version','2') ON CONFLICT(key) DO UPDATE SET value='2'`)
   }
+
+  // v3 — backfill the party state the purchase CSV importer never set (it created suppliers by
+  // name only). A blank state reads as inter-state, so tax would silently flip to IGST the next
+  // time such a purchase was saved. The fill is EVIDENCE-DRIVEN, never a guess: a supplier gets
+  // the home state only when their own bills were taxed intra-state (CGST/SGST and no IGST).
+  // A supplier with an IGST bill, or with no bills at all, is left blank for the user to set.
+  if (version < 3) {
+    const home = (db.prepare(`SELECT value FROM settings WHERE key = 'home_state'`).get() as { value: string } | undefined)?.value ?? ''
+    if (home.trim()) {
+      db.prepare(`
+        UPDATE suppliers SET state = ?
+        WHERE TRIM(state) = ''
+          AND EXISTS (SELECT 1 FROM purchases p WHERE p.supplier_id = suppliers.id AND p.cgst > 0)
+          AND NOT EXISTS (SELECT 1 FROM purchases p WHERE p.supplier_id = suppliers.id AND p.igst > 0)
+      `).run(home)
+      db.prepare(`UPDATE purchases SET party_state = ? WHERE TRIM(party_state) = '' AND cgst > 0 AND igst = 0`).run(home)
+    }
+    db.exec(`INSERT INTO settings(key,value) VALUES('schema_version','3') ON CONFLICT(key) DO UPDATE SET value='3'`)
+  }
 }
