@@ -1,10 +1,11 @@
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
 import { NavLink, Title, Stack } from '@mantine/core'
-import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconBuildingWarehouse, IconSettings, IconFileAnalytics, IconCash } from '@tabler/icons-react'
+import { IconDashboard, IconShoppingCart, IconReceipt, IconBox, IconUsers, IconBuildingWarehouse, IconSettings, IconFileAnalytics, IconCash, IconBook } from '@tabler/icons-react'
 import FYSelect from './FYSelect'
 
 const items = [
   { to: '/', label: 'Dashboard', icon: IconDashboard },
+  { to: '/daybook', label: 'Day book', icon: IconBook },
   { to: '/purchases', label: 'Purchases', icon: IconShoppingCart },
   { to: '/sales', label: 'Sales', icon: IconReceipt },
   { to: '/stock', label: 'Stock', icon: IconBox },
