@@ -60,18 +60,25 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
   const buyerPan = panFromGstin(sale.buyer_gstin)
   const resolvedPlaceOfSupply = sale.place_of_supply_state || billing.state || ''
 
+  // Godown "same as office" is stored as a blank godown address; treat blank OR equal as "same"
+  // and print one combined line, otherwise two separate lines.
+  const godownSameAsOffice = !settings.seller_godown_address.trim()
+    || settings.seller_godown_address.trim() === settings.seller_address.trim()
+
   const copy = (marker: string) => (
     <div className="invoice" key={marker}>
-      <div className="inv-marker">{marker}</div>
-      <div className="inv-title">TAX INVOICE</div>
+      <div className="inv-title">TAX INVOICE<span className="inv-marker">{marker}</span></div>
 
       <table className="inv"><tbody>
         <tr>
           <td className="seller">
             <div className="bold big">{uc(settings.seller_name)}</div>
-            <div><b>Off:</b> {uc(settings.seller_address)}</div>
-            {settings.seller_godown_address.trim() && settings.seller_godown_address.trim() !== settings.seller_address.trim()
-              ? <div><b>Godown:</b> {uc(settings.seller_godown_address)}</div> : null}
+            {godownSameAsOffice
+              ? <div><b>Off And Godown:</b> {uc(settings.seller_address)}</div>
+              : <>
+                  <div><b>Off:</b> {uc(settings.seller_address)}</div>
+                  <div><b>Godown:</b> {uc(settings.seller_godown_address)}</div>
+                </>}
             <div>{uc(settings.home_state)}</div>
             <div><b>GSTIN/UIN:</b> {settings.seller_gstin}</div>
             <div><b>PAN/IT No.:</b> {settings.seller_pan}</div>
@@ -88,7 +95,6 @@ export default function InvoiceTemplate({ sale, allocations, settings, hsnDescri
               <tr><td>Payment Terms</td><td colSpan={3}>{PAYMENT_TERMS}</td></tr>
               <tr><td>Vehicle No</td><td colSpan={3}>{sale.vehicle ?? ''}</td></tr>
               <tr><td>Delivery Terms</td><td colSpan={3}>{DELIVERY_TERMS}</td></tr>
-              <tr><td>Remarks</td><td colSpan={3}></td></tr>
             </tbody></table>
           </td>
         </tr>

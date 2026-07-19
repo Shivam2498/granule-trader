@@ -1,7 +1,10 @@
 .invoice { background: #fff; color: #000; width: 820px; margin: 0 auto 24px; padding: 8px;
   font-size: 11px; font-family: Arial, Helvetica, sans-serif; }
-.invoice .inv-marker { text-align: right; font-weight: 700; }
-.invoice .inv-title { text-align: center; font-weight: 700; font-size: 14px; border: 1px solid #000; border-bottom: none; padding: 4px; }
+/* Room for a physical stamp + signature — the seal box needs real height, not one text line. */
+.invoice td.sign { height: 90px; vertical-align: bottom; }
+.invoice .inv-title { position: relative; text-align: center; font-weight: 700; font-size: 14px; border: 1px solid #000; border-bottom: none; padding: 4px; }
+/* Original / Duplicate sits inside the TAX INVOICE cell, pinned to the far right, without shifting the centred title. */
+.invoice .inv-marker { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 700; }
 .invoice table.inv { width: 100%; border-collapse: collapse; }
 .invoice table.inv > tbody > tr > td, .invoice table.inv > thead > tr > th { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
 .invoice table.kv { width: 100%; border-collapse: collapse; }

@@ -92,13 +92,22 @@ describe('InvoiceTemplate', () => {
     expect(container.textContent).toContain('UDYAM-WB-10-0066963')
   })
 
-  it('hides the Godown line when blank or same as office, shows it when different', () => {
+  it('shows separate Off/Godown lines when they differ, combined "Off And Godown:" when same or blank', () => {
     const diff = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Off Addr', seller_godown_address: 'Godown Addr' }} hsnDescriptions={hsnDescriptions} />)
+    expect(diff.container.textContent).toContain('Off:')
     expect(diff.container.textContent).toContain('Godown:')
+    expect(diff.container.textContent).not.toContain('Off And Godown:')
+    // same address → one combined line
     diff.rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Same Addr', seller_godown_address: 'Same Addr' }} hsnDescriptions={hsnDescriptions} />)
-    expect(diff.container.textContent).not.toContain('Godown:')
+    expect(diff.container.textContent).toContain('Off And Godown:')
+    // blank godown is treated as "same"
     diff.rerender(<InvoiceTemplate sale={sale} allocations={allocs} settings={{ ...settings, seller_address: 'Off Addr', seller_godown_address: '' }} hsnDescriptions={hsnDescriptions} />)
-    expect(diff.container.textContent).not.toContain('Godown:')
+    expect(diff.container.textContent).toContain('Off And Godown:')
+  })
+
+  it('no longer prints a Remarks row', () => {
+    const { container } = render(<InvoiceTemplate sale={sale} allocations={allocs} settings={settings} hsnDescriptions={hsnDescriptions} />)
+    expect(container.textContent).not.toContain('Remarks')
   })
 
   it('prints names/addresses in uniform uppercase regardless of stored casing', () => {
