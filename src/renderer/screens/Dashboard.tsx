@@ -66,8 +66,8 @@ export default function Dashboard() {
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mb="lg">
         <KpiCard label={`Sales · ${fy}`} value={formatINR(salesFy)} sub={deltaText} onClick={() => nav('/sales')} />
         <KpiCard label={`Purchases · ${fy}`} value={formatINR(purchasesFy)} sub={`${purchases.length} bills`} onClick={() => nav('/purchases')} />
-        <KpiCard label="Receivables outstanding" value={formatINR(rec.total)} sub={`${rec.overdue.length} unpaid · to date`} onClick={() => nav('/sales?unpaid=1')} />
-        <KpiCard label="Payables outstanding" value={formatINR(pay.total)} sub={`${pay.due.length} unpaid · to date`} onClick={() => nav('/purchases?unpaid=1')} />
+        <KpiCard label="Receivables outstanding" value={formatINR(rec.total)} sub={`${rec.overdue.length} unpaid · to date`} onClick={() => nav('/outstanding')} />
+        <KpiCard label="Payables outstanding" value={formatINR(pay.total)} sub={`${pay.due.length} unpaid · to date`} onClick={() => nav('/outstanding')} />
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} mb="lg">

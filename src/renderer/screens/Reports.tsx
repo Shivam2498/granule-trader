@@ -37,7 +37,7 @@ export default function Reports() {
   const [kind, setKind] = useState<Kind>((params.get('type') as Kind) ?? 'sales')
   const [partyId, setPartyId] = useState<number | null>(params.get('party') ? Number(params.get('party')) : null)
   const [month, setMonth] = useState<string | null>(null)
-  const [paid, setPaid] = useState<'all' | 'unpaid'>('all')
+  const [paid, setPaid] = useState<'all' | 'unpaid'>(params.get('unpaid') === '1' ? 'unpaid' : 'all')
   const [sales, setSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
