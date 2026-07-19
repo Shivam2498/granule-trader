@@ -266,3 +266,23 @@ describe('multi-HSN purchases', () => {
     })).toThrow(/already sold 1000 kg/)
   })
 })
+
+describe('purchase vehicle + e-way bill', () => {
+  it('stores and returns vehicle, e-way number and e-way date', () => {
+    const p = mkPurchase(db, {
+      our_code: '0011/2425', invoice_date: '2024-05-01', hsn_code: '3902', qty_kg: 100, rate_per_kg: 50, gst_rate: 18,
+      party_state: 'Gujarat', homeState: 'Gujarat',
+      vehicle: 'GJ-05-AB-1234', eway_bill_no: '391000123456', eway_bill_date: '2024-05-01'
+    } as any)
+    expect(p.vehicle).toBe('GJ-05-AB-1234')
+    expect(p.eway_bill_no).toBe('391000123456')
+    expect(p.eway_bill_date).toBe('2024-05-01')
+  })
+  it('defaults them to empty when omitted, and survives an edit', () => {
+    const p = mkPurchase(db, { our_code: '0012/2425', invoice_date: '2024-05-01', hsn_code: '3902', qty_kg: 100, rate_per_kg: 50, gst_rate: 18, party_state: 'Gujarat', homeState: 'Gujarat' } as any)
+    expect(p.vehicle).toBe('')
+    expect(p.eway_bill_no).toBe('')
+    const edited = editPurchase(db, p.id, { our_code: '0012/2425', invoice_date: '2024-05-01', hsn_code: '3902', qty_kg: 100, rate_per_kg: 50, gst_rate: 18, party_state: 'Gujarat', homeState: 'Gujarat', vehicle: 'WB-11-XY-9' } as any)
+    expect(edited.vehicle).toBe('WB-11-XY-9')
+  })
+})

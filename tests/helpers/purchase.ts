@@ -29,6 +29,9 @@ export interface FlatPurchase {
   roundoff?: number
   payment_status?: 'pending' | 'done'
   payment_date?: string | null
+  eway_bill_no?: string
+  eway_bill_date?: string
+  vehicle?: string
   supplier_id?: number | null
 }
 
@@ -48,6 +51,9 @@ export function flatToNewPurchase(f: FlatPurchase): NewPurchase {
     roundoff: f.roundoff,
     payment_status: f.payment_status,
     payment_date: f.payment_date,
+    eway_bill_no: f.eway_bill_no,
+    eway_bill_date: f.eway_bill_date,
+    vehicle: f.vehicle,
     supplier_id: f.supplier_id,
     items: [{
       hsn_code: f.hsn_code ?? '',

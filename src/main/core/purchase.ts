@@ -26,6 +26,7 @@ export interface NewPurchase {
   items: NewPurchaseItem[]
   igst_manual?: number; tcs?: number; roundoff?: number
   payment_status?: 'pending' | 'done'; payment_date?: string | null
+  eway_bill_no?: string; eway_bill_date?: string; vehicle?: string
   supplier_id?: number | null
 }
 
@@ -121,11 +122,11 @@ export function createPurchase(db: Database.Database, input: NewPurchase): Purch
       INSERT INTO purchases (our_code, supplier_invoice_number, invoice_date, party, party_state, hsn_code,
         description, party_city, party_pincode, party_address,
         qty_kg, qty_remaining_kg, rate_per_kg, amount, cgst, sgst, igst, tcs, roundoff, total_invoice_amount,
-        payment_status, payment_date, fy_label, code_seq, supplier_id)
+        payment_status, payment_date, eway_bill_no, eway_bill_date, vehicle, fy_label, code_seq, supplier_id)
       VALUES (@our_code, @supplier_invoice_number, @invoice_date, @party, @party_state, @hsn_code,
         @description, @party_city, @party_pincode, @party_address,
         @qty_kg, @qty_remaining_kg, @rate_per_kg, @amount, @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount,
-        @payment_status, @payment_date, @fy_label, @code_seq, @supplier_id)`).run({
+        @payment_status, @payment_date, @eway_bill_no, @eway_bill_date, @vehicle, @fy_label, @code_seq, @supplier_id)`).run({
       our_code: input.our_code, supplier_invoice_number: input.supplier_invoice_number,
       invoice_date: input.invoice_date, party: input.party, party_state: input.party_state,
       party_city: input.party_city ?? '', party_pincode: input.party_pincode ?? '', party_address: input.party_address ?? '',
@@ -133,6 +134,7 @@ export function createPurchase(db: Database.Database, input: NewPurchase): Purch
       amount: tax.taxable_amount, cgst: tax.cgst, sgst: tax.sgst, igst: tax.igst,
       tcs: tax.tcs, roundoff: tax.roundoff, total_invoice_amount: tax.total,
       payment_status: input.payment_status ?? 'pending', payment_date: input.payment_date ?? null,
+      eway_bill_no: input.eway_bill_no ?? '', eway_bill_date: input.eway_bill_date ?? '', vehicle: input.vehicle ?? '',
       fy_label: fy.label, code_seq: parsePurchaseSeq(input.our_code),
       supplier_id: input.supplier_id ?? null
     })
@@ -181,7 +183,8 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
       party_city=@pc, party_pincode=@pp, party_address=@pa, rate_per_kg=@rate_per_kg,
       qty_kg=@qty_kg, qty_remaining_kg=@qty_remaining_kg, amount=@amt,
       cgst=@cgst, sgst=@sgst, igst=@igst, tcs=@tcs, roundoff=@ro, total_invoice_amount=@tot,
-      payment_status=@pst, payment_date=@pd, fy_label=@fy, code_seq=@seq,
+      payment_status=@pst, payment_date=@pd, eway_bill_no=@eway_bill_no, eway_bill_date=@eway_bill_date,
+      vehicle=@vehicle, fy_label=@fy, code_seq=@seq,
       supplier_id=@supplier_id WHERE id=@id`).run({
       id, our_code: input.our_code, sin: input.supplier_invoice_number, d: input.invoice_date,
       party: input.party, ps: input.party_state,
@@ -191,6 +194,9 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
       amt: tax.taxable_amount, cgst: tax.cgst, sgst: tax.sgst, igst: tax.igst,
       tcs: tax.tcs, ro: tax.roundoff, tot: tax.total,
       pst: input.payment_status ?? existing.payment_status, pd: input.payment_date ?? existing.payment_date,
+      eway_bill_no: input.eway_bill_no ?? existing.eway_bill_no,
+      eway_bill_date: input.eway_bill_date ?? existing.eway_bill_date,
+      vehicle: input.vehicle ?? existing.vehicle,
       fy: fy.label, seq: parsePurchaseSeq(input.our_code),
       supplier_id: input.supplier_id ?? existing.supplier_id
     })

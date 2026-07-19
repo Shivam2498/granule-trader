@@ -25,6 +25,9 @@ export interface Purchase {
   total_invoice_amount: number
   payment_status: PaymentStatus
   payment_date: string | null
+  eway_bill_no: string
+  eway_bill_date: string
+  vehicle: string
   fy_label: string
   code_seq: number
   created_at: string

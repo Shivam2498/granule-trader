@@ -32,6 +32,7 @@ export default function PurchaseForm() {
     initialValues: {
       our_code: '', supplier_invoice_number: '', invoice_date: today(),
       supplier_id: null as number | null,
+      eway_bill_no: '', eway_bill_date: '', vehicle: '',
       items: [blankItem()] as ItemRow[],
       roundoff: 0, tcs: 0,
       payment_status: 'pending' as 'pending' | 'done', payment_date: '' as string
@@ -58,6 +59,7 @@ export default function PurchaseForm() {
         form.setValues({
           our_code: p.our_code, supplier_invoice_number: p.supplier_invoice_number, invoice_date: p.invoice_date,
           supplier_id: p.supplier_id,
+          eway_bill_no: p.eway_bill_no ?? '', eway_bill_date: p.eway_bill_date ?? '', vehicle: p.vehicle ?? '',
           items: items.length
             ? items.map(i => ({
                 id: i.id, hsn_code: i.hsn_code, description: i.description, qty_kg: i.qty_kg,
@@ -108,6 +110,7 @@ export default function PurchaseForm() {
       const payload = {
         our_code: v.our_code, supplier_invoice_number: v.supplier_invoice_number, invoice_date: v.invoice_date,
         supplier_id: v.supplier_id,
+        eway_bill_no: v.eway_bill_no, eway_bill_date: v.eway_bill_date, vehicle: v.vehicle,
         party: supplier?.name ?? '', party_state: supplier?.state ?? '',
         party_city: supplier?.city ?? '', party_pincode: supplier?.pincode ?? '', party_address: supplier?.address ?? '',
         homeState: settings!.home_state, roundoff: v.roundoff, tcs: v.tcs,
@@ -134,6 +137,11 @@ export default function PurchaseForm() {
         <Input.Wrapper label="Invoice date" error={form.errors.invoice_date}>
           <DateField value={form.values.invoice_date} onChange={d => form.setFieldValue('invoice_date', d)} />
         </Input.Wrapper>
+        <TextInput label="E-way bill no." placeholder="from the supplier's bill" {...form.getInputProps('eway_bill_no')} />
+        <Input.Wrapper label="E-way bill date">
+          <DateField value={form.values.eway_bill_date} onChange={d => form.setFieldValue('eway_bill_date', d)} />
+        </Input.Wrapper>
+        <TextInput label="Vehicle no." {...form.getInputProps('vehicle')} />
       </FormSection>
 
       <FormSection title="Supplier">
@@ -194,7 +202,7 @@ export default function PurchaseForm() {
                 </Table.Td>
                 <Table.Td>
                   <Input.Wrapper error={form.errors[`items.${i}.rate_per_kg`]}>
-                    <MoneyInput value={it.rate_per_kg} onChange={n => form.setFieldValue(`items.${i}.rate_per_kg`, n)} />
+                    <MoneyInput value={it.rate_per_kg} onChange={n => form.setFieldValue(`items.${i}.rate_per_kg`, n)} decimals={4} />
                   </Input.Wrapper>
                 </Table.Td>
                 <Table.Td ta="right">{formatINR(round2(it.qty_kg * it.rate_per_kg))}</Table.Td>

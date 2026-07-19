@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS purchases (
   total_invoice_amount REAL NOT NULL DEFAULT 0,
   payment_status TEXT NOT NULL DEFAULT 'pending',
   payment_date TEXT,
+  eway_bill_no TEXT NOT NULL DEFAULT '',
+  eway_bill_date TEXT NOT NULL DEFAULT '',
+  vehicle TEXT NOT NULL DEFAULT '',
   fy_label TEXT NOT NULL,
   code_seq INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -189,6 +192,9 @@ function migrate(db: Database.Database): void {
     db.exec(`ALTER TABLE customers ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
   if (!hasColumn(db, 'suppliers', 'email'))
     db.exec(`ALTER TABLE suppliers ADD COLUMN email TEXT NOT NULL DEFAULT ''`)
+  for (const col of ['eway_bill_no', 'eway_bill_date', 'vehicle'])
+    if (!hasColumn(db, 'purchases', col))
+      db.exec(`ALTER TABLE purchases ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`)
   if (!hasColumn(db, 'sale_allocations', 'purchase_item_id'))
     db.exec(`ALTER TABLE sale_allocations ADD COLUMN purchase_item_id INTEGER REFERENCES purchase_items(id)`)
   if (!hasColumn(db, 'stock_adjustments', 'purchase_item_id'))
