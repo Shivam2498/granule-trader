@@ -1,5 +1,23 @@
-/* On paper: only the statement. The app chrome (sidebar) already carries .no-print. */
-@media print {
-  .report-controls { display: none !important; }
-  .mantine-AppShell-main { padding: 0 !important; }
+/* On paper: only the statement. The app chrome (sidebar/header) already carries .no-print. */
+/* Scoped to .statement-screen only — do NOT apply to invoices or other screens. */
+.statement-screen {
+  @media print {
+    /* The sales/purchase statement is a wide table (up to ~16 columns). Print it landscape and
+       shrink it so every column — CGST/SGST/IGST/TCS/Round-off/Total/Payment — fits the page
+       instead of being clipped at the right edge. */
+    @page { size: A4 landscape; margin: 10mm; }
+
+    padding: 0 !important;
+
+    .report-controls { display: none !important; }
+
+    table { width: 100% !important; font-size: 9px !important; }
+    table th,
+    table td {
+      padding: 3px 4px !important;
+      white-space: normal !important;   /* override on-screen nowrap so columns can shrink to fit */
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+  }
 }

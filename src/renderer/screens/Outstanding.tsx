@@ -113,7 +113,7 @@ export default function Outstanding() {
   }
 
   return (
-    <div>
+    <div className="statement-screen">
       <div className="report-controls">
         <PageHeader title="Outstanding" action={
           <Button variant="default" onClick={() => window.print()}>🖨 Print / PDF</Button>

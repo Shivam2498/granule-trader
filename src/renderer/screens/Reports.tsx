@@ -55,6 +55,8 @@ export default function Reports() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [fy])
 
+  useEffect(() => { setMonth(null) }, [fy])   // reset month when FY changes
+
   const parties = kind === 'sales' ? customers : suppliers
   const party = parties.find(p => p.id === partyId) ?? null
   const months = useMemo(() => fyMonths(fy), [fy])
@@ -87,12 +89,21 @@ export default function Reports() {
     } catch (e: any) { setError(e.message ?? String(e)) }
   }
 
+  // Money columns read nicer as ₹ on screen; the CSV keeps raw numbers (columns are untouched).
+  const MONEY = new Set(['Taxable', 'CGST', 'SGST', 'IGST', 'TCS', 'Round-off', 'Total'])
+  function cellText<T>(c: CsvColumn<T>, r: T): string {
+    const v = c.value(r)
+    if (MONEY.has(c.header) && typeof v === 'number') return formatINR(v)
+    if (c.header === 'Qty (kg)') return `${v} kg`
+    return String(v)
+  }
+
   function renderTable<T>(rows: T[], columns: CsvColumn<T>[], rowKey: (r: T) => string | number) {
     return (
-      <ListTable head={<>{columns.map(c => <Table.Th key={c.header}>{c.header}</Table.Th>)}</>}>
+      <ListTable head={<>{columns.map(c => <Table.Th key={c.header} style={{ whiteSpace: 'nowrap' }}>{c.header}</Table.Th>)}</>}>
         {rows.map(r => (
           <Table.Tr key={rowKey(r)}>
-            {columns.map(c => <Table.Td key={c.header}>{String(c.value(r))}</Table.Td>)}
+            {columns.map(c => <Table.Td key={c.header} style={{ whiteSpace: 'nowrap' }}>{cellText(c, r)}</Table.Td>)}
           </Table.Tr>
         ))}
         {rows.length === 0 && <Table.Tr><Table.Td colSpan={columns.length} c="dimmed">
@@ -103,7 +114,7 @@ export default function Reports() {
   }
 
   return (
-    <div>
+    <div className="statement-screen">
       <div className="report-controls">
         <PageHeader title="Reports" action={
           <Group>
