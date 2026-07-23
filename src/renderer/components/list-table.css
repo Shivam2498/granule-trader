@@ -1,0 +1,7 @@
+.list-table-scroll { overflow-x: auto; max-width: 100%; }
+
+/* On paper, let the table run its full natural width — printers/PDF handle overflow to a new
+   page far better than a clipped scroll box, which would silently cut columns off. */
+@media print {
+  .list-table-scroll { overflow: visible; }
+}

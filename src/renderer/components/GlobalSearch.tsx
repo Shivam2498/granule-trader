@@ -16,10 +16,9 @@ export default function GlobalSearch() {
   const [active, setActive] = useState(0)   // index into the flat hit list
   const boxRef = useRef<HTMLDivElement>(null)
 
-  // Load everything once, lazily on first focus, then reuse. Cheap for this dataset (hundreds of rows).
-  const [loaded, setLoaded] = useState(false)
+  // Refetch on every focus — cheap for this dataset (hundreds of rows) and keeps results current
+  // with records created earlier in the same session.
   async function ensureLoaded() {
-    if (loaded) return
     try {
       const [sales, purchases, customers, suppliers, ledger] = await Promise.all([
         window.api.listSales() as Promise<Sale[]>,
@@ -28,8 +27,8 @@ export default function GlobalSearch() {
         window.api.listSuppliers() as Promise<Supplier[]>,
         window.api.stockLedger() as Promise<LedgerRow[]>,
       ])
-      setData({ sales, purchases, customers, suppliers, ledger }); setLoaded(true)
-    } catch { /* leave EMPTY; search simply finds nothing */ }
+      setData({ sales, purchases, customers, suppliers, ledger })
+    } catch { /* leave last-known data; search simply keeps working on stale results */ }
   }
 
   const groups = useMemo(() => searchAll(query, data), [query, data])

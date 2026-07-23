@@ -38,6 +38,7 @@ export default function Reports() {
   const [partyId, setPartyId] = useState<number | null>(params.get('party') ? Number(params.get('party')) : null)
   const [month, setMonth] = useState<string | null>(null)
   const [paid, setPaid] = useState<'all' | 'unpaid'>(params.get('unpaid') === '1' ? 'unpaid' : 'all')
+  const [fyMode, setFyMode] = useState<'current' | 'all'>(params.get('unpaid') === '1' ? 'all' : 'current')  // all-years for cross-year debt from Outstanding
   const [sales, setSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -47,13 +48,13 @@ export default function Reports() {
 
   useEffect(() => { (async () => {
     try {
-      setSales(await window.api.listSales(fy))
-      setPurchases(await window.api.listPurchases(fy))
+      setSales(await window.api.listSales(fyMode === 'all' ? undefined : fy))
+      setPurchases(await window.api.listPurchases(fyMode === 'all' ? undefined : fy))
       setCustomers(await window.api.listCustomers())
       setSuppliers(await window.api.listSuppliers())
       setSettings(await window.api.getSettings())
     } catch (e: any) { setError(e.message ?? String(e)) }
-  })() }, [fy])
+  })() }, [fy, fyMode])
 
   useEffect(() => { setMonth(null) }, [fy])   // reset month when FY changes
 
@@ -140,7 +141,13 @@ export default function Reports() {
             />
           </Group>
           <Group align="flex-end">
-            <Select label="Year" data={years} value={fy} onChange={v => v && setFy(v)} maw={140} />
+            <Select label="Year" data={fyMode === 'all' ? [{ value: '__all', label: 'All years' }, ...years.map(y => ({ value: y, label: y }))] : years}
+              value={fyMode === 'all' ? '__all' : fy}
+              onChange={v => {
+                if (v === '__all') setFyMode('all')
+                else { setFyMode('current'); v && setFy(v) }
+              }}
+              maw={140} />
             <Select label="Month" maw={160} clearable placeholder="All months" data={months} value={month} onChange={setMonth} />
             <SegmentedControl
               value={paid}

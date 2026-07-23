@@ -68,9 +68,9 @@ export default function Outstanding() {
             <Title order={3}>{title}</Title>
             <Text c="dimmed" size="sm">{help}</Text>
           </div>
-          <Group className="report-controls">
+          <Group>
             <Text fw={700} size="lg">{formatINR(report.total)}</Text>
-            <Button variant="default" size="xs" disabled={report.rows.length === 0}
+            <Button className="report-controls" variant="default" size="xs" disabled={report.rows.length === 0}
               onClick={() => download(fileKind, report)}>⭳ CSV</Button>
           </Group>
         </Group>

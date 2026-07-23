@@ -55,4 +55,23 @@ describe('GlobalSearch', () => {
     await waitFor(() => expect((window as any).api.listCustomers).toHaveBeenCalled())
     expect(screen.queryByText('Customers')).toBeNull()
   })
+
+  it('refetches on every focus so records added mid-session become searchable (I3)', async () => {
+    mount()
+    const box = screen.getByLabelText('Global search')
+    fireEvent.focus(box)
+    await waitFor(() => expect((window as any).api.listCustomers).toHaveBeenCalledTimes(1))
+    fireEvent.change(box, { target: { value: 'new' } })
+    expect(screen.queryByText('New Co')).toBeNull()   // not yet known
+
+    // A new customer appears mid-session (e.g. just created on another screen).
+    ;(window as any).api.listCustomers = vi.fn().mockResolvedValue([
+      { id: 7, name: 'Jenisa Enterprise', gstin: '19X', phone: '', email: '', billing_city: 'Kolkata' },
+      { id: 8, name: 'New Co', gstin: '', phone: '', email: '', billing_city: '' },
+    ])
+    fireEvent.blur(box)
+    fireEvent.focus(box)   // re-focus should refetch, not reuse the first snapshot
+    await waitFor(() => expect((window as any).api.listCustomers).toHaveBeenCalledTimes(1))
+    await screen.findByText('New Co')
+  })
 })

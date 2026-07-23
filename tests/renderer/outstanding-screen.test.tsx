@@ -67,4 +67,11 @@ describe('Outstanding screen', () => {
     expect(content.trim().split('\n').at(-1)).toContain('TOTAL')
     expect(content).toContain('17900')
   })
+
+  it('keeps the headline total outside the print-hidden controls (I4)', async () => {
+    mount()
+    await screen.findByText('Acme')
+    const [headerTotal] = screen.getAllByText('₹17,900.00')   // header total renders before the TOTAL row
+    expect(headerTotal.closest('.report-controls')).toBeNull()
+  })
 })

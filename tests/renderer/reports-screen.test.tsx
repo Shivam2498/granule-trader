@@ -25,7 +25,7 @@ beforeEach(() => {
     listPurchases: vi.fn().mockResolvedValue([]),
     listCustomers: vi.fn().mockResolvedValue([{ id: 7, name: 'Jenisa Enterprise', gstin: 'X' }]),
     listSuppliers: vi.fn().mockResolvedValue([]),
-    listFinancialYears: vi.fn().mockResolvedValue(['2026-27']),
+    listFinancialYears: vi.fn().mockResolvedValue(['2026-27', '2025-26']),
     getSettings: vi.fn().mockResolvedValue({ seller_name: 'Ramaxton', invoice_prefix: 'RP' }),
     exportCsv: vi.fn().mockResolvedValue({ saved: true, path: '/tmp/x.csv' })
   }
@@ -70,5 +70,27 @@ describe('Reports screen', () => {
     const lastLine = content.trim().split('\n').at(-1)
     expect(lastLine).toContain('TOTAL')
     expect(lastLine).toContain('24399.99')
+  })
+
+  it('resets the month filter when the year is switched (I1)', async () => {
+    mount()
+    await screen.findByText('RP/001/2026-27')
+    fireEvent.click(screen.getByRole('textbox', { name: /Month/i }))
+    fireEvent.click(await screen.findByText('May 2026'))
+    await waitFor(() => expect(screen.queryByText('RP/001/2026-27')).toBeNull())  // April invoice filtered out
+    expect(screen.getByText('RP/015/2026-27')).toBeTruthy()                       // May invoice remains
+
+    fireEvent.click(screen.getByRole('textbox', { name: /Year/i }))
+    fireEvent.click(await screen.findByText('2025-26'))
+    // Month should reset to "All months" — both invoices visible again (mock ignores the fy arg)
+    await screen.findByText('RP/001/2026-27')
+    expect((screen.getByRole('textbox', { name: /Month/i }) as HTMLInputElement).value).toBe('')
+  })
+
+  it('loads all years when opened via the unpaid drill-down (I2)', async () => {
+    mount('/reports?type=sales&party=7&unpaid=1')
+    await screen.findByText('RP/015/2026-27')
+    expect((window as any).api.listSales).toHaveBeenCalledWith(undefined)
+    expect(screen.getByText('All years')).toBeTruthy()
   })
 })
