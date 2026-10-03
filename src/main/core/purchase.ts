@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 import type { Purchase, PurchaseItem } from '@shared/types'
 import { computePurchaseTax, lineAmount } from '@shared/tax'
 import { financialYear } from './financial-year'
-import { round2 } from './money'
+import { round2, round4 } from './money'
 
 /**
  * One line of the purchase. `id` is present only when editing an existing line — a line without
@@ -104,7 +104,7 @@ function headerMirror(items: NewPurchaseItem[], totalQty: number) {
     description: first.description ?? '',
     qty_kg: round2(totalQty),
     qty_remaining_kg: round2(totalQty),
-    rate_per_kg: round2(first.rate_per_kg ?? 0)
+    rate_per_kg: round4(first.rate_per_kg ?? 0)
   }
 }
 
@@ -146,7 +146,7 @@ export function createPurchase(db: Database.Database, input: NewPurchase): Purch
       ensureHsn(db, it.hsn_code, it.gst_rate)
       const qty = round2(it.qty_kg)
       ins.run(purchaseId, it.hsn_code, it.description ?? '', qty, qty,
-        round2(it.rate_per_kg ?? 0), lineAmount({ ...it, qty_kg: qty }), it.gst_rate, i + 1)
+        round4(it.rate_per_kg ?? 0), lineAmount({ ...it, qty_kg: qty }), it.gst_rate, i + 1)
     })
     return purchaseId
   })
@@ -220,10 +220,10 @@ export function updatePurchase(db: Database.Database, id: number, input: NewPurc
         if (qty < consumed)
           throw new Error(`You've already sold ${consumed} kg of ${prev.hsn_code} from this purchase, so its quantity can't be less than that.`)
         upd.run(it.hsn_code, it.description ?? '', qty, round2(qty - consumed),
-          round2(it.rate_per_kg ?? 0), amt, it.gst_rate, i + 1, it.id)
+          round4(it.rate_per_kg ?? 0), amt, it.gst_rate, i + 1, it.id)
       } else {
         ins.run(id, it.hsn_code, it.description ?? '', qty, qty,
-          round2(it.rate_per_kg ?? 0), amt, it.gst_rate, i + 1)
+          round4(it.rate_per_kg ?? 0), amt, it.gst_rate, i + 1)
       }
     })
   })

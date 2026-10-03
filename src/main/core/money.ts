@@ -1,1 +1,1 @@
-export { round2 } from '@shared/money'
+export { round2, round4 } from '@shared/money'

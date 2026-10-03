@@ -47,6 +47,22 @@ describe('createPurchase', () => {
     expect(p.total_invoice_amount).toBe(1200)
   })
 
+  it('keeps a 4-decimal rate on the item, so editing it reproduces the same amount', () => {
+    const p = createPurchase(db, {
+      our_code: '0001/2627', supplier_invoice_number: 'S', invoice_date: '2026-07-29', party: 'Acme', party_state: 'Gujarat',
+      homeState: 'Gujarat', items: [{ hsn_code: '3902', qty_kg: 3000, rate_per_kg: 142.3729, gst_rate: 18 }]
+    })
+    const [item] = getPurchaseItems(db, p.id)
+    expect(item.rate_per_kg).toBe(142.3729)
+    expect(item.amount).toBe(427118.7)
+    const again = updatePurchase(db, p.id, {
+      our_code: '0001/2627', supplier_invoice_number: 'S', invoice_date: '2026-07-29', party: 'Acme', party_state: 'Gujarat',
+      homeState: 'Gujarat', items: [{ id: item.id, hsn_code: '3902', qty_kg: 3000, rate_per_kg: item.rate_per_kg, gst_rate: 18 }]
+    })
+    expect(again.amount).toBe(427118.7)
+    expect(getPurchaseItems(db, p.id)[0].rate_per_kg).toBe(142.3729)
+  })
+
   it('stores a per-purchase description', () => {
     const p = mkPurchase(db, { ...base, our_code: '0007/2425', invoice_date: '2024-05-01', description: 'Black M/B' })
     expect(p.description).toBe('Black M/B')

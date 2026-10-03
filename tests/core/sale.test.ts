@@ -90,6 +90,15 @@ describe('createSale', () => {
     expect(allocs[0].gst_rate).toBe(18)
   })
 
+  it('keeps a 4-decimal selling rate, so re-opening the sale reproduces the same amount', () => {
+    const a = lot('0001/2425', '2024-05-01', 1000)
+    const s = createSale(db, { ...sbase, invoice_number: 'RP/001/2024-25', invoice_date: '2024-05-10', lines: [line(a.id, 500, 147.5425)] })
+    const [alloc] = getAllocations(db, s.id)
+    expect(alloc.rate_per_kg).toBe(147.5425)
+    expect(alloc.line_amount).toBe(73771.25)
+    expect(s.amount).toBe(73771.25)
+  })
+
   it('rejects duplicate purchase_id lines that together exceed available stock', () => {
     const a = lot('0001/2425', '2024-05-01', 500)
     // Two lines on the same lot, 400kg each — together they exceed 500kg

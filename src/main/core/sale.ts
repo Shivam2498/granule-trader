@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { Sale, SaleAllocation } from '@shared/types'
 import { computeSaleTax } from '@shared/tax'
-import { round2 } from '@shared/money'
+import { round2, round4 } from '@shared/money'
 import { parseInvoiceNumber } from './invoice-number'
 import { financialYear } from './financial-year'
 import { reserveGaps, validateInvoiceOrder } from './invoice-validation'
@@ -144,7 +144,7 @@ function writeSale(db: Database.Database, input: NewSale, existing: ExistingSale
     const parent = parentOf.get(line.purchase_item_id) as { purchase_id: number } | undefined
     if (!parent) throw new Error(`We couldn't find one of the stock lots on this sale.`)
     insAlloc.run(saleId, parent.purchase_id, line.purchase_item_id, line.hsn_code, line.gst_rate,
-      round2(line.qty_drawn_kg), round2(line.rate_per_kg), round2(line.qty_drawn_kg * line.rate_per_kg))
+      round2(line.qty_drawn_kg), round4(line.rate_per_kg), round2(line.qty_drawn_kg * line.rate_per_kg))
     dec.run(round2(line.qty_drawn_kg), line.purchase_item_id)
   }
   return getSale(db, saleId)
