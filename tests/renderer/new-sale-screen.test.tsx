@@ -116,13 +116,19 @@ async function selectBuyer() {
 describe('NewSale — inline customer edit', () => {
   beforeEach(() => {
     ;(window as unknown as { api: { listCustomers: () => Promise<Customer[]>; updateCustomer: (...a: unknown[]) => Promise<Customer> } }).api.listCustomers = vi.fn().mockResolvedValue([CUSTOMER])
-    ;(window as unknown as { api: { updateCustomer: (...a: unknown[]) => Promise<Customer> } }).api.updateCustomer = vi.fn().mockResolvedValue({ ...CUSTOMER, phone: '1111111111' })
+    // The GSTIN is one of the fields actually rendered in the buyer info block, so changing it
+    // (rather than phone, which isn't shown there) lets tests prove the block re-renders with
+    // fresh data from onSaved, not just that the screen didn't navigate away.
+    ;(window as unknown as { api: { updateCustomer: (...a: unknown[]) => Promise<Customer> } }).api.updateCustomer = vi.fn().mockResolvedValue({ ...CUSTOMER, gstin: '29AAAAA0000A1Z5' })
   })
 
+  // Includes the same lot-seeding Harness used by the "amount column" tests above, so the
+  // draft-survival test can seed a chosen lot before touching the customer-edit flow.
   function renderScreen() {
     renderWithMantine(
       <HashRouter>
         <SaleDraftProvider>
+          <Harness id={LOT.purchase_item_id} qty={10} rate={50} />
           <NewSale />
         </SaleDraftProvider>
       </HashRouter>
@@ -154,8 +160,11 @@ describe('NewSale — inline customer edit', () => {
   it('updates the buyer info block in place when the customer is saved, without navigating away', async () => {
     renderScreen()
     await selectBuyer()
-    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
 
+    // Before the edit, the info block shows the buyer's original GSTIN.
+    expect(screen.getByText('27AABCU1234H1Z0')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
 
     // Scoped to the modal — NewSale's own "Save" button also matches this name.
@@ -164,8 +173,40 @@ describe('NewSale — inline customer edit', () => {
     // Modal closes once the save resolves.
     await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null))
 
-    // Still on the New sale screen — the draft (buyer selection) survives the edit untouched.
-    const [buyerInput] = screen.getAllByLabelText('Buyer') as HTMLInputElement[]
-    expect(buyerInput.value).toContain('Acme Corp')
+    // Still on the New sale screen — no navigation away.
+    expect(screen.getAllByLabelText('Buyer')[0]).toBeTruthy()
+
+    // The info block now shows the fresh GSTIN returned by updateCustomer (via onSaved →
+    // setCustomers), proving the block actually re-rendered with the new data — not merely that
+    // the screen stayed put.
+    expect(screen.getByText('29AAAAA0000A1Z5')).toBeTruthy()
+    expect(screen.queryByText('27AABCU1234H1Z0')).toBe(null)
+  })
+
+  it('leaves the in-progress draft (chosen lot, invoice number) untouched by the edit flow', async () => {
+    renderScreen()
+    await waitFor(() => screen.getByText('+ Choose lots'))
+    fireEvent.click(screen.getByText('seed lot'))
+    await screen.findByText('0012/2526')
+
+    const invoiceNumberBefore = (screen.getByLabelText('Invoice number') as HTMLInputElement).value
+    const [, qtyInputBefore] = await lotInputs('0012/2526')
+    expect(qtyInputBefore.value).toBe('10')
+
+    await selectBuyer()
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
+
+    // Change a field inside the modal and save — this must not touch the sale draft at all.
+    const phoneInput = within(screen.getByRole('dialog')).getByLabelText(/^phone/i)
+    fireEvent.change(phoneInput, { target: { value: '1111111111' } })
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null))
+
+    // The chosen lot is still there with its original qty/rate, and the invoice number is unchanged.
+    const [rateInputAfter, qtyInputAfter] = await lotInputs('0012/2526')
+    expect(qtyInputAfter.value).toBe('10')
+    expect(rateInputAfter.value).toBe('50')
+    expect((screen.getByLabelText('Invoice number') as HTMLInputElement).value).toBe(invoiceNumberBefore)
   })
 })
