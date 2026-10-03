@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Paper, Table, Checkbox, Select, TextInput, Button, Group, Text, Alert, Badge } from '@mantine/core'
+import { Paper, Table, Checkbox, Select, TextInput, Button, Group, Text, Alert, Badge, Input } from '@mantine/core'
 import type { AvailableLot, HsnProduct } from '@shared/types'
 import PageHeader from '../components/PageHeader'
 import ListTable from '../components/ListTable'
-import { formatINR, formatDate } from '../lib/format'
+import DateField from '../components/DateField'
+import { formatINR, formatDate, today } from '../lib/format'
 import { filterLots } from '../lib/allocation'
 import { daysBetween } from '../lib/dashboard'
 import { useSaleDraft } from '../sale-draft'
@@ -13,7 +14,7 @@ const ALL = '__all__'
 
 export default function LotSelect() {
   const nav = useNavigate()
-  const { draft, addLots } = useSaleDraft()
+  const { draft, addLots, patch } = useSaleDraft()
   const [lots, setLots] = useState<AvailableLot[]>([])
   const [hsn, setHsn] = useState<HsnProduct[]>([])
   const [material, setMaterial] = useState(ALL)
@@ -88,9 +89,13 @@ export default function LotSelect() {
             value={query}
             onChange={e => setQuery(e.currentTarget.value)}
           />
+          <Input.Wrapper label="Available on">
+            <DateField value={draft.invoiceDate} onChange={d => patch({ invoiceDate: d })} />
+          </Input.Wrapper>
+          <Button variant="light" onClick={() => patch({ invoiceDate: today() })}>Today</Button>
         </Group>
         <Text size="sm" c="dimmed" mt="sm">
-          Showing {visible.length} of {lots.length} lots · {visibleKg} kg — available on {draft.invoiceDate}
+          Showing {visible.length} of {lots.length} lots · {visibleKg} kg
         </Text>
       </Paper>
 

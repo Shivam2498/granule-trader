@@ -5,6 +5,7 @@ import { HashRouter } from 'react-router-dom'
 import { renderWithMantine } from './mantine'
 import LotSelect from '../../src/renderer/screens/LotSelect'
 import { SaleDraftProvider, useSaleDraft, emptyDraft, type SaleDraft } from '../../src/renderer/sale-draft'
+import { today, formatDate } from '../../src/renderer/lib/format'
 import type { AvailableLot, HsnProduct } from '../../src/shared/types'
 
 const lot = (o: Partial<AvailableLot> & { purchase_item_id: number }): AvailableLot => ({
@@ -119,5 +120,30 @@ describe('LotSelect page', () => {
     await screen.findByText('0012/2526')
     fireEvent.click(screen.getByLabelText('Select all'))
     expect(screen.getByRole('button', { name: /Add 3 lots/ })).toBeTruthy()
+  })
+
+  it('changing the date refetches lots with the new date', async () => {
+    setup() // draft.invoiceDate defaults to '2026-07-12'
+    await screen.findByText('0012/2526')
+    const calls = (window as any).api.listAvailableLots.mock.calls
+    await waitFor(() => expect(calls).toContainEqual(['2026-07-12', undefined]))
+
+    const dateInput = screen.getByDisplayValue(formatDate('2026-07-12'))
+    fireEvent.change(dateInput, { target: { value: '15/09/2026' } })
+
+    await waitFor(() => expect(calls).toContainEqual(['2026-09-15', undefined]))
+    expect(screen.getByDisplayValue(formatDate('2026-09-15'))).toBeTruthy()
+  })
+
+  it('clicking Today sets the date to today and refetches', async () => {
+    setup({ invoiceDate: '2026-09-10' })
+    await screen.findByText('0012/2526')
+    const calls = (window as any).api.listAvailableLots.mock.calls
+    await waitFor(() => expect(calls).toContainEqual(['2026-09-10', undefined]))
+
+    fireEvent.click(screen.getByRole('button', { name: /today/i }))
+
+    expect(screen.getByDisplayValue(formatDate(today()))).toBeTruthy()
+    await waitFor(() => expect(calls).toContainEqual([today(), undefined]))
   })
 })
