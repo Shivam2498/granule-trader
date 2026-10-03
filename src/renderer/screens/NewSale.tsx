@@ -15,7 +15,7 @@ import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
 import { CustomerEditModal } from '../components/CustomerEditModal'
-import { formatINR, today, formatAddress } from '../lib/format'
+import { formatINR, formatDate, today, formatAddress } from '../lib/format'
 import { lotDrawError, saleFormError } from '../lib/sale-validation'
 import { useSaleDraft, emptyDraft } from '../sale-draft'
 
@@ -36,6 +36,8 @@ export default function NewSale() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [hsn, setHsn] = useState<HsnProduct[]>([])
   const [lots, setLots] = useState<AvailableLot[]>([])
+  // The invoice date `lots` was fetched for — until it matches the draft's date, availability is unknown.
+  const [lotsAsOf, setLotsAsOf] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [vehicleTouched, setVehicleTouched] = useState(false)
@@ -78,8 +80,12 @@ export default function NewSale() {
   // already sold and refuse to keep the lots it is currently using.
   useEffect(() => {
     if (fresh) return
-    window.api.listAvailableLots(draft.invoiceDate, saleId ?? undefined)
-      .then(setLots).catch(e => setError(e.message ?? String(e)))
+    const asOf = draft.invoiceDate
+    let current = true
+    window.api.listAvailableLots(asOf, saleId ?? undefined)
+      .then(ls => { if (current) { setLots(ls); setLotsAsOf(asOf) } })
+      .catch(e => setError(e.message ?? String(e)))
+    return () => { current = false }
   }, [draft.invoiceDate, saleId, fresh])
 
   // Auto-suggest the next invoice number, but never clobber a number the user typed themselves.
@@ -101,6 +107,11 @@ export default function NewSale() {
       .filter((l): l is AvailableLot => !!l),
     [draft.lots, lots]
   )
+  // Chosen lots with no stock on the invoice date (bought later, or sold out by then) have no row
+  // in the table, so they must be called out — otherwise they'd silently fall off the invoice.
+  const unavailable = lotsAsOf === draft.invoiceDate
+    ? Object.keys(draft.lots).map(Number).filter(itemId => !lots.some(l => l.purchase_item_id === itemId))
+    : []
 
   const lines = useMemo(() => chosen
     .filter(l => (draft.lots[l.purchase_item_id]?.qty ?? 0) > 0)
@@ -127,7 +138,8 @@ export default function NewSale() {
   const ewayRequired = ewayBillRequired(tax.total)
   const formState = {
     invoiceNumber: draft.invoiceNumber, hasBuyer: !!buyer, vehicle: draft.vehicle,
-    lots: lotDraws, placeOfSupply, total: tax.total, ewayNo: draft.ewayNo, ewayDate: draft.ewayDate
+    lots: lotDraws, placeOfSupply, total: tax.total, ewayNo: draft.ewayNo, ewayDate: draft.ewayDate,
+    unavailableLots: unavailable.length
   }
   const formError = saleFormError(formState)
 
@@ -235,6 +247,20 @@ export default function NewSale() {
           <Text fw={600}>Stock to sell</Text>
           <Button variant="default" onClick={() => nav('/sales/lots')}>+ Choose lots</Button>
         </Group>
+        {unavailable.length > 0 && (
+          <Alert color="red" mb="sm">
+            <Group justify="space-between" wrap="nowrap">
+              <Text size="sm">
+                {unavailable.length === 1 ? "1 chosen lot isn't" : `${unavailable.length} chosen lots aren't`} in stock
+                on {formatDate(draft.invoiceDate)} — bought after that date, or sold out by then. Move the
+                invoice date later, or remove {unavailable.length === 1 ? 'it' : 'them'}.
+              </Text>
+              <Button size="xs" variant="light" color="red" onClick={() => unavailable.forEach(removeLot)}>
+                Remove {unavailable.length === 1 ? 'it' : 'them'}
+              </Button>
+            </Group>
+          </Alert>
+        )}
         <Table verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>

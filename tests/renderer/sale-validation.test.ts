@@ -57,6 +57,16 @@ describe('saleFormError', () => {
   it('returns empty for a fully valid form', () => {
     expect(saleFormError(okForm())).toBe('')
   })
+  it('refuses to save while a chosen lot is not in stock on the invoice date', () => {
+    expect(saleFormError({ ...okForm(), unavailableLots: 1 }))
+      .toBe("1 chosen lot isn't in stock on the invoice date. Move the date later, or remove it.")
+    expect(saleFormError({ ...okForm(), unavailableLots: 2 }))
+      .toBe("2 chosen lots aren't in stock on the invoice date. Move the date later, or remove them.")
+  })
+  it('names unavailable lots even when no other lot remains', () => {
+    expect(saleFormError({ ...okForm(), lots: [], unavailableLots: 1 }))
+      .toBe("1 chosen lot isn't in stock on the invoice date. Move the date later, or remove it.")
+  })
 
   describe('e-way bill over ₹50,000', () => {
     it('does not ask for an e-way bill at or below the threshold', () => {
@@ -92,7 +102,7 @@ describe('buyer state guard (tax must never be derived from a blank state)', () 
   })
   it('refuses to save when the buyer has no state — GST could not be worked out', () => {
     expect(saleFormError({ ...okForm(), placeOfSupply: '' }))
-      .toBe('This buyer has no state set, so GST cannot be worked out. Open the Customers screen and set their state.')
+      .toBe('This buyer has no state set, so GST cannot be worked out. Press Edit next to the buyer and set their state.')
   })
   it('asks for the buyer before complaining about their state', () => {
     expect(saleFormError({ ...okForm(), hasBuyer: false, placeOfSupply: '' })).toBe('Please choose a buyer.')

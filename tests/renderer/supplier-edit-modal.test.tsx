@@ -29,6 +29,15 @@ describe('SupplierEditModal', () => {
     expect((screen.getByLabelText(/^gstin/i) as HTMLInputElement).value).toBe('27AABCU1234H1Z1')
   })
 
+  it('strips non-digits from a typed phone number', () => {
+    renderWithMantine(
+      <SupplierEditModal supplier={mockSupplier} open={true} onClose={() => {}} onSaved={() => {}} />
+    )
+    const phone = screen.getByLabelText(/^phone/i) as HTMLInputElement
+    fireEvent.change(phone, { target: { value: '98765 D3210' } })
+    expect(phone.value).toBe('987653210')
+  })
+
   it('does not render the modal when open is false', () => {
     renderWithMantine(
       <SupplierEditModal supplier={mockSupplier} open={false} onClose={() => {}} onSaved={() => {}} />

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { HashRouter } from 'react-router-dom'
@@ -208,5 +209,91 @@ describe('NewSale — inline customer edit', () => {
     expect(qtyInputAfter.value).toBe('10')
     expect(rateInputAfter.value).toBe('50')
     expect((screen.getByLabelText('Invoice number') as HTMLInputElement).value).toBe(invoiceNumberBefore)
+  })
+})
+
+describe('NewSale — chosen lot not in stock on the invoice date', () => {
+  const EARLY: AvailableLot = { ...LOT, purchase_item_id: 1, our_code: 'LOT-A', invoice_date: '2026-09-01' }
+  const LATE: AvailableLot = { ...LOT, purchase_item_id: 2, our_code: 'LOT-B', invoice_date: '2026-09-20' }
+  const BUYER: Customer = { ...CUSTOMER, billing_state: 'Gujarat' }
+
+  // Seeds both lots plus a buyer/vehicle, and offers the same date change LotSelect's
+  // "Available on" field makes — moving the invoice date before LOT-B was bought.
+  function Seeder() {
+    const { addLots, setLot, patch } = useSaleDraft()
+    return <>
+      <button onClick={() => {
+        addLots([1, 2]); setLot(1, { qty: 10, rate: 50 }); setLot(2, { qty: 10, rate: 50 })
+        patch({ buyerId: 1, vehicle: 'GJ-05' })
+      }}>seed both</button>
+      <button onClick={() => patch({ invoiceDate: '2026-09-10' })}>move date earlier</button>
+    </>
+  }
+
+  it('flags the lot, blocks Save, and lets you remove it instead of silently dropping it', async () => {
+    const createSale = vi.fn().mockResolvedValue({ id: 9 })
+    ;(window as unknown as { api: unknown }).api = {
+      getSettings: vi.fn().mockResolvedValue({ home_state: 'Gujarat', invoice_prefix: 'RP', default_gst_rate: 18 }),
+      listCustomers: vi.fn().mockResolvedValue([BUYER]),
+      listHsn: vi.fn().mockResolvedValue(HSN),
+      listAvailableLots: vi.fn().mockImplementation((d: string) => Promise.resolve(d < '2026-09-20' ? [EARLY] : [EARLY, LATE])),
+      nextInvoiceNumber: vi.fn().mockResolvedValue('RP/001'),
+      createSale
+    }
+    renderWithMantine(<HashRouter><SaleDraftProvider><Seeder /><NewSale /></SaleDraftProvider></HashRouter>)
+    await waitFor(() => screen.getByText('+ Choose lots'))
+    fireEvent.click(screen.getByText('seed both'))
+    await screen.findByText('LOT-B')
+
+    fireEvent.click(screen.getByText('move date earlier'))
+
+    await screen.findByText(/1 chosen lot isn't in stock on 10\/09\/2026/)
+    const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: /remove it/i }))
+    await waitFor(() => expect(screen.queryByText(/isn't in stock/)).toBe(null))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(createSale).toHaveBeenCalled())
+    expect(createSale.mock.calls[0][0].lines.map((l: { purchase_item_id: number }) => l.purchase_item_id)).toEqual([1])
+  })
+
+  it('does not flag lots while availability is still loading after returning from Choose lots', async () => {
+    let pending = false
+    let resolvePending: (v: AvailableLot[]) => void = () => {}
+    ;(window as unknown as { api: unknown }).api = {
+      getSettings: vi.fn().mockResolvedValue({ home_state: 'Gujarat', invoice_prefix: 'RP', default_gst_rate: 18 }),
+      listCustomers: vi.fn().mockResolvedValue([BUYER]),
+      listHsn: vi.fn().mockResolvedValue(HSN),
+      listAvailableLots: vi.fn().mockImplementation(() =>
+        pending ? new Promise(r => { resolvePending = r }) : Promise.resolve([EARLY, LATE])),
+      nextInvoiceNumber: vi.fn().mockResolvedValue('RP/001')
+    }
+    // NewSale unmounts while the user is on the Choose-lots page; the draft (context) survives.
+    function Shell() {
+      const [shown, setShown] = useState(true)
+      return <>
+        <Seeder />
+        <button onClick={() => setShown(s => !s)}>toggle screen</button>
+        {shown && <NewSale />}
+      </>
+    }
+    renderWithMantine(<HashRouter><SaleDraftProvider><Shell /></SaleDraftProvider></HashRouter>)
+    await waitFor(() => screen.getByText('+ Choose lots'))
+    fireEvent.click(screen.getByText('seed both'))
+    await screen.findByText('LOT-B')
+
+    fireEvent.click(screen.getByText('toggle screen'))
+    pending = true
+    fireEvent.click(screen.getByText('toggle screen'))
+    await waitFor(() => screen.getByText('+ Choose lots'))
+    expect(screen.queryByText(/in stock on/)).toBe(null)
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+
+    resolvePending([EARLY, LATE])
+    await screen.findByText('LOT-B')
+    expect(screen.queryByText(/in stock on/)).toBe(null)
   })
 })

@@ -106,7 +106,7 @@ export default function PurchaseForm() {
     // A blank supplier state silently reads as inter-state and would book the whole GST as IGST.
     // Refuse rather than guess — the tax split is decided by the supplier's state, not a default.
     if (!supplier?.state?.trim()) {
-      setError(`${supplier?.name ?? 'This supplier'} has no state set, so GST cannot be worked out. Open the Suppliers screen and set their state.`)
+      setError(`${supplier?.name ?? 'This supplier'} has no state set, so GST cannot be worked out. Press Edit next to the supplier and set their state.`)
       return
     }
     setSaving(true)

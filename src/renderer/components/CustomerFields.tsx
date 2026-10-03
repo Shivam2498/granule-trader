@@ -50,7 +50,7 @@ export function CustomerFields({ form }: {
           }} />
         <TextInput label="PAN (from GSTIN)" disabled value={form.values.pan} />
         <TextInput label="Phone" {...form.getInputProps('phone')}
-          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/D/g, '').slice(0, 10))} />
+          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/\D/g, '').slice(0, 10))} />
         <TextInput label="Email" placeholder="name@company.com" {...form.getInputProps('email')} />
       </FormSection>
       <FormSection title="Billing address">

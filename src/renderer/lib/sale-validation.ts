@@ -22,6 +22,8 @@ export interface SaleFormState {
   total: number
   ewayNo: string
   ewayDate: string
+  /** Lots in the draft that aren't in stock on the invoice date (bought later, or sold out by then). */
+  unavailableLots?: number
 }
 
 /** Per-row message for a chosen lot. Empty string means the row is fine. */
@@ -39,8 +41,14 @@ export function saleFormError(s: SaleFormState): string {
   // A blank state silently reads as inter-state and would book the whole GST as IGST. Refuse
   // rather than guess — the tax split is decided by the place of supply, never by a default.
   if (!s.placeOfSupply.trim())
-    return 'This buyer has no state set, so GST cannot be worked out. Open the Customers screen and set their state.'
+    return 'This buyer has no state set, so GST cannot be worked out. Press Edit next to the buyer and set their state.'
   if (!s.vehicle.trim()) return 'Enter the vehicle number.'
+  // Such a lot has no row on screen, so it would otherwise be dropped from the invoice without a word.
+  const missing = s.unavailableLots ?? 0
+  if (missing > 0)
+    return missing === 1
+      ? "1 chosen lot isn't in stock on the invoice date. Move the date later, or remove it."
+      : `${missing} chosen lots aren't in stock on the invoice date. Move the date later, or remove them.`
   if (s.lots.length === 0) return 'Choose stock to sell.'
   for (const l of s.lots) {
     const e = lotDrawError(l)
