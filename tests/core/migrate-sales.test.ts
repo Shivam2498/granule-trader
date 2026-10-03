@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   excelSerialToISO, parseSaleHeaders, parseStockAllocations, resolveLotItemId, parseCustomerMaster,
-  resolveBuyer, buildSalePayload, parseCsv, cleanNumber, mdyToISO, parseSaleHeadersCsv, parseStockCsv
+  resolveBuyer, buildSalePayload, parseCsv, cleanNumber, mdyToISO, parseSaleHeadersCsv, parseStockCsv,
+  reconcileLineRates, registerMatchedPayload
 } from '../../src/main/core/migrate-sales'
+import { round2 } from '../../src/shared/money'
 import { openDatabase } from '../../src/main/db/connection'
 import { createCustomer } from '../../src/main/core/customers'
 import { createPurchase } from '../../src/main/core/purchase'
@@ -233,6 +235,57 @@ describe('buildSalePayload + createSale (end to end)', () => {
     expect(sale.total_invoice_amount).toBe(20384.25)   // 17275 + 1554.75 + 1554.75 - 0.25
     expect(sale.payment_status).toBe('done')
   })
+
+  it('takes each line\'s HSN from the lot in the app, not the sheet (the sheet\'s can be blank or mistyped)', () => {
+    const db = openDatabase(':memory:'); seed(db)
+    const payload = buildSalePayload(db, header, allocs.map(a => ({ ...a, hsn_code: '' })), master, 'West Bengal')
+    expect(payload.lines.map(l => l.hsn_code)).toEqual(['320419', '320419'])
+  })
+
+  it('can import a sale as pending, with no payment date', () => {
+    const db = openDatabase(':memory:'); seed(db)
+    const payload = buildSalePayload(db, header, allocs, master, 'West Bengal', { payment: 'pending' })
+    expect(payload.payment_status).toBe('pending')
+    expect(payload.payment_date).toBe(null)
+  })
+})
+
+describe('registerMatchedPayload', () => {
+  function seed(db: ReturnType<typeof openDatabase>) {
+    createPurchase(db, {
+      our_code: '003/2627', supplier_invoice_number: 'T', invoice_date: '2026-06-03',
+      party: 'TriLogix', party_state: 'West Bengal', homeState: 'West Bengal',
+      items: [{ hsn_code: '39021000', qty_kg: 1000, rate_per_kg: 133.9, gst_rate: 18 }]
+    })
+  }
+  const master = [{ name: 'HAIDER SUPPLY SYNDICATE', address: 'T-289/6', city: 'Kolkata', state: 'West Bengal', pincode: '700018', gstin: '19ABOPH2729Q1ZW', pan: '' }]
+  // RP/039 as the register records it: taxable 96,271.25, round-off -0.08, total 1,13,600.
+  const header = {
+    invoice_number: 'RP/039/2026-27', invoice_date: '2026-06-06', buyer_name: 'HAIDER SUPPLY SYNDICATE',
+    buyer_gstin: '19ABOPH2729Q1ZW', eway_bill_no: '', eway_bill_date: '', vehicle: 'WB19E7975',
+    roundoff: -0.08, sheet_total: 113600, register_taxable: 96271.25
+  }
+  const lot = (qty: number, rate: number, amount: number) =>
+    ({ invoice_number: 'RP/039/2026-27', lot_code: '003/2627', lot_cost: 133.9, hsn_code: '39021000', qty, rate, amount })
+  const allocs = [lot(25, 150, 3750), lot(125, 150, 18750), lot(500, 147.54, 73771)]
+
+  it('produces a sale whose taxable and total equal the register exactly', () => {
+    const db = openDatabase(':memory:'); seed(db)
+    const sale = createSale(db, registerMatchedPayload(db, header, allocs, master, 'West Bengal', { payment: 'pending' }))
+    expect(sale.amount).toBe(96271.25)
+    expect(sale.total_invoice_amount).toBe(113600)
+    // The register takes 18% of the taxable in one go (17,328.83); the app rounds 9% twice
+    // (2 × 8,664.41), so the paisa lands in the round-off: -0.08 → -0.07.
+    expect(sale.roundoff).toBe(-0.07)
+    expect(sale.payment_status).toBe('pending')
+    expect(getAllocations(db, sale.id).map(a => a.rate_per_kg)).toEqual([150, 150, 147.5425])
+  })
+
+  it('refuses when the register total is not just a rounding away from the lines', () => {
+    const db = openDatabase(':memory:'); seed(db)
+    expect(() => registerMatchedPayload(db, { ...header, sheet_total: 114000 }, allocs, master, 'West Bengal'))
+      .toThrow(/round-off/)
+  })
 })
 
 describe('CSV input layer', () => {
@@ -275,6 +328,63 @@ describe('parseSaleHeadersCsv', () => {
     })
     expect(m.get('RP/002/2026-27')).toMatchObject({ eway_bill_date: '2026-04-03', roundoff: 0, sheet_total: 871725 })
   })
+
+  it('reads the register taxable amount (Amount column) for each invoice', () => {
+    const m = parseSaleHeadersCsv([row({ 0: 'RP/006/2026-27', 1: '4/10/2026', 29: '  13,085.00 ', 34: '  -0.30 ', 35: '  15,440.00 ' })])
+    expect(m.get('RP/006/2026-27')).toMatchObject({ register_taxable: 13085, roundoff: -0.3, sheet_total: 15440 })
+  })
+
+  it('merges an invoice that the register lists on two rows into one header', () => {
+    const m = parseSaleHeadersCsv([
+      row({ 0: 'RP/071/2026-27', 1: '8/10/2026', 5: 'Polymer products', 6: '19AKGPP4168E1ZX', 29: '  27,000.00 ', 35: '  31,860.00 ' }),
+      row({ 0: 'RP/071/2026-27', 1: '8/10/2026', 5: 'Polymer products', 6: '19AKGPP4168E1ZX', 29: '  32,321.25 ', 34: '  0.92 ', 35: '  38,140.00 ' })
+    ])
+    expect(m.size).toBe(1)
+    expect(m.get('RP/071/2026-27')).toMatchObject({ register_taxable: 59321.25, roundoff: 0.92, sheet_total: 70000, buyer_gstin: '19AKGPP4168E1ZX' })
+  })
+
+  it('skips a blank register row that only carries an invoice number', () => {
+    expect(parseSaleHeadersCsv([row({ 0: 'RP/092/2026-27' })]).size).toBe(0)
+  })
+})
+
+describe('reconcileLineRates', () => {
+  const taxable = (lines: { qty: number }[], rates: number[]) =>
+    round2(lines.reduce((s, l, i) => s + round2(l.qty * rates[i]), 0))
+
+  it('finds exact 4-decimal rates when the sheet\'s line amounts were rounded to the rupee', () => {
+    // RP/039: the register says 96,271.25; the sheet's lines say 3,750 + 18,750 + 73,771 = 96,271.
+    const lines = [{ qty: 25, amount: 3750 }, { qty: 125, amount: 18750 }, { qty: 500, amount: 73771 }]
+    const { rates, taxable: got } = reconcileLineRates(lines, 96271.25)
+    expect(rates).toEqual([150, 150, 147.5425])
+    expect(got).toBe(96271.25)
+    expect(taxable(lines, rates)).toBe(96271.25)
+  })
+
+  it('reaches the exact register figure even when the leftover cannot sit on the largest line', () => {
+    // RP/064: a 1,375 kg line moves in ₹0.1375 steps, so the smaller line has to absorb the paise.
+    const lines = [{ qty: 1375, amount: 201781 }, { qty: 125, amount: 16863 }]
+    const { rates, taxable: got } = reconcileLineRates(lines, 218643.75)
+    expect(got).toBe(218643.75)
+    expect(rates.every(r => Math.round(r * 10000) === r * 10000 || Math.abs(Math.round(r * 10000) - r * 10000) < 1e-6)).toBe(true)
+  })
+
+  it('gets within a paisa when no 4-decimal rate can hit the register exactly', () => {
+    // RP/044: 425 kg — every 0.0001/kg step moves the amount by 4.25 paise.
+    const { taxable: got } = reconcileLineRates([{ qty: 425, amount: 62923.7 }], 62923.71)
+    expect(round2(Math.abs(got - 62923.71))).toBeLessThanOrEqual(0.01)
+  })
+
+  it('refuses when the sheet and register disagree by more than rounding', () => {
+    // RP/061: sheet 750 × 147 = 1,10,250, register 1,12,050 — a real disagreement, not rounding.
+    expect(() => reconcileLineRates([{ qty: 750, amount: 110250 }], 112050)).toThrow(/differ/)
+  })
+
+  it('accepts a larger gap when the owner ruled that the register wins', () => {
+    const { rates, taxable: got } = reconcileLineRates([{ qty: 750, amount: 110250 }], 112050, Infinity)
+    expect(rates).toEqual([149.4])
+    expect(got).toBe(112050)
+  })
 })
 
 describe('parseStockCsv', () => {
@@ -293,12 +403,20 @@ describe('parseStockCsv', () => {
   it('splits FY26-27 sales from FY25-26 draws, both carrying their lot', () => {
     const { sales, old } = parseStockCsv(rows)
     expect(sales).toEqual([
-      { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 25, rate: 175 },
-      { invoice_number: 'RP/002/2026-27', lot_code: '103/2526', lot_cost: 147.31, hsn_code: '39021000', qty: 5000, rate: 148.5 }
+      { invoice_number: 'RP/001/2026-27', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 25, rate: 175, amount: 0 },
+      { invoice_number: 'RP/002/2026-27', lot_code: '103/2526', lot_cost: 147.31, hsn_code: '39021000', qty: 5000, rate: 148.5, amount: 0 }
     ])
     expect(old).toEqual([
-      { invoice_number: 'RP/243/2025-26', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 75, rate: 172 }
+      { invoice_number: 'RP/243/2025-26', lot_code: '082/2526', lot_cost: 170, hsn_code: '320419', qty: 75, rate: 172, amount: 0 }
     ])
+  })
+
+  it('keeps the sheet\'s line amount — its rate column is display-rounded', () => {
+    const { sales } = parseStockCsv([
+      r({ 0: 'Code 003/2627', 4: 'Purchases', 5: '39021000', 6: '5,000', 8: '133.90', 10: '5,000' }),
+      r({ 1: 'RP/039/2026-27', 4: 'Sales', 5: '39021000', 6: '500', 8: '  147.54 ', 9: '  73,771.0 ', 10: '4,500' })
+    ])
+    expect(sales[0]).toMatchObject({ rate: 147.54, amount: 73771 })
   })
 
   it('reports each lot\'s final sheet balance keyed by code@cost', () => {

@@ -21,9 +21,11 @@ const Database = require('better-sqlite3')
 
 const args = process.argv.slice(2)
 const commit = args.includes('--commit')
-const [dbPath, csvPath] = args.filter(a => a !== '--commit')
-if (!dbPath || !csvPath) {
-  console.error('Usage: node scripts/import-purchases.mjs <granule-trader.db> <purchases.csv> [--commit]')
+const payIdx = args.indexOf('--payment')
+const paymentStatus = payIdx >= 0 ? args[payIdx + 1] : 'done'
+const [dbPath, csvPath] = args.filter((a, i) => a !== '--commit' && i !== payIdx && i !== payIdx + 1)
+if (!dbPath || !csvPath || !['done', 'pending'].includes(paymentStatus)) {
+  console.error('Usage: node scripts/import-purchases.mjs <granule-trader.db> <purchases.csv> [--payment done|pending] [--commit]')
   process.exit(2)
 }
 
@@ -31,7 +33,7 @@ const { header, toImport, skipped, warnings } = mapPurchaseRows(parseCsv(readFil
 
 const db = new Database(dbPath)
 ensureDescriptionColumn(db)
-const { toInsert, duplicates, suppliersToCreate } = planImport(db, toImport)
+const { toInsert, duplicates, relabels, suppliersToCreate } = planImport(db, toImport)
 
 const counts = { read: toImport.length + skipped.length, toInsert: toInsert.length, duplicate: duplicates.length, skipped: skipped.length }
 const mode = commit ? 'commit' : 'dry-run'
@@ -47,6 +49,7 @@ writeFileSync(logPath, log)
 writeFileSync(skPath, skippedCsv)
 
 console.log(log)
+for (const x of relabels) console.log(`Relabel ${x.our_code}: "${x.from}" → "${x.to}"`)
 console.log(`\nReport:        ${logPath}`)
 console.log(`Skipped rows:  ${skPath}`)
 
@@ -57,8 +60,8 @@ if (!commit) {
 }
 
 try {
-  const { inserted, suppliersCreated } = commitImport(db, toInsert)
-  console.log(`\n✓ Imported ${inserted} purchase(s), created ${suppliersCreated} supplier(s). Skipped ${duplicates.length} duplicate(s), ${skipped.length} invalid.`)
+  const { inserted, suppliersCreated, relabelled } = commitImport(db, toInsert, { paymentStatus, relabels })
+  console.log(`\n✓ Imported ${inserted} purchase(s), relabelled ${relabelled}, created ${suppliersCreated} supplier(s). Skipped ${duplicates.length} duplicate(s), ${skipped.length} invalid.`)
 } catch (e) {
   console.error('Import failed (rolled back):', e.message)
   db.close()

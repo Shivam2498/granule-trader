@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3'
 import type { Customer } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
+import { computeSaleTax } from '@shared/tax'
+import { round2, round4 } from '@shared/money'
 import { createCustomer, getCustomer, placeOfSupplyState } from './customers'
 import type { NewSale, NewSaleLine } from './sale'
 
@@ -17,6 +19,8 @@ export interface SaleHeader {
   buyer_name: string; buyer_gstin: string
   eway_bill_no: string; eway_bill_date: string; vehicle: string
   roundoff: number; sheet_total: number
+  /** The register's taxable amount (its Amount column) — what the invoice's lines must add up to. */
+  register_taxable?: number
 }
 
 const INVOICE_RE = /^RP\/\d+\/\d{4}-\d{2}$/
@@ -43,6 +47,8 @@ export function parseSaleHeaders(rows: string[][]): Map<string, SaleHeader> {
 
 export interface StockAllocation {
   invoice_number: string; lot_code: string; lot_cost: number; hsn_code: string; qty: number; rate: number
+  /** The sheet's line amount. Its rate column is display-rounded, so this is the better figure. */
+  amount?: number
 }
 
 export function parseStockAllocations(rows: string[][], invoiceCol: number): StockAllocation[] {
@@ -138,17 +144,31 @@ function gstRateOf(db: Database.Database, hsn: string): number {
   return row ? row.gst_rate : 18
 }
 
+export interface PayloadOptions {
+  /** Defaults to 'done', paid on the invoice date. 'pending' leaves the payment date empty. */
+  payment?: 'done' | 'pending'
+  /** One rate per allocation, overriding the sheet's (display-rounded) rate column. */
+  rates?: number[]
+}
+
 export function buildSalePayload(
-  db: Database.Database, header: SaleHeader, allocs: StockAllocation[], master: CustomerRow[], homeState: string
+  db: Database.Database, header: SaleHeader, allocs: StockAllocation[], master: CustomerRow[], homeState: string,
+  opts: PayloadOptions = {}
 ): NewSale {
   const buyer = resolveBuyer(db, header.buyer_gstin, header.buyer_name, master)
-  const lines: NewSaleLine[] = allocs.map(a => ({
-    purchase_item_id: resolveLotItemId(db, a.lot_code, a.lot_cost),
-    qty_drawn_kg: a.qty,
-    rate_per_kg: a.rate,
-    hsn_code: a.hsn_code,
-    gst_rate: gstRateOf(db, a.hsn_code)
-  }))
+  const lotHsn = db.prepare('SELECT hsn_code FROM purchase_items WHERE id = ?')
+  const lines: NewSaleLine[] = allocs.map((a, i) => {
+    const purchase_item_id = resolveLotItemId(db, a.lot_code, a.lot_cost)
+    // The lot already knows what it is; the sheet's HSN cell is sometimes blank or mistyped.
+    const hsn_code = (lotHsn.get(purchase_item_id) as { hsn_code: string }).hsn_code || a.hsn_code
+    return {
+      purchase_item_id,
+      qty_drawn_kg: a.qty,
+      rate_per_kg: opts.rates ? opts.rates[i] : a.rate,
+      hsn_code,
+      gst_rate: gstRateOf(db, hsn_code)
+    }
+  })
   const billing = {
     address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode
   }
@@ -170,9 +190,80 @@ export function buildSalePayload(
     eway_bill_no: header.eway_bill_no || undefined,
     eway_bill_date: header.eway_bill_date || undefined,
     vehicle: header.vehicle || undefined,
-    payment_status: 'done',
-    payment_date: header.invoice_date
+    payment_status: opts.payment ?? 'done',
+    payment_date: (opts.payment ?? 'done') === 'done' ? header.invoice_date : null
   }
+}
+
+const RATE_STEP = 10000   // rates carry 4 decimal places
+
+function taxableOf(lines: { qty: number }[], units: number[]): number {
+  return round2(lines.reduce((s, l, i) => s + round2((l.qty * units[i]) / RATE_STEP), 0))
+}
+
+/**
+ * Exact 4-decimal rates for a sheet invoice so its lines add up to the register's taxable amount.
+ * The Stock sheet shows rates and line amounts rounded for display, so taking them at face value
+ * misses the register by paise to rupees. Start from each line's amount, put the leftover on the
+ * largest line, then nudge one or two lines by a few 0.0001 steps until the total lands — a heavy
+ * line moves in coarse steps (500 kg → 5 paise), so a lighter line often has to absorb the paise.
+ * A leftover beyond `maxResidualPerLine` per line is a real disagreement, not rounding: refuse it.
+ */
+export function reconcileLineRates(
+  lines: { qty: number; amount: number }[], target: number, maxResidualPerLine = 1
+): { rates: number[]; taxable: number } {
+  const base = lines.map(l => l.amount)
+  const residual = round2(target - base.reduce((s, a) => s + a, 0))
+  if (Math.abs(residual) > maxResidualPerLine * lines.length)
+    throw new Error(`the register's taxable ₹${target} and the sheet's lines (₹${round2(target - residual)}) differ by ₹${residual}`)
+  const largest = base.indexOf(Math.max(...base))
+  base[largest] = base[largest] + residual
+  const start = lines.map((l, i) => Math.round((base[i] / l.qty) * RATE_STEP))
+
+  const offPaise = (u: number[]) => Math.round(Math.abs(taxableOf(lines, u) - target) * 100)
+  let best = start, bestOff = offPaise(start), bestMoved = 0
+  const consider = (u: number[], moved: number) => {
+    const off = offPaise(u)
+    if (off < bestOff || (off === bestOff && moved < bestMoved)) { best = u; bestOff = off; bestMoved = moved }
+  }
+  const SPAN = 30
+  if (bestOff > 0)
+    for (let i = 0; i < lines.length; i++)
+      for (let o = -SPAN; o <= SPAN; o++) { const u = [...start]; u[i] += o; consider(u, Math.abs(o)) }
+  if (bestOff > 0)
+    for (let i = 0; i < lines.length; i++)
+      for (let j = i + 1; j < lines.length; j++)
+        for (let oi = -SPAN; oi <= SPAN; oi++)
+          for (let oj = -SPAN; oj <= SPAN; oj++) {
+            const u = [...start]; u[i] += oi; u[j] += oj; consider(u, Math.abs(oi) + Math.abs(oj))
+          }
+  return { rates: best.map(u => round4(u / RATE_STEP)), taxable: taxableOf(lines, best) }
+}
+
+/**
+ * A sale payload that reproduces the register's invoice: lines from the Stock sheet (which lot,
+ * how many kg), money from the register. Rates come from reconcileLineRates; the round-off is
+ * whatever makes the app's total equal the register total. The app rounds CGST and SGST
+ * separately where the register takes 18% in one go, so a paisa can move into the round-off —
+ * but never more than a few paise, or the register and the lines genuinely disagree.
+ */
+export function registerMatchedPayload(
+  db: Database.Database, header: SaleHeader, allocs: StockAllocation[], master: CustomerRow[], homeState: string,
+  opts: { payment?: 'done' | 'pending'; maxResidualPerLine?: number } = {}
+): NewSale {
+  if (header.register_taxable === undefined) throw new Error(`${header.invoice_number} has no taxable amount in the register.`)
+  const { rates } = reconcileLineRates(
+    allocs.map(a => ({ qty: a.qty, amount: a.amount && a.amount > 0 ? a.amount : round2(a.qty * a.rate) })),
+    header.register_taxable, opts.maxResidualPerLine
+  )
+  const payload = buildSalePayload(db, header, allocs, master, homeState, { payment: opts.payment, rates })
+  const unrounded = computeSaleTax({
+    lines: payload.lines, placeOfSupplyState: payload.place_of_supply_state ?? '', homeState, roundoff: 0
+  })
+  const roundoff = round2(header.sheet_total - unrounded.total)
+  if (Math.abs(roundoff - header.roundoff) > 0.05)
+    throw new Error(`${header.invoice_number}: matching the register total ₹${header.sheet_total} needs a round-off of ${roundoff}, but the register's is ${header.roundoff}.`)
+  return { ...payload, roundoff }
 }
 
 // ---------- CSV input layer ----------
@@ -222,17 +313,29 @@ export function parseSaleHeadersCsv(rows: string[][]): Map<string, SaleHeader> {
   for (const r of rows) {
     const inv = (r[0] ?? '').trim()
     if (!INVOICE_RE.test(inv)) continue
-    out.set(inv, {
+    const invoice_date = mdyToISO(r[1])
+    if (!invoice_date) continue   // a blank register row: the number was never billed
+    const row: SaleHeader = {
       invoice_number: inv,
-      invoice_date: mdyToISO(r[1]),
+      invoice_date,
       buyer_name: (r[5] ?? '').trim(),
       buyer_gstin: (r[6] ?? '').trim(),
       eway_bill_no: (r[2] ?? '').trim(),
       eway_bill_date: mdyToISO(r[3]),
       vehicle: (r[4] ?? '').trim(),
       roundoff: cleanNumber(r[34]),
-      sheet_total: cleanNumber(r[35])
-    })
+      sheet_total: cleanNumber(r[35]),
+      register_taxable: cleanNumber(r[29])
+    }
+    // The register occasionally lists one invoice on two rows (one per line). It is still one
+    // invoice: its amounts add up.
+    const prev = out.get(inv)
+    out.set(inv, prev ? {
+      ...prev,
+      roundoff: round2(prev.roundoff + row.roundoff),
+      sheet_total: round2(prev.sheet_total + row.sheet_total),
+      register_taxable: round2((prev.register_taxable ?? 0) + (row.register_taxable ?? 0))
+    } : row)
   }
   return out
 }
@@ -270,7 +373,7 @@ export function parseStockCsv(rows: string[][]): ParsedStock {
     if (!inv) continue
     const alloc: StockAllocation = {
       invoice_number: inv, lot_code: lotCode, lot_cost: lotCost, hsn_code: lotHsn,
-      qty: cleanNumber(r[6]), rate: cleanNumber(r[8])
+      qty: cleanNumber(r[6]), rate: cleanNumber(r[8]), amount: cleanNumber(r[9])
     }
     if (/\/2026-27$/.test(inv)) sales.push(alloc)
     else old.push(alloc)

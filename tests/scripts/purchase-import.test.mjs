@@ -5,6 +5,7 @@ import { parseCsv } from '../../scripts/customer-import.mjs'
 describe('cleanNumber', () => {
   it('strips thousands commas', () => { expect(cleanNumber('51,000.00')).toBe(51000) })
   it('treats blank as zero', () => { expect(cleanNumber('')).toBe(0) })
+  it('treats an accounting dash as zero', () => { expect(cleanNumber('  -   ')).toBe(0) })
   it('keeps negatives', () => { expect(cleanNumber('-1.2')).toBe(-1.2) })
   it('returns NaN for non-numeric', () => { expect(Number.isNaN(cleanNumber('abc'))).toBe(true) })
   it('reads accounting parentheses as negative', () => { expect(cleanNumber('(1.24)')).toBe(-1.24); expect(cleanNumber('( 1,234.56 )')).toBe(-1234.56) })

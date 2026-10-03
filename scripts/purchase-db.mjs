@@ -16,12 +16,23 @@ export function planImport(db, toImport) {
   const dupStmt = db.prepare(`SELECT id FROM purchases
     WHERE our_code = ? AND hsn_code = ? AND description = ? AND qty_kg = ? AND amount = ?`)
   const supStmt = db.prepare('SELECT id FROM suppliers WHERE lower(trim(name)) = lower(trim(?))')
-  const toInsert = [], duplicates = [], newSuppliers = new Set(), seenKeys = new Set()
+  // Same lot (code, HSN, qty, amount) under a different description is a correction to an
+  // already-imported lot — inserting it would double that lot's stock.
+  const relabelStmt = db.prepare(`SELECT p.id, p.description FROM purchases p
+    WHERE p.our_code = ? AND p.hsn_code = ? AND p.qty_kg = ? AND p.amount = ? AND p.description <> ?
+      AND (SELECT COUNT(*) FROM purchase_items i WHERE i.purchase_id = p.id) = 1`)
+  const toInsert = [], duplicates = [], relabels = [], newSuppliers = new Set(), seenKeys = new Set(), relabelled = new Set()
   const lineKey = (r) => [r.our_code, r.hsn_code, r.description, r.qty_kg, r.amount].join('')
   for (const r of toImport) {
     const key = lineKey(r)
     if (dupStmt.get(r.our_code, r.hsn_code, r.description, r.qty_kg, r.amount) || seenKeys.has(key)) { duplicates.push(r); continue }
     seenKeys.add(key)
+    const cands = relabelStmt.all(r.our_code, r.hsn_code, r.qty_kg, r.amount, r.description)
+    if (cands.length === 1 && !relabelled.has(cands[0].id)) {
+      relabelled.add(cands[0].id)
+      relabels.push({ id: cands[0].id, our_code: r.our_code, from: cands[0].description, to: r.description })
+      continue
+    }
     toInsert.push(r)
     if (!supStmt.get(r.party) && !newSuppliers.has(r.party.trim().toLowerCase()))
       newSuppliers.add(r.party.trim().toLowerCase())
@@ -33,13 +44,13 @@ export function planImport(db, toImport) {
     const k = r.party.trim().toLowerCase()
     if (newSuppliers.has(k) && !seenName.has(k) && !supStmt.get(r.party)) { seenName.add(k); names.push(r.party.trim()) }
   }
-  return { toInsert, duplicates, suppliersToCreate: names }
+  return { toInsert, duplicates, relabels, suppliersToCreate: names }
 }
 
 // Idempotency relies on planImport() having just classified duplicates against the
 // current DB state (single-writer, app closed); there is no DB-level UNIQUE(fy_label, code_seq).
 // Writes everything in one transaction. Returns counts.
-export function commitImport(db, toInsert) {
+export function commitImport(db, toInsert, { paymentStatus = 'done', relabels = [] } = {}) {
   ensureDescriptionColumn(db)
   const findSup = db.prepare('SELECT id FROM suppliers WHERE lower(trim(name)) = lower(trim(?))')
   const insSup = db.prepare('INSERT INTO suppliers (name) VALUES (?)')
@@ -51,7 +62,7 @@ export function commitImport(db, toInsert) {
      fy_label, code_seq, supplier_id)
     VALUES (@our_code, @supplier_invoice_number, @invoice_date, @party, '', @hsn_code, @description,
      '', '', '', @qty_kg, @qty_kg, @rate_per_kg, @amount,
-     @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount, 'done', NULL,
+     @cgst, @sgst, @igst, @tcs, @roundoff, @total_invoice_amount, @payment_status, NULL,
      @fy_label, @code_seq, @supplier_id)`)
   // The CSV is one row per invoice, so an imported purchase has exactly one line — but that line
   // still has to exist as a purchase_item, because the item IS the stock lot. Without it the
@@ -60,8 +71,12 @@ export function commitImport(db, toInsert) {
     (purchase_id, hsn_code, description, qty_kg, qty_remaining_kg, rate_per_kg, amount, gst_rate, line_no)
     VALUES (@purchase_id, @hsn_code, @description, @qty_kg, @qty_kg, @rate_per_kg, @amount, @gst_rate, 1)`)
 
+  const relabelPurchase = db.prepare('UPDATE purchases SET description = ? WHERE id = ?')
+  const relabelItem = db.prepare('UPDATE purchase_items SET description = ? WHERE purchase_id = ?')
+
   let inserted = 0, suppliersCreated = 0
   const run = db.transaction((rows) => {
+    for (const x of relabels) { relabelPurchase.run(x.to, x.id); relabelItem.run(x.to, x.id) }
     for (const r of rows) {
       let sup = findSup.get(r.party)
       if (!sup) { const info = insSup.run(r.party.trim()); sup = { id: Number(info.lastInsertRowid) }; suppliersCreated++ }
@@ -73,7 +88,7 @@ export function commitImport(db, toInsert) {
         party: r.party, hsn_code: r.hsn_code, description: r.description, qty_kg: r.qty_kg,
         rate_per_kg: r.rate_per_kg, amount: r.amount, cgst: r.cgst, sgst: r.sgst, igst: r.igst, tcs: r.tcs,
         roundoff: r.roundoff, total_invoice_amount: r.total_invoice_amount, fy_label: r.fy_label,
-        code_seq: r.code_seq, supplier_id: sup.id,
+        code_seq: r.code_seq, supplier_id: sup.id, payment_status: paymentStatus,
       })
       insItem.run({
         purchase_id: Number(info.lastInsertRowid), hsn_code: r.hsn_code, description: r.description,
@@ -83,5 +98,5 @@ export function commitImport(db, toInsert) {
     }
   })
   run(toInsert)
-  return { inserted, suppliersCreated }
+  return { inserted, suppliersCreated, relabelled: relabels.length }
 }

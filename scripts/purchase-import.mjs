@@ -9,7 +9,7 @@ export function round2(n) {
 // "51,000.00" -> 51000 ; "" -> 0 ; "-1.2" -> -1.2 ; "(1.24)" -> -1.24 ; "abc" -> NaN
 export function cleanNumber(s) {
   let t = String(s ?? '').replace(/[,₹\s]/g, '').trim()
-  if (t === '') return 0
+  if (t === '' || t === '-') return 0   // a lone dash is the spreadsheet's accounting zero
   // Accounting-style negatives in parentheses: "(1,234.56)" -> -1234.56
   let neg = false
   if (/^\(.*\)$/.test(t)) { neg = true; t = t.slice(1, -1) }

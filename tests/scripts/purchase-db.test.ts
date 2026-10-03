@@ -37,6 +37,27 @@ describe('planImport', () => {
   })
 })
 
+describe('description corrections', () => {
+  it('treats a lot whose only change is its description as a relabel, not a new lot', () => {
+    commitImport(db, [row({ our_code: '004/2627', code_seq: 4, fy_label: '2026-27', description: 'Black M/B' })])
+    const plan = planImport(db, [row({ our_code: '004/2627', code_seq: 4, fy_label: '2026-27', description: 'White M/B' })])
+    expect(plan.toInsert).toHaveLength(0)
+    expect(plan.relabels).toEqual([expect.objectContaining({ our_code: '004/2627', from: 'Black M/B', to: 'White M/B' })])
+
+    commitImport(db, [], { relabels: plan.relabels })
+    expect(db.prepare('SELECT description FROM purchases').all()).toEqual([{ description: 'White M/B' }])
+    expect(db.prepare('SELECT description FROM purchase_items').all()).toEqual([{ description: 'White M/B' }])
+    expect(db.prepare('SELECT COUNT(*) c FROM purchases').get()).toEqual({ c: 1 })
+  })
+
+  it('does not relabel when two existing lots could be the match', () => {
+    commitImport(db, [row({ description: 'Black M/B' }), row({ description: 'Grey M/B' })])
+    const plan = planImport(db, [row({ description: 'White M/B' })])
+    expect(plan.relabels).toHaveLength(0)
+    expect(plan.toInsert).toHaveLength(1)
+  })
+})
+
 describe('commitImport', () => {
   it('inserts a purchase, links a supplier by name, ensures the HSN, and keeps the sheet values', () => {
     const { inserted, suppliersCreated } = commitImport(db, [row()])
@@ -51,6 +72,13 @@ describe('commitImport', () => {
     const s: any = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(p.supplier_id)
     expect(s.name).toBe('SWASTIK')
     expect(db.prepare('SELECT COUNT(*) c FROM hsn_products WHERE hsn_code = ?').get('320419')).toMatchObject({ c: 1 })
+  })
+
+  it('marks imported purchases pending (no payment date) when asked', () => {
+    commitImport(db, [row()], { paymentStatus: 'pending' })
+    const p: any = db.prepare('SELECT payment_status, payment_date FROM purchases WHERE code_seq = 82').get()
+    expect(p.payment_status).toBe('pending')
+    expect(p.payment_date).toBe(null)
   })
 
   it('re-running with the same lot inserts nothing new (per-line dedup)', () => {
