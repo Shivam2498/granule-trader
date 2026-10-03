@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
-  Alert, Button, Center, Collapse, Group, Input, Loader, NumberInput, Paper,
+  Alert, Button, Center, Collapse, Group, Input, Loader, Paper,
   Select, Table, Text, TextInput, ActionIcon
 } from '@mantine/core'
 import { IconEdit } from '@tabler/icons-react'
@@ -10,6 +10,7 @@ import { computeSaleTax, ewayBillRequired, EWAY_BILL_THRESHOLD } from '@shared/t
 import { placeOfSupplyState } from '../../main/core/customers'
 import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
+import AmountInput from '../components/AmountInput'
 import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
@@ -40,10 +41,6 @@ export default function NewSale() {
   const [vehicleTouched, setVehicleTouched] = useState(false)
   const [showOptional, setShowOptional] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(false)
-  // Amount is a pure UI convenience (qty × rate), never sent to the backend. While the user is
-  // typing into it, it holds their in-progress text instead of the derived value; on blur it
-  // either recalculates rate (qty > 0) or is simply discarded back to qty × rate.
-  const [amountOverride, setAmountOverride] = useState<Record<number, number>>({})
 
   // The draft outlives this screen — the user leaves it to pick lots and comes back. Only rebuild it
   // when it belongs to a DIFFERENT sale than the one now on screen.
@@ -275,36 +272,11 @@ export default function NewSale() {
                     {rowErr && <Text c="red" size="xs" mt={4}>{rowErr}</Text>}
                   </Table.Td>
                   <Table.Td>
-                    <NumberInput
-                      value={(amountOverride[l.purchase_item_id] ?? d.qty * d.rate) || ''}
-                      min={0}
-                      decimalScale={2}
-                      step={1}
-                      hideControls
-                      allowNegative={false}
-                      thousandSeparator=","
-                      clampBehavior="strict"
-                      onChange={n => {
-                        const amt = typeof n === 'number' ? n : (n === '' ? 0 : Number(n))
-                        setAmountOverride(o => ({ ...o, [l.purchase_item_id]: amt }))
-                      }}
-                      onBlur={() => {
-                        const typed = amountOverride[l.purchase_item_id]
-                        if (typed === undefined) return
-                        // Qty is the one the user set deliberately; never overwrite it. Rate can
-                        // only be derived from amount when qty is known — otherwise leave it be.
-                        if (d.qty > 0) setLot(l.purchase_item_id, { rate: Math.round((typed / d.qty) * 10000) / 10000 })
-                        setAmountOverride(o => { const next = { ...o }; delete next[l.purchase_item_id]; return next })
-                      }}
-                    />
+                    <AmountInput qty={d.qty} rate={d.rate} onRateChange={rate => setLot(l.purchase_item_id, { rate })} />
                   </Table.Td>
                   <Table.Td>
                     <ActionIcon variant="subtle" color="red" aria-label={`Remove ${l.our_code}`}
-                      onClick={() => {
-                        removeLot(l.purchase_item_id)
-                        // Otherwise a stale typed amount would resurface if this same lot gets re-added.
-                        setAmountOverride(o => { const next = { ...o }; delete next[l.purchase_item_id]; return next })
-                      }}>✕</ActionIcon>
+                      onClick={() => removeLot(l.purchase_item_id)}>✕</ActionIcon>
                   </Table.Td>
                 </Table.Tr>
               )

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { TextInput, Select, Input, Button, Paper, Text, Table, Group, ActionIcon, NumberInput } from '@mantine/core'
+import { TextInput, Select, Input, Button, Paper, Text, Table, Group, ActionIcon } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { IconEdit } from '@tabler/icons-react'
 import type { HsnProduct, Settings, Supplier } from '@shared/types'
@@ -8,6 +8,7 @@ import { computePurchaseTax } from '@shared/tax'
 import { round2 } from '@shared/money'
 import MoneyInput from '../components/MoneyInput'
 import SignedMoneyInput from '../components/SignedMoneyInput'
+import AmountInput from '../components/AmountInput'
 import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import TaxSummary from '../components/TaxSummary'
@@ -29,11 +30,6 @@ export default function PurchaseForm() {
   const [codeEdited, setCodeEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState(false)
-  // Amount is a pure UI convenience (qty × rate), never sent to the backend. While the user is
-  // typing into it, it holds their in-progress text instead of the derived value; on blur it
-  // either recalculates rate (qty > 0) or is simply discarded back to qty × rate. Keyed by item
-  // index (items have no stable id until saved), so removing a row must reindex this map too.
-  const [amountOverride, setAmountOverride] = useState<Record<number, number>>({})
 
   const form = useForm({
     mode: 'controlled',
@@ -220,46 +216,13 @@ export default function PurchaseForm() {
                   </Input.Wrapper>
                 </Table.Td>
                 <Table.Td>
-                  <NumberInput
-                    value={(amountOverride[i] ?? it.qty_kg * it.rate_per_kg) || ''}
-                    min={0}
-                    decimalScale={2}
-                    step={1}
-                    hideControls
-                    allowNegative={false}
-                    thousandSeparator=","
-                    clampBehavior="strict"
-                    onChange={n => {
-                      const amt = typeof n === 'number' ? n : (n === '' ? 0 : Number(n))
-                      setAmountOverride(o => ({ ...o, [i]: amt }))
-                    }}
-                    onBlur={() => {
-                      const typed = amountOverride[i]
-                      if (typed === undefined) return
-                      // Qty is the one the user set deliberately; never overwrite it. Rate can
-                      // only be derived from amount when qty is known — otherwise leave it be.
-                      if (it.qty_kg > 0) form.setFieldValue(`items.${i}.rate_per_kg`, Math.round((typed / it.qty_kg) * 10000) / 10000)
-                      setAmountOverride(o => { const next = { ...o }; delete next[i]; return next })
-                    }}
-                  />
+                  <AmountInput qty={it.qty_kg} rate={it.rate_per_kg}
+                    onRateChange={rate => form.setFieldValue(`items.${i}.rate_per_kg`, rate)} />
                 </Table.Td>
                 <Table.Td>
                   <ActionIcon variant="subtle" color="red" aria-label="Remove item"
                     disabled={form.values.items.length === 1}
-                    onClick={() => {
-                      form.removeListItem('items', i)
-                      // Indices shift after a removal — reindex pending typed amounts so none
-                      // leak onto the wrong row, and drop any amount pending for this row.
-                      setAmountOverride(o => {
-                        const next: Record<number, number> = {}
-                        for (const [k, v] of Object.entries(o)) {
-                          const idx = Number(k)
-                          if (idx < i) next[idx] = v
-                          else if (idx > i) next[idx - 1] = v
-                        }
-                        return next
-                      })
-                    }}>✕</ActionIcon>
+                    onClick={() => form.removeListItem('items', i)}>✕</ActionIcon>
                 </Table.Td>
               </Table.Tr>
             ))}
