@@ -4,6 +4,7 @@ import {
   Alert, Button, Center, Collapse, Group, Input, Loader, NumberInput, Paper,
   Select, Table, Text, TextInput, ActionIcon
 } from '@mantine/core'
+import { IconEdit } from '@tabler/icons-react'
 import type { Customer, AvailableLot, Settings, HsnProduct } from '@shared/types'
 import { computeSaleTax, ewayBillRequired, EWAY_BILL_THRESHOLD } from '@shared/tax'
 import { placeOfSupplyState } from '../../main/core/customers'
@@ -12,6 +13,7 @@ import SignedMoneyInput from '../components/SignedMoneyInput'
 import PageHeader from '../components/PageHeader'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
+import { CustomerEditModal } from '../components/CustomerEditModal'
 import { formatINR, today, formatAddress } from '../lib/format'
 import { lotDrawError, saleFormError } from '../lib/sale-validation'
 import { useSaleDraft, emptyDraft } from '../sale-draft'
@@ -37,6 +39,7 @@ export default function NewSale() {
   const [saving, setSaving] = useState(false)
   const [vehicleTouched, setVehicleTouched] = useState(false)
   const [showOptional, setShowOptional] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState(false)
   // Amount is a pure UI convenience (qty × rate), never sent to the backend. While the user is
   // typing into it, it holds their in-progress text instead of the derived value; on blur it
   // either recalculates rate (qty > 0) or is simply discarded back to qty × rate.
@@ -191,12 +194,18 @@ export default function NewSale() {
         </Group>
         {buyer && (
           <Paper withBorder p="sm" radius="sm" mb="xs" bg="var(--mantine-color-gray-0)">
-            <Text size="sm">GSTIN: <Text component="span" fw={600}>{buyer.gstin || '—'}</Text></Text>
-            <Text size="sm">Address: {formatAddress({ address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode })}</Text>
-            <Text size="sm">
-              Place of supply: <Text component="span" fw={700}>{placeOfSupply || '—'}</Text> → {intra ? 'CGST + SGST' : 'IGST'}
-            </Text>
-            <Text size="xs" c="dimmed" mt={4}>To edit these, open the Customers screen.</Text>
+            <Group justify="space-between" align="flex-start">
+              <div>
+                <Text size="sm">GSTIN: <Text component="span" fw={600}>{buyer.gstin || '—'}</Text></Text>
+                <Text size="sm">Address: {formatAddress({ address: buyer.billing_address, city: buyer.billing_city, state: buyer.billing_state, pincode: buyer.billing_pincode })}</Text>
+                <Text size="sm">
+                  Place of supply: <Text component="span" fw={700}>{placeOfSupply || '—'}</Text> → {intra ? 'CGST + SGST' : 'IGST'}
+                </Text>
+              </div>
+              <Button variant="subtle" size="xs" leftSection={<IconEdit size={16} />} onClick={() => setEditingCustomer(true)}>
+                Edit
+              </Button>
+            </Group>
           </Paper>
         )}
         <Button variant="subtle" size="xs" onClick={() => setShowOptional(s => !s)} mb="xs" disabled={ewayRequired}>
@@ -339,6 +348,15 @@ export default function NewSale() {
           <Button disabled={!!formError || saving} loading={saving} onClick={() => save(true)}>Save &amp; preview PDF</Button>
         </Group>
       </Paper>
+
+      {buyer && (
+        <CustomerEditModal
+          customer={buyer}
+          open={editingCustomer}
+          onClose={() => setEditingCustomer(false)}
+          onSaved={updated => setCustomers(cs => cs.map(c => c.id === updated.id ? updated : c))}
+        />
+      )}
     </div>
   )
 }
