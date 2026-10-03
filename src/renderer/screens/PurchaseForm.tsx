@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TextInput, Select, Input, Button, Paper, Text, Table, Group, ActionIcon, NumberInput } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
+import { IconEdit } from '@tabler/icons-react'
 import type { HsnProduct, Settings, Supplier } from '@shared/types'
 import { computePurchaseTax } from '@shared/tax'
 import { round2 } from '@shared/money'
@@ -11,6 +12,7 @@ import FormPage from '../components/FormPage'
 import FormSection from '../components/FormSection'
 import TaxSummary from '../components/TaxSummary'
 import DateField from '../components/DateField'
+import { SupplierEditModal } from '../components/SupplierEditModal'
 import { formatINR, today, formatAddress } from '../lib/format'
 
 interface ItemRow { id?: number; hsn_code: string; description: string; qty_kg: number; rate_per_kg: number }
@@ -26,6 +28,7 @@ export default function PurchaseForm() {
   const [error, setError] = useState('')
   const [codeEdited, setCodeEdited] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editingSupplier, setEditingSupplier] = useState(false)
   // Amount is a pure UI convenience (qty × rate), never sent to the backend. While the user is
   // typing into it, it holds their in-progress text instead of the derived value; on blur it
   // either recalculates rate (qty > 0) or is simply discarded back to qty × rate. Keyed by item
@@ -162,10 +165,16 @@ export default function PurchaseForm() {
         />
         {supplier && (
           <Paper withBorder p="sm" radius="sm" bg="var(--mantine-color-gray-0)">
-            <Text size="sm">GSTIN: <Text component="span" fw={600}>{supplier.gstin || '—'}</Text></Text>
-            <Text size="sm">Phone: {supplier.phone || '—'}</Text>
-            <Text size="sm">Address: {formatAddress(supplier)}</Text>
-            <Text size="xs" c="dimmed" mt={4}>To edit these, open the Suppliers screen.</Text>
+            <Group justify="space-between" align="flex-start">
+              <div>
+                <Text size="sm">GSTIN: <Text component="span" fw={600}>{supplier.gstin || '—'}</Text></Text>
+                <Text size="sm">Phone: {supplier.phone || '—'}</Text>
+                <Text size="sm">Address: {formatAddress(supplier)}</Text>
+              </div>
+              <Button variant="subtle" size="xs" leftSection={<IconEdit size={16} />} onClick={() => setEditingSupplier(true)}>
+                Edit
+              </Button>
+            </Group>
           </Paper>
         )}
       </FormSection>
@@ -277,6 +286,15 @@ export default function PurchaseForm() {
         )}
       </FormSection>
       <FormSection title="Tax"><TaxSummary taxable={tax.taxable_amount} rows={rows} total={tax.total} /></FormSection>
+
+      {supplier && (
+        <SupplierEditModal
+          supplier={supplier}
+          open={editingSupplier}
+          onClose={() => setEditingSupplier(false)}
+          onSaved={updated => setSuppliers(ss => ss.map(s => s.id === updated.id ? updated : s))}
+        />
+      )}
     </FormPage>
   )
 }
