@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@mantine/core'
-import { useForm, isNotEmpty } from '@mantine/form'
+import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Customer } from '@shared/types'
-import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormPage from '../components/FormPage'
-import { CustomerFields } from '../components/CustomerFields'
-
-const EMPTY: Omit<Customer, 'id'> = {
-  name: '', gstin: '', pan: '', phone: '', email: '',
-  billing_address: '', billing_city: '', billing_state: '', billing_pincode: '',
-  shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
-}
+import { CustomerFields, customerFormOptions } from '../components/CustomerFields'
 
 export default function CustomerForm() {
   const nav = useNavigate()
@@ -21,24 +14,7 @@ export default function CustomerForm() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const form = useForm<Omit<Customer, 'id'>>({
-    mode: 'controlled',
-    initialValues: EMPTY,
-    validate: {
-      name: isNotEmpty('Enter the name.'),
-      gstin: vGstin,
-      phone: vPhoneOptional,
-      email: vEmailOptional,
-      billing_city: isNotEmpty('Enter the city.'),
-      billing_state: isNotEmpty('Choose the state.'),
-      billing_pincode: vPincode,
-      billing_address: isNotEmpty('Enter the address.'),
-      shipping_address: (v, values) => values.shipping_same ? null : (v.trim() ? null : 'Enter the shipping address.'),
-      shipping_city: (v, values) => values.shipping_same ? null : (v.trim() ? null : 'Enter the shipping city.'),
-      shipping_state: (v, values) => values.shipping_same ? null : (v.trim() ? null : 'Choose the shipping state.'),
-      shipping_pincode: (v, values) => values.shipping_same ? null : vPincode(v)
-    }
-  })
+  const form = useForm<Omit<Customer, 'id'>>(customerFormOptions)
 
   useEffect(() => {
     if (!editId) return

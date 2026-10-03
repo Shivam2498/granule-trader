@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Modal, Button, Group, Alert } from '@mantine/core'
-import { useForm, isNotEmpty } from '@mantine/form'
+import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
-import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
-import { SupplierFields } from './SupplierFields'
-
-const EMPTY: Omit<Supplier, 'id'> = {
-  name: '', gstin: '', pan: '', phone: '', email: '', address: '', city: '', state: '', pincode: ''
-}
+import { SupplierFields, supplierFormOptions } from './SupplierFields'
 
 export function SupplierEditModal({
   supplier,
@@ -24,20 +19,7 @@ export function SupplierEditModal({
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const form = useForm<Omit<Supplier, 'id'>>({
-    mode: 'controlled',
-    initialValues: EMPTY,
-    validate: {
-      name: isNotEmpty('Enter the name.'),
-      gstin: vGstin,
-      phone: vPhoneOptional,
-      email: vEmailOptional,
-      city: isNotEmpty('Enter the city.'),
-      state: isNotEmpty('Choose the state.'),
-      address: isNotEmpty('Enter the address.'),
-      pincode: vPincode
-    }
-  })
+  const form = useForm<Omit<Supplier, 'id'>>(supplierFormOptions)
 
   // Re-seed from the supplier prop every time the modal opens, so a cancelled edit never
   // leaks into the next open and switching which supplier is being edited always starts fresh.

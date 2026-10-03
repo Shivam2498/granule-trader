@@ -1,10 +1,34 @@
 import { TextInput, Textarea, Input } from '@mantine/core'
-import { UseFormReturnType } from '@mantine/form'
+import { UseFormReturnType, isNotEmpty } from '@mantine/form'
 import type { Supplier } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
+import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormSection from './FormSection'
 import StateSelect from './StateSelect'
 import PincodeField from './PincodeField'
+
+export const SUPPLIER_EMPTY: Omit<Supplier, 'id'> = {
+  name: '', gstin: '', pan: '', phone: '', email: '', address: '', city: '', state: '', pincode: ''
+}
+
+// Shared useForm() config for both the full Suppliers page form and the inline edit modal, so the
+// two consumers can never drift out of sync with each other (validation rules, validateInputOnBlur,
+// etc. — whatever is here applies identically to both).
+export const supplierFormOptions = {
+  mode: 'controlled' as const,
+  initialValues: SUPPLIER_EMPTY,
+  validateInputOnBlur: true,
+  validate: {
+    name: isNotEmpty('Enter the name.'),
+    gstin: vGstin,
+    phone: vPhoneOptional,
+    email: vEmailOptional,
+    city: isNotEmpty('Enter the city.'),
+    state: isNotEmpty('Choose the state.'),
+    address: isNotEmpty('Enter the address.'),
+    pincode: vPincode
+  }
+}
 
 export function SupplierFields({ form }: {
   form: UseFormReturnType<Omit<Supplier, 'id'>>

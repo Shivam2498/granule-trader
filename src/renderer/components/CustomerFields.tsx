@@ -1,11 +1,39 @@
 import { TextInput, Textarea, Checkbox, Input } from '@mantine/core'
-import { UseFormReturnType } from '@mantine/form'
+import { UseFormReturnType, isNotEmpty } from '@mantine/form'
 import type { Customer } from '@shared/types'
 import { panFromGstin } from '@shared/validation'
 import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormSection from './FormSection'
 import StateSelect from './StateSelect'
 import PincodeField from './PincodeField'
+
+export const CUSTOMER_EMPTY: Omit<Customer, 'id'> = {
+  name: '', gstin: '', pan: '', phone: '', email: '',
+  billing_address: '', billing_city: '', billing_state: '', billing_pincode: '',
+  shipping_same: true, shipping_address: '', shipping_city: '', shipping_state: '', shipping_pincode: ''
+}
+
+// Shared useForm() config for both the full Customers page form and the inline edit modal, so the
+// two consumers can never drift out of sync with each other (validation rules, validateInputOnBlur,
+// etc. — whatever is here applies identically to both).
+export const customerFormOptions = {
+  mode: 'controlled' as const,
+  initialValues: CUSTOMER_EMPTY,
+  validate: {
+    name: isNotEmpty('Enter the name.'),
+    gstin: vGstin,
+    phone: vPhoneOptional,
+    email: vEmailOptional,
+    billing_city: isNotEmpty('Enter the city.'),
+    billing_state: isNotEmpty('Choose the state.'),
+    billing_pincode: vPincode,
+    billing_address: isNotEmpty('Enter the address.'),
+    shipping_address: (v: string, values: Omit<Customer, 'id'>) => values.shipping_same ? null : (v.trim() ? null : 'Enter the shipping address.'),
+    shipping_city: (v: string, values: Omit<Customer, 'id'>) => values.shipping_same ? null : (v.trim() ? null : 'Enter the shipping city.'),
+    shipping_state: (v: string, values: Omit<Customer, 'id'>) => values.shipping_same ? null : (v.trim() ? null : 'Choose the shipping state.'),
+    shipping_pincode: (v: string, values: Omit<Customer, 'id'>) => values.shipping_same ? null : vPincode(v)
+  }
+}
 
 export function CustomerFields({ form }: {
   form: UseFormReturnType<Omit<Customer, 'id'>>

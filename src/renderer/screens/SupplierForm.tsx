@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@mantine/core'
-import { useForm, isNotEmpty } from '@mantine/form'
+import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
-import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormPage from '../components/FormPage'
-import { SupplierFields } from '../components/SupplierFields'
-
-const EMPTY: Omit<Supplier, 'id'> = {
-  name: '', gstin: '', pan: '', phone: '', email: '', address: '', city: '', state: '', pincode: ''
-}
+import { SupplierFields, supplierFormOptions } from '../components/SupplierFields'
 
 export default function SupplierForm() {
   const nav = useNavigate()
@@ -19,21 +14,7 @@ export default function SupplierForm() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const form = useForm<Omit<Supplier, 'id'>>({
-    mode: 'controlled',
-    initialValues: EMPTY,
-    validateInputOnBlur: true,
-    validate: {
-      name: isNotEmpty('Enter the name.'),
-      gstin: vGstin,
-      phone: vPhoneOptional,
-      email: vEmailOptional,
-      city: isNotEmpty('Enter the city.'),
-      state: isNotEmpty('Choose the state.'),
-      address: isNotEmpty('Enter the address.'),
-      pincode: vPincode
-    }
-  })
+  const form = useForm<Omit<Supplier, 'id'>>(supplierFormOptions)
 
   useEffect(() => {
     if (!editId) return
