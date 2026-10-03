@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { TextInput, Textarea, Button, Input } from '@mantine/core'
+import { Button } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import type { Supplier } from '@shared/types'
-import { panFromGstin } from '@shared/validation'
 import { vGstin, vPhoneOptional, vPincode, vEmailOptional } from '../lib/formValidators'
 import FormPage from '../components/FormPage'
-import FormSection from '../components/FormSection'
-import StateSelect from '../components/StateSelect'
-import PincodeField from '../components/PincodeField'
+import { SupplierFields } from '../components/SupplierFields'
 
 const EMPTY: Omit<Supplier, 'id'> = {
   name: '', gstin: '', pan: '', phone: '', email: '', address: '', city: '', state: '', pincode: ''
@@ -66,30 +63,7 @@ export default function SupplierForm() {
         <Button variant="default" onClick={() => nav('/suppliers')}>Cancel</Button>
         <Button loading={saving} onClick={() => form.onSubmit(handleSave)()}>Save supplier</Button>
       </>}>
-      <FormSection title="Business details">
-        <TextInput label="Name" withAsterisk {...form.getInputProps('name')} />
-        <TextInput label="GSTIN" withAsterisk {...form.getInputProps('gstin')}
-          onChange={e => {
-            const v = e.currentTarget.value.toUpperCase()
-            form.setFieldValue('gstin', v)
-            form.setFieldValue('pan', panFromGstin(v))
-          }} />
-        <TextInput label="PAN (from GSTIN)" disabled value={form.values.pan} />
-        <TextInput label="Phone" {...form.getInputProps('phone')}
-          onChange={e => form.setFieldValue('phone', e.currentTarget.value.replace(/D/g, '').slice(0, 10))} />
-        <TextInput label="Email" placeholder="name@company.com" {...form.getInputProps('email')} />
-      </FormSection>
-      <FormSection title="Address">
-        <Input.Wrapper label="Pincode" withAsterisk error={form.errors.pincode}>
-          <PincodeField value={form.values.pincode} onChange={v => form.setFieldValue('pincode', v)}
-            onResolved={r => { form.setFieldValue('city', r.city); form.setFieldValue('state', r.state) }} />
-        </Input.Wrapper>
-        <TextInput label="City" withAsterisk {...form.getInputProps('city')} />
-        <Input.Wrapper label="State" withAsterisk error={form.errors.state}>
-          <StateSelect value={form.values.state} onChange={v => form.setFieldValue('state', v)} />
-        </Input.Wrapper>
-        <Textarea label="Address" withAsterisk autosize minRows={2} {...form.getInputProps('address')} />
-      </FormSection>
+      <SupplierFields form={form} />
     </FormPage>
   )
 }
