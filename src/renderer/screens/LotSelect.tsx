@@ -28,7 +28,11 @@ export default function LotSelect() {
   useEffect(() => { (async () => {
     try {
       setHsn(await window.api.listHsn())
-      setLots(await window.api.listAvailableLots(draft.invoiceDate, excludeSaleId))
+      const fetched = await window.api.listAvailableLots(draft.invoiceDate, excludeSaleId)
+      setLots(fetched)
+      // A lot picked before the date changed may no longer be in the refreshed list — drop it,
+      // or "Add N lots" overcounts and a stale pick can silently carry forward if the date moves back.
+      setPicked(p => new Set([...p].filter(id => fetched.some(l => l.purchase_item_id === id))))
     } catch (e: any) { setError(e.message ?? String(e)) }
   })() }, [draft.invoiceDate])
 
